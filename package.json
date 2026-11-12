@@ -1,0 +1,30 @@
+{
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "vite build",
+        "dev": "vite"
+    },
+    "devDependencies": {
+        "@tailwindcss/vite": "^4.0.0",
+        "axios": "^1.7.4",
+        "concurrently": "^9.0.1",
+        "laravel-vite-plugin": "^1.2.0",
+        "tailwindcss": "^4.0.0",
+        "vite": "^6.0.11"
+    },
+    "dependencies": {
+        "@mescius/wijmo": "^5.20262.60",
+        "@mescius/wijmo.chart": "^5.20262.60",
+        "@mescius/wijmo.cultures": "^5.20262.60",
+        "@mescius/wijmo.grid": "^5.20262.60",
+        "@mescius/wijmo.grid.filter": "^5.20262.60",
+        "@mescius/wijmo.grid.xlsx": "^5.20262.60",
+        "@mescius/wijmo.input": "^5.20262.60",
+        "@mescius/wijmo.styles": "^5.20262.60",
+        "@mescius/wijmo.xlsx": "^5.20262.60",
+        "bootstrap": "^5.3.9",
+        "bootstrap-icons": "^1.13.2",
+        "jszip": "^3.10.2"
+    }
+}

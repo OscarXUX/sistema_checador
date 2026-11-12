@@ -1,0 +1,440 @@
+@import "bootstrap/dist/css/bootstrap.min.css";
+@import "bootstrap-icons/font/bootstrap-icons.css";
+@import "@mescius/wijmo.styles/wijmo.css";
+@import "@mescius/wijmo.styles/themes/wijmo.theme.cleandark.css";
+
+:root {
+    color-scheme: dark;
+    --bg-canvas: #0b101b;
+    --bg-surface: #111827;
+    --bg-surface-elevated: #161f31;
+    --bg-sidebar: #0e1422;
+    --border-subtle: rgba(148, 163, 184, 0.16);
+    --text-primary: #f1f5f9;
+    --text-muted: #94a3b8;
+    --accent-cyan: #38bdf8;
+    --accent-emerald: #10b981;
+    --accent-amber: #f59e0b;
+    --accent-rose: #f43f5e;
+    --sidebar-width: 276px;
+
+    --scrollbar-track: #0b101b;
+    --scrollbar-thumb: #334155;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+@supports not (scrollbar-color: auto) {
+    *::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    *::-webkit-scrollbar-track {
+        background: var(--scrollbar-track);
+    }
+    *::-webkit-scrollbar-thumb {
+        background: var(--scrollbar-thumb);
+        border-radius: 999px;
+    }
+}
+
+html,
+body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100dvh;
+}
+
+.app-shell {
+    display: flex;
+    min-height: 100dvh;
+}
+
+.app-sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: linear-gradient(180deg, #0d1322 0%, #090e18 100%);
+    border-inline-end: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    z-index: 1020;
+}
+
+.app-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-topbar {
+    background-color: rgba(17, 24, 39, 0.85);
+    backdrop-filter: blur(10px);
+    border-block-end: 1px solid var(--border-subtle);
+    position: sticky;
+    top: 0;
+    z-index: 1010;
+}
+
+.brand-badge {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #0284c7, #0ea5e9);
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-size: 1.2rem;
+    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.25);
+}
+
+.sidebar-nav .nav-link {
+    color: #cbd5e1;
+    border-radius: 0.65rem;
+    padding: 0.7rem 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+    transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.sidebar-nav .nav-link:hover {
+    background-color: rgba(56, 189, 248, 0.08);
+    color: #fff;
+}
+
+.sidebar-nav .nav-link.active {
+    background: linear-gradient(90deg, rgba(14, 165, 233, 0.22), rgba(14, 165, 233, 0.06));
+    color: #7dd3fc;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+.surface-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.9rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+}
+
+.isolated-panel {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 480px auto 340px;
+}
+
+@supports not (content-visibility: auto) {
+    .isolated-panel {
+        contain: layout style paint;
+    }
+}
+
+.kpi-card {
+    background: linear-gradient(180deg, var(--bg-surface-elevated) 0%, var(--bg-surface) 100%);
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.9rem;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.kpi-card:hover {
+    border-color: rgba(56, 189, 248, 0.35);
+}
+
+.kpi-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 0.75rem;
+    display: grid;
+    place-items: center;
+    font-size: 1.25rem;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.status-dot.online {
+    background-color: var(--accent-emerald);
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+}
+
+.status-dot.offline {
+    background-color: var(--accent-rose);
+    box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.2);
+}
+
+.status-dot.checking {
+    background-color: var(--accent-amber);
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
+}
+
+.font-mono-tabular {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Validación de formularios no intrusiva (sólo tras interacción) */
+.form-control:user-invalid,
+.form-select:user-invalid {
+    border-color: var(--accent-rose);
+}
+
+.form-control:focus-visible,
+.form-select:focus-visible,
+.btn:focus-visible {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: 2px;
+}
+
+/* Native modal <dialog> top-layer y contención de scroll */
+dialog.app-dialog {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: auto;
+    width: min(680px, calc(100dvw - 2rem));
+    max-width: 100%;
+    max-height: calc(100dvh - 2rem);
+    color: var(--text-primary);
+}
+
+dialog.app-dialog:modal {
+    overscroll-behavior: contain;
+}
+
+dialog.app-dialog::backdrop {
+    background: rgba(2, 6, 23, 0.74);
+    backdrop-filter: blur(4px);
+    overflow: hidden;
+    overscroll-behavior: contain;
+}
+
+/* Mobile drawer basado en <dialog> nativo */
+dialog.mobile-drawer {
+    --drawer-width: min(20rem, 85dvw);
+    --drawer-backdrop: 0;
+    inset: 0;
+    width: auto;
+    height: auto;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    overflow: visible;
+}
+
+dialog.mobile-drawer:modal {
+    overscroll-behavior: contain;
+}
+
+dialog.mobile-drawer::backdrop {
+    background: #020617;
+    opacity: calc(var(--drawer-backdrop) * 0.72);
+    overflow: hidden;
+    overscroll-behavior: contain;
+}
+
+.mobile-drawer-scroller {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--drawer-width) 100%;
+    overflow-x: scroll;
+    overscroll-behavior: none;
+    scrollbar-width: none;
+    scroll-snap-type: x mandatory;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .mobile-drawer-scroller {
+        scroll-behavior: smooth;
+    }
+}
+
+.mobile-drawer-scroller::after {
+    content: "";
+    scroll-snap-align: end;
+    scroll-initial-target: nearest;
+}
+
+.mobile-drawer-sheet {
+    height: 100svh;
+    background: #0d1322;
+    border-inline-end: 1px solid var(--border-subtle);
+    overflow-y: auto;
+    scroll-snap-align: start;
+    scrollbar-width: none;
+    display: flex;
+    flex-direction: column;
+}
+
+@supports (animation-timeline: scroll()) {
+    dialog.mobile-drawer {
+        timeline-scope: --drawer-fade;
+        animation: fade-drawer-backdrop linear both;
+        animation-timeline: --drawer-fade;
+    }
+
+    .mobile-drawer-scroller {
+        scroll-timeline: --drawer-fade x;
+    }
+
+    @property --drawer-backdrop {
+        syntax: "<number>";
+        inherits: true;
+        initial-value: 0;
+    }
+
+    @keyframes fade-drawer-backdrop {
+        0% {
+            --drawer-backdrop: 1;
+        }
+        100% {
+            --drawer-backdrop: 0;
+        }
+    }
+}
+
+/* Armonización Wijmo FlexGrid & FlexChart en tema oscuro */
+.wj-control {
+    background-color: #111827;
+    color: #e2e8f0;
+    border-color: var(--border-subtle);
+    font-family: inherit;
+}
+
+.wj-flexgrid {
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.65rem;
+    overflow: hidden;
+    min-height: 360px;
+}
+
+.wj-flexgrid .wj-colheaders .wj-header {
+    background-color: #172033;
+    color: #cbd5e1;
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    border-color: rgba(148, 163, 184, 0.14);
+}
+
+.wj-flexgrid .wj-cell {
+    background-color: #111827;
+    border-color: rgba(148, 163, 184, 0.1);
+    padding: 0.55rem 0.65rem;
+    display: flex;
+    align-items: center;
+}
+
+.wj-flexgrid .wj-cell.wj-alt {
+    background-color: #141c2e;
+}
+
+.wj-flexgrid .wj-cell.wj-group {
+    background-color: #1a243b;
+    color: #7dd3fc;
+    font-weight: 600;
+}
+
+.wj-flexgrid .wj-columnfooters .wj-cell {
+    background-color: #0f172a;
+    color: #38bdf8;
+    font-weight: 700;
+    border-top: 2px solid rgba(56, 189, 248, 0.35);
+}
+
+.wj-flexgrid .wj-state-selected {
+    background-color: rgba(14, 165, 233, 0.24) !important;
+    color: #fff !important;
+}
+
+.wj-flexgrid .wj-state-multi-selected {
+    background-color: rgba(14, 165, 233, 0.16) !important;
+}
+
+.wj-flexchart {
+    background-color: transparent;
+    border: 0;
+    padding: 0.25rem;
+    height: 300px;
+}
+
+.wj-flexchart .wj-label {
+    fill: #94a3b8;
+    font-size: 11px;
+}
+
+.wj-flexchart .wj-gridline {
+    stroke: rgba(148, 163, 184, 0.12);
+}
+
+.wj-flexchart .wj-axis-line {
+    stroke: rgba(148, 163, 184, 0.24);
+}
+
+.wj-tooltip {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(56, 189, 248, 0.35) !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45) !important;
+    padding: 0.5rem 0.75rem !important;
+}
+
+.wj-dropdown-panel,
+.wj-columnfiltereditor {
+    background-color: #161f31 !important;
+    color: #f1f5f9 !important;
+    border: 1px solid rgba(148, 163, 184, 0.25) !important;
+}
+
+/* Animación sutil para modal de escaneo de huella */
+.fingerprint-pulse {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 2.75rem;
+    background: rgba(56, 189, 248, 0.12);
+    border: 2px solid rgba(56, 189, 248, 0.4);
+    color: var(--accent-cyan);
+    margin-inline: auto;
+}
+
+.fingerprint-pulse.scanning {
+    animation: fp-pulse 1.4s ease-in-out infinite;
+}
+
+.fingerprint-pulse.success {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: var(--accent-emerald);
+    color: var(--accent-emerald);
+    animation: none;
+}
+
+.fingerprint-pulse.error {
+    background: rgba(244, 63, 94, 0.16);
+    border-color: var(--accent-rose);
+    color: var(--accent-rose);
+    animation: none;
+}
+
+@keyframes fp-pulse {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.45);
+    }
+    50% {
+        box-shadow: 0 0 0 16px rgba(56, 189, 248, 0);
+    }
+}
