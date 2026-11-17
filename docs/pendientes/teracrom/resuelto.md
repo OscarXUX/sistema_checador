@@ -6,7 +6,13 @@
 
 ## 1. Resumen
 
-No hay pendientes resueltos todavía.
+| Estado | Cantidad |
+|---|---|
+| ✅ Resuelto | 0 |
+| ⚠️ Parcial | 0 |
+| ❌ Sin resolver | 0 |
+
+Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
 
 ---
 

@@ -46,7 +46,7 @@ resources/views/                                dashboard, employees, reports/ka
 resources/js/app.js                             Wijmo, estado de la terminal, peticiones con CSRF
 routes/web.php                                  Todas las rutas (sin login)
 routes/console.php                              hikvision:sync cada minuto
-tests/                                          16 pruebas (Feature y Unit)
+tests/                                          21 pruebas (Feature y Unit)
 ```
 
 ---
@@ -69,7 +69,7 @@ tests/                                          16 pruebas (Feature y Unit)
 |---|---|---|
 | `work_shifts` | Turnos: entrada, salida, minutos de comida, tolerancia, horas por semana | Requerido para crear empleados |
 | `employees` | Empleados con su número en el reloj (`hikvision_employee_no`), RFC, CURP, NSS, departamento, puesto | `fingerprint_enrolled` y `device_synced_at` reflejan el estado en la terminal |
-| `attendance_logs` | Cada checada tal como llegó del reloj, con `event_type` y `raw_payload` (JSON) | Único `(employee_id, punched_at)`; no se puede editar desde Eloquent. Se borra en cascada si se borra el empleado (ver auditoría, SE-03) |
+| `attendance_logs` | Cada checada tal como llegó del reloj, con `event_type` y `raw_payload` (JSON) | Único `(employee_id, punched_at)`; no se puede editar desde Eloquent. La base impide borrar a un empleado que tenga checadas (`restrictOnDelete`) |
 | `daily_summaries` | Resumen por empleado y día: entrada, comida, salida, minutos trabajados, retardo, horas extra, estado | Se recalcula al llegar cada checada nueva |
 | `users`, `sessions`, `cache`, `jobs` | Tablas base de Laravel | `users` existe pero no se usa (no hay login) |
 
@@ -83,7 +83,7 @@ tests/                                          16 pruebas (Feature y Unit)
 |---|---|---|---|
 | Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | Ninguno |
 | Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | Ninguno |
-| Empleados y huellas | Alta, edición, baja; enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Ninguno |
+| Empleados y huellas | Alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Ninguno |
 | Kardex | Resumen diario por rango de fechas, departamento o empleado; bitácora de checadas con su JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data` | Ninguno |
 | Turnos | Alta y edición de turnos | `/shifts` | Ninguno |
 | Sincronización automática | Descarga las checadas del día cada minuto | `php artisan hikvision:sync` (scheduler) | — |
@@ -115,6 +115,8 @@ tests/                                          16 pruebas (Feature y Unit)
 | 12/11/2026 | Terminal Hikvision DS-K1T804AEF por ISAPI | Oscar | Es el aparato con el que se trabajará |
 | 12/11/2026 | Wijmo para tablas y gráficas | Oscar | Pendiente confirmar la licencia (TE-03) |
 | 12/11/2026 | Bitácora de checadas inmutable y resumen diario recalculado | Oscar | Auditoría de las checadas |
+| 17/11/2026 | Un empleado con checadas se da de baja de forma lógica, no se borra | Danny | Conservar el historial (SE-03) |
+| 17/11/2026 | La plantilla de huella no sale del servidor ni se guarda en logs | Danny | Es un dato biométrico (SE-04) |
 
 ---
 
@@ -148,7 +150,7 @@ tests/                                          16 pruebas (Feature y Unit)
 | Fase | Qué | Criterio de terminado |
 |---|---|---|
 | 1 | Definir con el cliente el "por qué sale", roles y aviso de privacidad (TE-01, TE-02, TE-05) | Respuestas registradas en `docs/pendientes/teracrom/` |
-| 2 | Login, roles y bajas lógicas (SE-01 a SE-04) | Ninguna ruta abierta sin sesión; pruebas de permisos por ruta |
+| 2 | Login y roles (SE-01, SE-02); bajas lógicas y huella ya resueltas (SE-03, SE-04) | Ninguna ruta abierta sin sesión; pruebas de permisos por ruta |
 | 3 | Probar con la terminal real y ajustar la sincronización (OP-01, OP-02) | Checadas reales visibles en el dashboard |
 | 4 | Motivo de salida (según TE-01) | Dashboard muestra quién, a qué hora y por qué |
 | 5 | Preparar producción (SE-06, SE-08, OP-09) | Lista 8.3 de la guía de seguridad cumplida |
@@ -159,7 +161,10 @@ El detalle está en `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR
 
 ## 12. Historial de errores importantes
 
-No hay todavía.
+| Fecha | Error | Causa | Parche |
+|---|---|---|---|
+| 17/11/2026 | Borrar un empleado borraba sus checadas | `cascadeOnDelete()` y borrado físico | `docs/parches/2026-11-17/11-30_baja-logica-conserva-checadas.md` |
+| 17/11/2026 | La plantilla de huella llegaba al navegador y al log | Se devolvía y registraba la respuesta cruda de la terminal | `docs/parches/2026-11-17/11-32_huella-fuera-de-respuestas-y-logs.md` |
 
 ---
 

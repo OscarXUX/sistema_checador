@@ -282,7 +282,7 @@ class HikvisionIsapiService
             'employee_no' => $employeeNo,
             'finger_no' => $fingerIndex,
             'template_captured' => is_string($fingerData) && $fingerData !== '',
-            'device_response' => $body,
+            // Sin device_response: trae la plantilla biométrica (fingerData) y no debe salir del servidor (SE-04).
             'message' => "Huella #{$fingerIndex} capturada y asociada al empleado {$employeeNo}.",
         ];
     }
@@ -510,12 +510,12 @@ class HikvisionIsapiService
             return;
         }
 
+        // Se registra el cuerpo para depurar, pero sin datos biométricos ni credenciales (SE-04).
         Log::error('Hikvision ISAPI rechazó la petición o devolvió statusCode != 1', [
             'endpoint' => $endpoint,
             'http_status' => $response->status(),
             'status_code' => $statusCode,
-            'body' => $body,
-            'raw_body' => $response->body(),
+            'body' => $this->redactSensitive($body),
         ]);
 
         $detail = $body['errorMsg']
@@ -527,6 +527,42 @@ class HikvisionIsapiService
             $response->status(),
             $endpoint
         );
+    }
+
+    /**
+     * Llaves que nunca se registran ni se devuelven al cliente (comparación sin mayúsculas).
+     */
+    private const SENSITIVE_KEYS = [
+        'fingerdata',
+        'facedata',
+        'facepic',
+        'facepicdata',
+        'picdata',
+        'password',
+        'pwd',
+    ];
+
+    private const MAX_RAW_LOG_LENGTH = 500;
+
+    /**
+     * Reemplaza datos biométricos y credenciales por [REDACTADO] y recorta texto crudo.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @return array<array-key, mixed>
+     */
+    private function redactSensitive(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if (is_string($key) && in_array(strtolower($key), self::SENSITIVE_KEYS, true)) {
+                $data[$key] = '[REDACTADO]';
+            } elseif (is_array($value)) {
+                $data[$key] = $this->redactSensitive($value);
+            } elseif ($key === 'raw' && is_string($value) && mb_strlen($value) > self::MAX_RAW_LOG_LENGTH) {
+                $data[$key] = mb_substr($value, 0, self::MAX_RAW_LOG_LENGTH).'… [recortado]';
+            }
+        }
+
+        return $data;
     }
 
     /**

@@ -281,5 +281,69 @@ class HikvisionIsapiServiceTest extends TestCase
         $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
         $service->deleteUserFromDevice('9999');
     }
-}
 
+    public function test_capture_result_does_not_include_fingerprint_template(): void
+    {
+        $this->createEmployee('3002');
+
+        Http::fake([
+            'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => Http::response([
+                'CaptureFingerPrint' => [
+                    'fingerPrintData' => [
+                        'fingerPrintID' => 1,
+                        'fingerData' => 'PLANTILLA_BIOMETRICA_DE_PRUEBA',
+                    ],
+                ],
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+            'http://192.168.0.69/ISAPI/AccessControl/FingerPrint/SetUp?format=json' => Http::response([
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+        ]);
+
+        $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
+        $result = $service->triggerRemoteFingerprintCapture('3002', 1);
+
+        $this->assertTrue($result['template_captured']);
+        $this->assertArrayNotHasKey('device_response', $result);
+        $this->assertStringNotContainsString('PLANTILLA_BIOMETRICA_DE_PRUEBA', (string) json_encode($result));
+    }
+
+    public function test_error_log_redacts_fingerprint_template(): void
+    {
+        Log::spy();
+
+        Http::fake([
+            'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => Http::response([
+                'CaptureFingerPrint' => [
+                    'fingerPrintData' => [
+                        'fingerData' => 'PLANTILLA_BIOMETRICA_DE_PRUEBA',
+                    ],
+                ],
+                'statusCode' => 4,
+                'statusString' => 'Invalid Operation',
+                'subStatusCode' => 'deviceError',
+            ], 400),
+        ]);
+
+        $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
+
+        try {
+            $service->triggerRemoteFingerprintCapture('3003', 1);
+            $this->fail('Se esperaba HikvisionConnectionException');
+        } catch (HikvisionConnectionException) {
+            Log::shouldHaveReceived('error')
+                ->once()
+                ->withArgs(function (string $message, array $context): bool {
+                    $encoded = (string) json_encode($context);
+
+                    return ($context['status_code'] ?? null) === 4
+                        && ! array_key_exists('raw_body', $context)
+                        && ! str_contains($encoded, 'PLANTILLA_BIOMETRICA_DE_PRUEBA')
+                        && ($context['body']['CaptureFingerPrint']['fingerPrintData']['fingerData'] ?? null) === '[REDACTADO]';
+                });
+        }
+    }
+}

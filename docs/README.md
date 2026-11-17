@@ -15,6 +15,10 @@ docs/
 ├── auditorias/
 │   └── 2026-11-17/
 │       └── 11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md
+├── parches/
+│   └── 2026-11-17/
+│       ├── 11-30_baja-logica-conserva-checadas.md
+│       └── 11-32_huella-fuera-de-respuestas-y-logs.md
 └── pendientes/
     ├── README.md                      Resumen y reglas de los pendientes
     ├── seguridad/                     SE-NN
@@ -24,4 +28,4 @@ docs/
 
 Ejemplo de ruta: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
 
-Las carpetas `parches/`, `propuestas/` y `despliegue/` se crean cuando haga falta, con el mismo esquema, y se agregan a este árbol.
+Las carpetas `propuestas/` y `despliegue/` se crean cuando haga falta, con el mismo esquema, y se agregan a este árbol.

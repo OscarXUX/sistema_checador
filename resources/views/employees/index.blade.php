@@ -229,14 +229,15 @@
 <dialog id="delete-employee-dialog" class="app-dialog" closedby="any" aria-labelledby="delete-dialog-title">
     <div class="surface-card overflow-hidden">
         <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
-            <h2 id="delete-dialog-title" class="h6 mb-0 fw-semibold text-danger">Confirmar Eliminación</h2>
+            <h2 id="delete-dialog-title" class="h6 mb-0 fw-semibold text-danger">Confirmar Baja</h2>
             <button type="button" class="btn-close" data-close-dialog="delete-employee-dialog" aria-label="Cerrar ventana"></button>
         </div>
 
         <div class="p-3 p-md-4">
             <p class="mb-3">
-                ¿Deseas eliminar a <strong id="del-employee-name"></strong> (<span id="del-employee-no" class="font-mono-tabular"></span>)?
-                Esta acción eliminará su historial local de resúmenes y bitácora asociada.
+                ¿Deseas dar de baja a <strong id="del-employee-name"></strong> (<span id="del-employee-no" class="font-mono-tabular"></span>)?
+                Si ya tiene checadas, quedará como <strong>Inactivo</strong> y se conserva su historial.
+                Si no tiene checadas, se elimina del sistema.
             </p>
             <div class="form-check">
                 <input id="del-from-device" class="form-check-input" type="checkbox" value="1">
@@ -251,7 +252,7 @@
                 Cancelar
             </button>
             <button id="del-confirm-btn" type="button" class="btn btn-danger btn-sm">
-                Eliminar Definitivamente
+                Dar de Baja
             </button>
         </div>
     </div>
@@ -347,7 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button type="button" class="btn btn-outline-light" data-action="edit" data-id="${row.id}" title="Editar empleado">
                         <i class="bi bi-pencil" aria-hidden="true"></i>
                     </button>
-                    <button type="button" class="btn btn-outline-danger" data-action="delete" data-id="${row.id}" title="Eliminar empleado">
+                    <button type="button" class="btn btn-outline-danger" data-action="delete" data-id="${row.id}" title="Dar de baja">
                         <i class="bi bi-trash" aria-hidden="true"></i>
                     </button>
                 </div>`;

@@ -99,12 +99,12 @@ Los apartados parciales de la tabla 2 se detallan como faltantes en la sección 
 - Consecuencia: aunque haya login, cualquier usuario podría borrar empleados o dar de baja en el reloj.
 - Qué hacer: al menos dos roles (administración y solo consulta), con *Gates* o *Policies* en cada ruta que cambia datos o toca la terminal. Depende de TE-05.
 
-**SE-03 · Borrar un empleado borra su bitácora de checadas** (4.14, 4.18)
+**SE-03 · Borrar un empleado borra su bitácora de checadas** (4.14, 4.18) · ✅ Resuelto 17/11/2026: `docs/parches/2026-11-17/11-30_baja-logica-conserva-checadas.md`
 - Evidencia: `EmployeeController.php:103` hace `$employee->delete()`; las migraciones `..._create_attendance_logs_table.php:18` y `..._create_daily_summaries_table.php:18` tienen `cascadeOnDelete()`.
 - Consecuencia: se pierden las checadas y el kardex de esa persona, aunque el modelo dice que la bitácora es inmutable. Los registros de asistencia pueden hacer falta ante una revisión laboral.
 - Qué hacer: baja lógica (`is_active = false`, y opcionalmente `SoftDeletes`), cambiar a `restrictOnDelete()` y una prueba que confirme que las checadas sobreviven a la baja.
 
-**SE-04 · La plantilla de huella llega al navegador y al log** (4.21, 4.15)
+**SE-04 · La plantilla de huella llega al navegador y al log** (4.21, 4.15) · ✅ Resuelto 17/11/2026: `docs/parches/2026-11-17/11-32_huella-fuera-de-respuestas-y-logs.md`
 - Evidencia: `HikvisionIsapiService.php:285` incluye `device_response` (con `fingerData`) en el resultado; `EmployeeController.php:179` lo regresa como `detail`. `HikvisionIsapiService.php:518` guarda `raw_body` completo en el log cuando la terminal falla.
 - Consecuencia: un dato biométrico (sensible según la LFPDPPP) queda en el navegador, en las herramientas de desarrollo y en `storage/logs`.
 - Qué hacer: quitar `device_response` y `detail` de las respuestas; en el log, solo `statusCode`, `subStatusCode` y `errorMsg`. Prueba que confirme que la respuesta no contiene `fingerData`.
@@ -151,8 +151,8 @@ Los apartados parciales de la tabla 2 se detallan como faltantes en la sección 
 |---|---|---|
 | 🔴 Alta | SE-01 Login | 1 día |
 | 🔴 Alta | SE-02 Roles | 1 día (después de TE-05) |
-| 🔴 Alta | SE-03 Baja lógica sin borrar checadas | 2 a 3 h |
-| 🔴 Alta | SE-04 Quitar la huella de respuestas y logs | 1 h |
+| 🔴 Alta | SE-03 Baja lógica sin borrar checadas | ✅ Resuelto 17/11/2026 |
+| 🔴 Alta | SE-04 Quitar la huella de respuestas y logs | ✅ Resuelto 17/11/2026 |
 | 🟡 Media | SE-05 a SE-11 | 2 a 3 días en total |
 | 🟡 Media | OP-01 a OP-05 | 1 a 2 días en total |
 | 🟢 Baja | SE-12 a SE-14, OP-06 a OP-09 | 1 día en total |

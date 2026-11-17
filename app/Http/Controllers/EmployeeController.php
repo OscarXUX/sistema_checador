@@ -73,6 +73,10 @@ class EmployeeController extends Controller
             ->with('status', "Empleado {$employee->full_name} actualizado.");
     }
 
+    /**
+     * Elimina al empleado solo si no tiene historial. Si ya tiene checadas o resúmenes,
+     * se da de baja de forma lógica para conservar la bitácora (auditoría SE-03).
+     */
     public function destroy(
         Request $request,
         Employee $employee,
@@ -80,11 +84,13 @@ class EmployeeController extends Controller
     ): JsonResponse|RedirectResponse {
         $employeeNo = $employee->hikvision_employee_no;
         $employeeName = $employee->full_name;
-        $deviceNotice = null;
+        $removedFromDevice = false;
+        $deviceNotice = '';
 
         if ($request->boolean('delete_from_device')) {
             try {
                 $isapi->deleteUserFromDevice($employeeNo);
+                $removedFromDevice = true;
                 $deviceNotice = ' También fue dado de baja en la terminal Hikvision.';
             } catch (HikvisionConnectionException $e) {
                 if ($request->expectsJson()) {
@@ -100,18 +106,35 @@ class EmployeeController extends Controller
             }
         }
 
-        $employee->delete();
+        $hasHistory = $employee->attendanceLogs()->exists()
+            || $employee->dailySummaries()->exists();
+
+        if ($hasHistory) {
+            $changes = ['is_active' => false];
+            if ($removedFromDevice) {
+                $changes['device_synced_at'] = null;
+                $changes['fingerprint_enrolled'] = false;
+            }
+            $employee->forceFill($changes)->save();
+
+            $message = "Empleado {$employeeName} dado de baja (inactivo). Se conserva su historial de checadas.{$deviceNotice}";
+        } else {
+            $employee->delete();
+
+            $message = "Empleado {$employeeName} eliminado del sistema.{$deviceNotice}";
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => "Empleado {$employeeName} eliminado del sistema.{$deviceNotice}",
+                'deactivated' => $hasHistory,
+                'message' => $message,
             ]);
         }
 
         return redirect()
             ->route('employees.index')
-            ->with('status', "Empleado {$employeeName} eliminado del sistema.{$deviceNotice}");
+            ->with('status', $message);
     }
 
     public function syncToDevice(Employee $employee, HikvisionIsapiService $isapi): JsonResponse
@@ -172,11 +195,13 @@ class EmployeeController extends Controller
             $result = $isapi->triggerRemoteFingerprintCapture($employee->hikvision_employee_no, $fingerNo);
             $employee->refresh()->load('workShift');
 
+            // Solo datos de estado: la plantilla de huella no se envía al navegador (SE-04).
             return response()->json([
                 'success' => true,
                 'message' => $result['message'],
                 'employee' => $this->formatEmployeeRow($employee),
-                'detail' => $result,
+                'finger_no' => $result['finger_no'],
+                'template_captured' => $result['template_captured'],
             ]);
         } catch (HikvisionConnectionException $e) {
             return response()->json([
