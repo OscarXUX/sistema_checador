@@ -82,5 +82,5 @@ Los mensajes de la propia terminal (por ejemplo `employeeNoAlreadyExist`) se sig
 
 | Prioridad | Pendiente | Detalle |
 |---|---|---|
-| 🟡 Media | SE-15 · Fórmulas en la exportación CSV del kardex (nuevo) | `csvEscape()` en `resources/views/reports/kardex.blade.php` no antepone `'` a valores que empiezan con `=`, `+`, `-` o `@`; un nombre o departamento así se ejecutaría como fórmula al abrir el CSV en Excel (guía 4.5) |
+| 🟡 Media | SE-15 · Fórmulas en la exportación CSV del kardex (nuevo) · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/16-10_csv-sin-formulas.md` | `csvEscape()` en `resources/views/reports/kardex.blade.php` no antepone `'` a valores que empiezan con `=`, `+`, `-` o `@`; un nombre o departamento así se ejecutaría como fórmula al abrir el CSV en Excel (guía 4.5) |
 | 🟢 Baja | Límites por IP | Mientras no haya login (SE-01), varios equipos detrás de la misma IP comparten el límite |

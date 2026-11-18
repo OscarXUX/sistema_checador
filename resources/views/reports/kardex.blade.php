@@ -170,7 +170,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const { core: wjCore, grid: wjGrid, filter: wjFilter, gridXlsx: wjGridXlsx } = window.AppUI.wijmo;
-    const { showToast, escapeHtml } = window.AppUI;
+    const { showToast, escapeHtml, csvEscape } = window.AppUI;
 
     const initial = JSON.parse(document.getElementById('kardex-initial-data').textContent);
 
@@ -278,7 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'Horas Extra', 'Horas Totales', 'Estatus Fiscal',
         ];
 
-        const csvEscape = (v) => `"${String(v ?? '').replaceAll('"', '""')}"`;
+        // csvEscape (resources/js/csv.js) neutraliza fórmulas: =, +, -, @ al inicio (SE-15)
         const lines = [headers.map(csvEscape).join(',')];
 
         rows.forEach((r) => {

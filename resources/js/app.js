@@ -8,6 +8,7 @@ import * as wjXlsx from '@mescius/wijmo.xlsx';
 import * as wjGridXlsx from '@mescius/wijmo.grid.xlsx';
 import * as wjChart from '@mescius/wijmo.chart';
 import JSZip from 'jszip';
+import { csvEscape } from './csv';
 
 window.bootstrap = bootstrap;
 
@@ -272,6 +273,7 @@ window.AppUI = {
     apiFetch,
     showToast,
     escapeHtml,
+    csvEscape,
 };
 
 document.addEventListener('DOMContentLoaded', () => {

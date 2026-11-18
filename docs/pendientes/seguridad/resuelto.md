@@ -8,7 +8,7 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ Resuelto | 5 |
+| ✅ Resuelto | 6 |
 | ⚠️ Parcial | 0 |
 | ❌ Sin resolver | 0 |
 
@@ -77,6 +77,7 @@ Límites de 10 peticiones por minuto en acciones que llaman a la terminal y 30 e
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
 | 🟡 Media | **SE-10** · "Huella OK" aunque no llegue la plantilla | `fingerprint_enrolled = true` siempre tras la captura | Marcarla solo si se recibió y vinculó la plantilla | ✅ Resuelto 18/11/2026 |
+| 🟡 Media | **SE-15** · Fórmulas en la exportación CSV del kardex | `csvEscape()` no neutraliza valores que empiezan con `=`, `+`, `-` o `@`. Detectado en docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md | Anteponer `'` a esos valores al exportar | ✅ Resuelto 18/11/2026 |
 | 🟢 Baja | **SE-12** · Errores con detalle interno | Mensajes de cURL y URL de la terminal llegan al usuario | Mensaje genérico y detalle solo en el log | ✅ Resuelto 18/11/2026 |
 
 ### 5.1 SE-10 · Cómo se resolvió
@@ -89,7 +90,18 @@ Si la terminal no regresa la plantilla, la captura falla con un mensaje claro y 
 | Pruebas | `test_capture_without_template_fails_and_does_not_mark_fingerprint` |
 | Detalle | `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` |
 
-### 5.2 SE-12 · Cómo se resolvió
+### 5.2 SE-15 · Cómo se resolvió
+
+La exportación CSV antepone un apóstrofo a los valores que empiezan con `=`, `+`, `-`, `@`, tabulador o retorno de carro, salvo números y `--:--`.
+
+| Qué | Cómo quedó |
+|---|---|
+| Módulo | `resources/js/csv.js` (`neutralizeFormula()`, `csvEscape()`) |
+| Uso | `window.AppUI.csvEscape` en `resources/views/reports/kardex.blade.php` |
+| Pruebas | Sin ejecutor de pruebas JS en el proyecto; se verificó con 12 casos aparte |
+| Detalle | `docs/parches/2026-11-18/16-10_csv-sin-formulas.md` |
+
+### 5.3 SE-12 · Cómo se resolvió
 
 Los errores de conexión y los inesperados muestran un mensaje genérico; el detalle técnico queda en el log.
 

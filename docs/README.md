@@ -20,7 +20,8 @@ docs/
 │   │   ├── 11-30_baja-logica-conserva-checadas.md
 │   │   └── 11-32_huella-fuera-de-respuestas-y-logs.md
 │   └── 2026-11-18/
-│       └── 15-55_limites-rango-kardex-y-errores.md
+│       ├── 15-55_limites-rango-kardex-y-errores.md
+│       └── 16-10_csv-sin-formulas.md
 └── pendientes/
     ├── README.md                      Resumen y reglas de los pendientes
     ├── seguridad/                     SE-NN

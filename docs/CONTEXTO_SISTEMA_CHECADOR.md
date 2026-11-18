@@ -44,6 +44,7 @@ app/
     └── AttendanceCalculatorService.php         Guarda checadas y calcula el resumen diario
 resources/views/                                dashboard, employees, reports/kardex, shifts
 resources/js/app.js                             Wijmo, estado de la terminal, peticiones con CSRF
+resources/js/csv.js                             Exportación CSV sin fórmulas
 routes/web.php                                  Todas las rutas (sin login)
 routes/console.php                              hikvision:sync cada minuto
 tests/                                          28 pruebas (Feature y Unit)
@@ -168,6 +169,7 @@ El detalle está en `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR
 | 17/11/2026 | Borrar un empleado borraba sus checadas | `cascadeOnDelete()` y borrado físico | `docs/parches/2026-11-17/11-30_baja-logica-conserva-checadas.md` |
 | 17/11/2026 | La plantilla de huella llegaba al navegador y al log | Se devolvía y registraba la respuesta cruda de la terminal | `docs/parches/2026-11-17/11-32_huella-fuera-de-respuestas-y-logs.md` |
 | 18/11/2026 | Se marcaba "Huella OK" sin plantilla | La captura no exigía `fingerData` | `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` |
+| 18/11/2026 | El CSV del kardex podía ejecutar fórmulas en Excel | `csvEscape()` no neutralizaba `=`, `+`, `-`, `@` | `docs/parches/2026-11-18/16-10_csv-sin-formulas.md` |
 
 ---
 
