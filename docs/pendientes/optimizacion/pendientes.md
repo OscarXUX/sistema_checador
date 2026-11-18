@@ -1,6 +1,6 @@
 # Pendientes de optimización
 
-> Pendientes · actualizado 17/11/2026 · Hallazgos de rendimiento de la auditoría del 17/11/2026. Todos los renglones.
+> Pendientes · actualizado 18/11/2026 · Hallazgos de rendimiento de la auditoría del 17/11/2026. Todos los renglones.
 
 ---
 
@@ -8,9 +8,9 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ Resuelto | 0 |
+| ✅ Resuelto | 1 |
 | ⚠️ Parcial | 0 |
-| ❌ Sin resolver | 9 |
+| ❌ Sin resolver | 8 |
 
 Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
 
@@ -31,7 +31,7 @@ Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADO
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
 | 🟡 Media | **OP-03** · `whereDate()` impide usar índices | Dashboard y cálculo del resumen | `whereBetween` sobre `punched_at` y `where` directo sobre `work_date` | ❌ Sin resolver |
-| 🟡 Media | **OP-04** · Kardex sin rango máximo | Acepta cualquier rango de fechas. Cubre también SE-07 | Rango máximo (por ejemplo 93 días) y exportaciones grandes en cola | ❌ Sin resolver |
+| 🟡 Media | **OP-04** · Kardex sin rango máximo | Acepta cualquier rango de fechas. Cubre también SE-07 | Rango máximo (por ejemplo 93 días) y exportaciones grandes en cola | ✅ Resuelto 18/11/2026 |
 | 🟢 Baja | **OP-07** · Listado de empleados sin paginación | Se embebe completo en la página | Paginar si se pasa de ~1,000 empleados | ❌ Sin resolver |
 | 🟢 Baja | **OP-08** · `raw_payload` sin plazo de conservación | Una fila JSON por checada. Depende de TE-08 | Retención y archivado; en el kardex, JSON solo al abrirlo | ❌ Sin resolver |
 

@@ -1,6 +1,6 @@
 # Teracrom: resuelto
 
-> Pendientes · actualizado 17/11/2026 · Resueltos y parciales, con cómo se resolvieron.
+> Pendientes · actualizado 18/11/2026 · Resueltos y parciales, con cómo se resolvieron.
 
 ---
 

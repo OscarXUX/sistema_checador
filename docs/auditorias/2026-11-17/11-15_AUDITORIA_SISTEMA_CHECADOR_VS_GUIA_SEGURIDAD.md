@@ -115,17 +115,17 @@ Los apartados parciales de la tabla 2 se detallan como faltantes en la sección 
 |---|---|---|---|
 | SE-05 | RFC, CURP y NSS completos en el JSON del listado y del kardex, y en texto plano en la base | `EmployeeController.php:211-213`, `ReportController.php:108-110` | Enmascarar en listados (`VELC********`), mostrar completo solo en el formulario a quien tenga permiso; *cast* `encrypted` en la base (4.8, 4.21) |
 | SE-06 | Comunicación con la terminal sin cifrar | `.env.example:32` `HIKVISION_URL=http://…`; Digest Auth sobre HTTP | Habilitar HTTPS en la terminal si el firmware lo permite; si no, red o VLAN aislada entre servidor y terminal (4.8, 4.19). Depende de TE-04 |
-| SE-07 | Sin límites de peticiones en acciones costosas | `POST /device/sync`, `/employees/{id}/capture-fingerprint`, `/reports/kardex/data` sin `throttle` | `throttle` por usuario en estas rutas (4.12) |
+| SE-07 | Sin límites de peticiones en acciones costosas · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` | `POST /device/sync`, `/employees/{id}/capture-fingerprint`, `/reports/kardex/data` sin `throttle` | `throttle` por usuario en estas rutas (4.12) |
 | SE-08 | Configuración de producción y cabeceras | `APP_DEBUG=true` en `.env.example`; sin `SESSION_SECURE_COOKIE`; sin cabeceras de seguridad | En producción: `APP_DEBUG=false`, HTTPS, `SESSION_SECURE_COOKIE=true` y un middleware con `nosniff`, `X-Frame-Options`, `Referrer-Policy`, HSTS y CSP básica (4.9, 4.10) |
 | SE-09 | No hay bitácora de quién hizo qué | Altas, cambios, bajas, sincronizaciones y capturas de huella no registran usuario | Tabla de auditoría (usuario, acción, registro, antes y después, IP, fecha) (4.15). Depende de SE-01 |
-| SE-10 | La captura marca "Huella OK" aunque no llegue la plantilla | `HikvisionIsapiService.php:276` actualiza `fingerprint_enrolled = true` siempre | Marcarla solo si se recibió y se vinculó la plantilla; si no, mensaje de error (4.13) |
+| SE-10 | La captura marca "Huella OK" aunque no llegue la plantilla · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` | `HikvisionIsapiService.php:276` actualiza `fingerprint_enrolled = true` siempre | Marcarla solo si se recibió y se vinculó la plantilla; si no, mensaje de error (4.13) |
 | SE-11 | Turnos que cruzan la medianoche se calculan mal | `recalculateForEmployeeDate()` agrupa por día calendario; `WorkShift::ordinaryDailyMinutes()` sí contempla el cruce | Asignar la checada a la jornada según el turno, no a la fecha (4.14). Depende de TE-07 |
 
 ### 🟢 Baja
 
 | Clave | Hallazgo | Evidencia | Qué hacer |
 |---|---|---|---|
-| SE-12 | Mensajes de error con detalle interno | `HikvisionIsapiService.php:141` y `:427` concatenan `$e->getMessage()` (cURL, URL) en la respuesta | Mensaje genérico al usuario y detalle solo en el log (4.13) |
+| SE-12 | Mensajes de error con detalle interno · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` | `HikvisionIsapiService.php:141` y `:427` concatenan `$e->getMessage()` (cURL, URL) en la respuesta | Mensaje genérico al usuario y detalle solo en el log (4.13) |
 | SE-13 | Sincronización manual y programada pueden correr a la vez | `DeviceController::sync()` no usa el candado de `withoutOverlapping()`; el resumen diario se busca y luego se crea | `Cache::lock()` compartido y `updateOrCreate` dentro de una transacción (4.13, 6.7) |
 | SE-14 | `composer audit` sin ejecutar | No se pudo correr en esta revisión | Correr `composer audit` y agregarlo al flujo antes de cada entrega (4.16) |
 
@@ -136,7 +136,7 @@ Los apartados parciales de la tabla 2 se detallan como faltantes en la sección 
 | 🟡 Media | OP-01 | Cada minuto se descarga todo el día desde las 00:00 | `HikvisionSyncCommand.php:28`, `DeviceController.php:22` | Sincronización incremental: desde la última `punched_at` guardada menos un margen (por ejemplo 10 min) |
 | 🟡 Media | OP-02 | Varias consultas por cada checada y recálculo repetido | `AttendanceCalculatorService.php:76` (busca el empleado aunque ya hay mapa), `:86` (busca duplicado), `:108` (recalcula por cada checada) | Usar el mapa `knownEmployees`, traer las checadas existentes del rango en una consulta, insertar en lote y recalcular una vez por empleado y día |
 | 🟡 Media | OP-03 | `whereDate()` impide usar los índices | `DashboardController.php:41` y `:155`, `AttendanceCalculatorService.php:190` | `whereBetween('punched_at', [inicio, fin])` y `where('work_date', $fecha)` (6.2) |
-| 🟡 Media | OP-04 | Kardex sin rango máximo ni paginación | `ReportController::resolveFilters()` acepta cualquier rango | Validar fechas con `date` y un máximo (por ejemplo 93 días); exportaciones grandes en cola (6.10). También cubre SE-07 |
+| 🟡 Media | OP-04 | Kardex sin rango máximo ni paginación · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` | `ReportController::resolveFilters()` acepta cualquier rango | Validar fechas con `date` y un máximo (por ejemplo 93 días); exportaciones grandes en cola (6.10). También cubre SE-07 |
 | 🟡 Media | OP-05 | Estado de la terminal consultado cada 30 s por cada pestaña | `resources/js/app.js:234`; cada llamada espera hasta 5 s si la terminal no responde | Guardar el estado en caché del servidor de 30 a 60 s |
 | 🟢 Baja | OP-06 | Todas las librerías de Wijmo y JSZip en todas las páginas | `resources/js/app.js:1-11` | Importar por página (`import()` dinámico) |
 | 🟢 Baja | OP-07 | Listado de empleados completo embebido en la página | `EmployeeController::serializeEmployees()` | Suficiente para cientos de empleados; paginar si se pasa de ~1,000 |

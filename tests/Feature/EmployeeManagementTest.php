@@ -54,6 +54,16 @@ class EmployeeManagementTest extends TestCase
                 'statusString' => 'OK',
             ], 200),
             'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => Http::response([
+                'CaptureFingerPrint' => [
+                    'fingerPrintData' => [
+                        'fingerPrintID' => 2,
+                        'fingerData' => 'PLANTILLA_BIOMETRICA_DE_PRUEBA',
+                    ],
+                ],
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+            'http://192.168.0.69/ISAPI/AccessControl/FingerPrint/SetUp?format=json' => Http::response([
                 'statusCode' => 1,
                 'statusString' => 'OK',
             ], 200),

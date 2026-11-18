@@ -1,6 +1,6 @@
 # Pendientes de teracrom
 
-> Pendientes · actualizado 17/11/2026 · Lo que solo el cliente puede resolver. Todos los renglones.
+> Pendientes · actualizado 18/11/2026 · Lo que solo el cliente puede resolver. Todos los renglones.
 
 ---
 

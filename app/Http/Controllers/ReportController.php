@@ -12,6 +12,11 @@ use Illuminate\View\View;
 
 class ReportController extends Controller
 {
+    /**
+     * Rango máximo de días que se consulta en el kardex (auditoría OP-04).
+     */
+    public const MAX_RANGE_DAYS = 93;
+
     public function kardex(Request $request): View
     {
         $filters = $this->resolveFilters($request);
@@ -61,9 +66,19 @@ class ReportController extends Controller
             [$start, $end] = [$end, $start];
         }
 
+        // Si el rango excede el máximo, se recorta la fecha de inicio y se avisa en pantalla
+        $rangeAdjusted = false;
+        $earliestStart = Carbon::parse($end)->subDays(self::MAX_RANGE_DAYS - 1)->toDateString();
+        if ($start < $earliestStart) {
+            $start = $earliestStart;
+            $rangeAdjusted = true;
+        }
+
         return [
             'start_date' => $start,
             'end_date' => $end,
+            'range_adjusted' => $rangeAdjusted,
+            'max_range_days' => self::MAX_RANGE_DAYS,
             'department' => trim((string) $request->query('department', '')),
             'employee_id' => $request->filled('employee_id') ? (int) $request->query('employee_id') : null,
         ];

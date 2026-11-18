@@ -1,6 +1,6 @@
 # Documentación del sistema checador
 
-> Índice · actualizado 17/11/2026 · Cómo está organizada la carpeta.
+> Índice · actualizado 18/11/2026 · Cómo está organizada la carpeta.
 
 ---
 
@@ -16,9 +16,11 @@ docs/
 │   └── 2026-11-17/
 │       └── 11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md
 ├── parches/
-│   └── 2026-11-17/
-│       ├── 11-30_baja-logica-conserva-checadas.md
-│       └── 11-32_huella-fuera-de-respuestas-y-logs.md
+│   ├── 2026-11-17/
+│   │   ├── 11-30_baja-logica-conserva-checadas.md
+│   │   └── 11-32_huella-fuera-de-respuestas-y-logs.md
+│   └── 2026-11-18/
+│       └── 15-55_limites-rango-kardex-y-errores.md
 └── pendientes/
     ├── README.md                      Resumen y reglas de los pendientes
     ├── seguridad/                     SE-NN

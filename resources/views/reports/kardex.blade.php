@@ -5,6 +5,14 @@
 @section('page_subtitle', 'Agrupación por empleado, totales acumulados y exportación directa a Excel/CSV')
 
 @section('content')
+@if($filters['range_adjusted'])
+    <div class="alert alert-warning alert-dismissible fade show" role="status">
+        <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
+        El rango máximo es de {{ $filters['max_range_days'] }} días. La fecha de inicio se ajustó a {{ \Carbon\Carbon::parse($filters['start_date'])->format('d/m/Y') }}.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar aviso"></button>
+    </div>
+@endif
+
 <!-- Barra de filtros (<search> + GET) -->
 <section class="surface-card p-3 p-md-4 mb-4">
     <search>

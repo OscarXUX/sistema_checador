@@ -1,6 +1,6 @@
 # Seguridad: resuelto
 
-> Pendientes · actualizado 17/11/2026 · Resueltos y parciales, con cómo se resolvieron.
+> Pendientes · actualizado 18/11/2026 · Resueltos y parciales, con cómo se resolvieron.
 
 ---
 
@@ -8,7 +8,7 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ Resuelto | 2 |
+| ✅ Resuelto | 5 |
 | ⚠️ Parcial | 0 |
 | ❌ Sin resolver | 0 |
 
@@ -55,10 +55,46 @@ La captura ya no devuelve la respuesta cruda de la terminal y el log de errores 
 
 ## 4. Infraestructura
 
-No hay.
+| Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
+|---|---|---|---|---|
+| 🟡 Media | **SE-07** · Sin límites de peticiones | Sincronización, captura de huella y kardex sin `throttle` | `throttle` por usuario en esas rutas | ✅ Resuelto 18/11/2026 |
+
+### 4.1 SE-07 · Cómo se resolvió
+
+Límites de 10 peticiones por minuto en acciones que llaman a la terminal y 30 en reportes, por usuario o IP; responde 429 con mensaje en español.
+
+| Qué | Cómo quedó |
+|---|---|
+| Límites | `RateLimiter::for('device')` y `RateLimiter::for('reports')` en `AppServiceProvider` |
+| Rutas | `throttle:device` y `throttle:reports` en `routes/web.php` |
+| Pruebas | `test_device_sync_is_rate_limited`, `test_reports_are_rate_limited` |
+| Detalle | `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` |
 
 ---
 
 ## 5. Lógica y errores
 
-No hay.
+| Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
+|---|---|---|---|---|
+| 🟡 Media | **SE-10** · "Huella OK" aunque no llegue la plantilla | `fingerprint_enrolled = true` siempre tras la captura | Marcarla solo si se recibió y vinculó la plantilla | ✅ Resuelto 18/11/2026 |
+| 🟢 Baja | **SE-12** · Errores con detalle interno | Mensajes de cURL y URL de la terminal llegan al usuario | Mensaje genérico y detalle solo en el log | ✅ Resuelto 18/11/2026 |
+
+### 5.1 SE-10 · Cómo se resolvió
+
+Si la terminal no regresa la plantilla, la captura falla con un mensaje claro y el empleado no queda marcado con huella.
+
+| Qué | Cómo quedó |
+|---|---|
+| Servicio | `triggerRemoteFingerprintCapture()` exige `fingerData` |
+| Pruebas | `test_capture_without_template_fails_and_does_not_mark_fingerprint` |
+| Detalle | `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` |
+
+### 5.2 SE-12 · Cómo se resolvió
+
+Los errores de conexión y los inesperados muestran un mensaje genérico; el detalle técnico queda en el log.
+
+| Qué | Cómo quedó |
+|---|---|
+| Servicio | `sendRequest()` y `testConnection()` en `HikvisionIsapiService` |
+| Pruebas | `test_connection_error_message_hides_technical_detail` |
+| Detalle | `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` |

@@ -138,7 +138,8 @@ class HikvisionIsapiService
                 'mac_address' => null,
                 'http_status' => null,
                 'checked_at' => $checkedAt,
-                'message' => 'Error de comunicación ISAPI: '.$e->getMessage(),
+                // Mensaje genérico; el detalle queda en el log (SE-12)
+                'message' => 'Error inesperado al comunicarse con la terminal. Revisa el log del sistema.',
             ];
         }
     }
@@ -268,9 +269,21 @@ class HikvisionIsapiService
 
         $fingerData = $this->extractNestedValue($body, ['fingerData', 'fingerPrintData.fingerData', 'CaptureFingerPrint.fingerPrintData.fingerData', 'FingerPrintData.fingerData']);
 
-        if (is_string($fingerData) && $fingerData !== '') {
-            $this->bindCapturedFingerprint($employeeNo, $fingerIndex, $fingerData);
+        // Sin plantilla no hay huella registrada: se falla en lugar de marcarla como capturada (SE-10)
+        if (! is_string($fingerData) || $fingerData === '') {
+            Log::warning('La terminal respondió OK a CaptureFingerPrint pero sin plantilla de huella', [
+                'employee_no' => $employeeNo,
+                'finger_no' => $fingerIndex,
+            ]);
+
+            throw new HikvisionConnectionException(
+                'La terminal no devolvió la huella capturada. Coloca el dedo de nuevo en el lector e intenta otra vez.',
+                $response->status(),
+                $endpoint
+            );
         }
+
+        $this->bindCapturedFingerprint($employeeNo, $fingerIndex, $fingerData);
 
         Employee::where('hikvision_employee_no', $employeeNo)->update([
             'fingerprint_enrolled' => true,
@@ -281,7 +294,7 @@ class HikvisionIsapiService
             'success' => true,
             'employee_no' => $employeeNo,
             'finger_no' => $fingerIndex,
-            'template_captured' => is_string($fingerData) && $fingerData !== '',
+            'template_captured' => true,
             // Sin device_response: trae la plantilla biométrica (fingerData) y no debe salir del servidor (SE-04).
             'message' => "Huella #{$fingerIndex} capturada y asociada al empleado {$employeeNo}.",
         ];
@@ -423,8 +436,14 @@ class HikvisionIsapiService
                 default => $request->post($this->endpoint($endpoint), $payload),
             };
         } catch (ConnectionException $e) {
+            // El detalle técnico (cURL) va al log, no al usuario (SE-12)
+            Log::warning('Hikvision ISAPI connection failed', [
+                'endpoint' => $endpoint,
+                'error' => $e->getMessage(),
+            ]);
+
             throw new HikvisionConnectionException(
-                'No se pudo conectar con la terminal Hikvision en '.$this->getDeviceIp().': '.$e->getMessage(),
+                'No se pudo conectar con la terminal Hikvision en '.$this->getDeviceIp().'. Verifica que esté encendida y en la misma red.',
                 null,
                 $endpoint,
                 $e

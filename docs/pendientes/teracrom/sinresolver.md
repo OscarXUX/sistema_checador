@@ -1,6 +1,6 @@
 # Teracrom: sin resolver
 
-> Pendientes · actualizado 17/11/2026 · Solo lo abierto (sin resolver y parciales).
+> Pendientes · actualizado 18/11/2026 · Solo lo abierto (sin resolver y parciales).
 
 ---
 

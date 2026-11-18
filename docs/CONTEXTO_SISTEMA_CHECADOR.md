@@ -1,6 +1,6 @@
 # Sistema checador: control de entradas y salidas con terminal Hikvision
 
-> Referencia · actualizado 17/11/2026 · Para quien se integra al proyecto (persona o sesión de Claude).
+> Referencia · actualizado 18/11/2026 · Para quien se integra al proyecto (persona o sesión de Claude).
 
 ---
 
@@ -46,7 +46,7 @@ resources/views/                                dashboard, employees, reports/ka
 resources/js/app.js                             Wijmo, estado de la terminal, peticiones con CSRF
 routes/web.php                                  Todas las rutas (sin login)
 routes/console.php                              hikvision:sync cada minuto
-tests/                                          21 pruebas (Feature y Unit)
+tests/                                          28 pruebas (Feature y Unit)
 ```
 
 ---
@@ -84,7 +84,7 @@ tests/                                          21 pruebas (Feature y Unit)
 | Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | Ninguno |
 | Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | Ninguno |
 | Empleados y huellas | Alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Ninguno |
-| Kardex | Resumen diario por rango de fechas, departamento o empleado; bitácora de checadas con su JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data` | Ninguno |
+| Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con su JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data` | Ninguno |
 | Turnos | Alta y edición de turnos | `/shifts` | Ninguno |
 | Sincronización automática | Descarga las checadas del día cada minuto | `php artisan hikvision:sync` (scheduler) | — |
 
@@ -117,6 +117,8 @@ tests/                                          21 pruebas (Feature y Unit)
 | 12/11/2026 | Bitácora de checadas inmutable y resumen diario recalculado | Oscar | Auditoría de las checadas |
 | 17/11/2026 | Un empleado con checadas se da de baja de forma lógica, no se borra | Danny | Conservar el historial (SE-03) |
 | 17/11/2026 | La plantilla de huella no sale del servidor ni se guarda en logs | Danny | Es un dato biométrico (SE-04) |
+| 18/11/2026 | Límites de 10 peticiones por minuto a la terminal y 30 a reportes | Danny | Evitar abuso y saturar el aparato (SE-07) |
+| 18/11/2026 | El kardex consulta máximo 93 días; se recorta en lugar de rechazar | Danny | Consultas acotadas sin errores de redirección en el formulario GET (OP-04) |
 
 ---
 
@@ -165,6 +167,7 @@ El detalle está en `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR
 |---|---|---|---|
 | 17/11/2026 | Borrar un empleado borraba sus checadas | `cascadeOnDelete()` y borrado físico | `docs/parches/2026-11-17/11-30_baja-logica-conserva-checadas.md` |
 | 17/11/2026 | La plantilla de huella llegaba al navegador y al log | Se devolvía y registraba la respuesta cruda de la terminal | `docs/parches/2026-11-17/11-32_huella-fuera-de-respuestas-y-logs.md` |
+| 18/11/2026 | Se marcaba "Huella OK" sin plantilla | La captura no exigía `fingerData` | `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` |
 
 ---
 

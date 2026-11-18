@@ -8,6 +8,7 @@ use App\Models\WorkShift;
 use App\Services\HikvisionIsapiService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -344,6 +345,49 @@ class HikvisionIsapiServiceTest extends TestCase
                         && ! str_contains($encoded, 'PLANTILLA_BIOMETRICA_DE_PRUEBA')
                         && ($context['body']['CaptureFingerPrint']['fingerPrintData']['fingerData'] ?? null) === '[REDACTADO]';
                 });
+        }
+    }
+
+    public function test_capture_without_template_fails_and_does_not_mark_fingerprint(): void
+    {
+        $employee = $this->createEmployee('3004');
+
+        Http::fake([
+            'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => Http::response([
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+        ]);
+
+        $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
+
+        try {
+            $service->triggerRemoteFingerprintCapture('3004', 1);
+            $this->fail('Se esperaba HikvisionConnectionException');
+        } catch (HikvisionConnectionException $e) {
+            $this->assertStringContainsString('no devolvió la huella', $e->getMessage());
+        }
+
+        $this->assertFalse($employee->fresh()->fingerprint_enrolled);
+        Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'FingerPrint/SetUp'));
+    }
+
+    public function test_connection_error_message_hides_technical_detail(): void
+    {
+        $this->createEmployee('3005');
+
+        Http::fake(function () {
+            throw new ConnectionException('cURL error 7: Failed to connect to 192.168.0.69 port 80 after 5001 ms');
+        });
+
+        $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
+
+        try {
+            $service->syncUserToDevice(Employee::where('hikvision_employee_no', '3005')->firstOrFail());
+            $this->fail('Se esperaba HikvisionConnectionException');
+        } catch (HikvisionConnectionException $e) {
+            $this->assertStringContainsString('No se pudo conectar', $e->getMessage());
+            $this->assertStringNotContainsString('cURL', $e->getMessage());
         }
     }
 }
