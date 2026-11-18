@@ -8,7 +8,7 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ Resuelto | 8 |
+| ✅ Resuelto | 9 |
 | ⚠️ Parcial | 0 |
 | ❌ Sin resolver | 0 |
 
@@ -106,6 +106,7 @@ Límites de 10 peticiones por minuto en acciones que llaman a la terminal y 30 e
 | 🟡 Media | **SE-10** · "Huella OK" aunque no llegue la plantilla | `fingerprint_enrolled = true` siempre tras la captura | Marcarla solo si se recibió y vinculó la plantilla | ✅ Resuelto 18/11/2026 |
 | 🟡 Media | **SE-15** · Fórmulas en la exportación CSV del kardex | `csvEscape()` no neutraliza valores que empiezan con `=`, `+`, `-` o `@`. Detectado en docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md | Anteponer `'` a esos valores al exportar | ✅ Resuelto 18/11/2026 |
 | 🟢 Baja | **SE-12** · Errores con detalle interno | Mensajes de cURL y URL de la terminal llegan al usuario | Mensaje genérico y detalle solo en el log | ✅ Resuelto 18/11/2026 |
+| 🟢 Baja | **SE-13** · Sincronizaciones simultáneas | La manual no comparte el candado de la programada | `Cache::lock()` y `updateOrCreate` en transacción | ✅ Resuelto 18/11/2026 |
 
 ### 5.1 SE-10 · Cómo se resolvió
 
@@ -137,3 +138,13 @@ Los errores de conexión y los inesperados muestran un mensaje genérico; el det
 | Servicio | `sendRequest()` y `testConnection()` en `HikvisionIsapiService` |
 | Pruebas | `test_connection_error_message_hides_technical_detail` |
 | Detalle | `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` |
+
+### 5.4 SE-13 · Cómo se resolvió
+
+Un solo candado para la tarea, el comando y el botón; el botón responde 409 si ya hay una en curso. Resumen con `updateOrCreate` en transacción.
+
+| Qué | Cómo quedó |
+|---|---|
+| Servicio | `AttendanceSyncCoordinator::run()` |
+| Pruebas | `test_manual_sync_returns_409_while_another_sync_is_running` |
+| Detalle | `docs/parches/2026-11-18/17-00_sincronizacion-incremental-y-en-lote.md` |

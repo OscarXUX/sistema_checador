@@ -145,7 +145,8 @@ Revisa también el parche más reciente en `docs/parches/`: su sección "Pasos m
 | Conexión | Solo responde dentro de su red local. Fuera de esa red, el dashboard muestra "Offline" y es normal |
 | Prueba rápida | Abre `HIKVISION_URL` en el navegador: si aparece el login de Hikvision, el aparato es alcanzable |
 | En el sistema | Barra lateral → "Probar Conectividad" |
-| Sincronizar a mano | `php artisan hikvision:sync` (o `--from=2026-11-01 --to=2026-11-18` para un rango) |
+| Sincronizar a mano | `php artisan hikvision:sync` descarga lo nuevo desde la última vez; `--from=2026-11-01 --to=2026-11-18` descarga un rango completo |
+| Checadas de alguien recién registrado | Botón "Sincronizar" (día completo) o `--from` con la fecha |
 
 ---
 
@@ -162,6 +163,7 @@ Revisa también el parche más reciente en `docs/parches/`: su sección "Pasos m
 | "Correo o contraseña incorrectos" con datos correctos | Cuenta inactiva | `php artisan usuarios:estado tu@correo activo` |
 | "Demasiados intentos" | 5 intentos fallidos en un minuto | Espera un minuto o restablece la contraseña |
 | "Tu sesión expiró" | 30 minutos sin actividad | Vuelve a iniciar sesión |
+| "Ya hay una sincronización en curso" | La tarea programada u otro usuario está sincronizando | Espera unos segundos y vuelve a intentar |
 | Marca de agua de Wijmo arriba a la derecha | Wijmo corre en modo evaluación | Pendiente de licencia (TE-03 en `docs/pendientes/teracrom/`) |
 | `package-lock.json` aparece modificado sin cambios reales | Versión de npm distinta | `git checkout -- package-lock.json` o subirlo; usar la misma versión de Node que el equipo |
 

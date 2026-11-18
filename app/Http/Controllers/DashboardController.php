@@ -37,8 +37,9 @@ class DashboardController extends Controller
 
         $activeEmployeesCount = Employee::active()->count();
 
+        // Comparaciones directas en lugar de whereDate() para usar los índices (auditoría OP-03)
         $todaySummaries = DailySummary::with(['employee.workShift'])
-            ->whereDate('work_date', $todayStr)
+            ->where('work_date', $todayStr)
             ->get();
 
         // Empleados actualmente dentro de planta (entraron, no han salido ni están en comida activa)
@@ -152,7 +153,7 @@ class DashboardController extends Controller
         $todaySummariesByEmp = $todaySummaries->keyBy('employee_id');
 
         $liveLogsQuery = AttendanceLog::with(['employee.workShift'])
-            ->whereDate('punched_at', $todayStr)
+            ->whereBetween('punched_at', [$today, $today->endOfDay()])
             ->orderByDesc('punched_at')
             ->limit(150)
             ->get();

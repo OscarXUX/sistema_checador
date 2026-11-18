@@ -126,18 +126,18 @@ Los apartados parciales de la tabla 2 se detallan como faltantes en la sección 
 | Clave | Hallazgo | Evidencia | Qué hacer |
 |---|---|---|---|
 | SE-12 | Mensajes de error con detalle interno · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` | `HikvisionIsapiService.php:141` y `:427` concatenan `$e->getMessage()` (cURL, URL) en la respuesta | Mensaje genérico al usuario y detalle solo en el log (4.13) |
-| SE-13 | Sincronización manual y programada pueden correr a la vez | `DeviceController::sync()` no usa el candado de `withoutOverlapping()`; el resumen diario se busca y luego se crea | `Cache::lock()` compartido y `updateOrCreate` dentro de una transacción (4.13, 6.7) |
+| SE-13 | Sincronización manual y programada pueden correr a la vez · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-00_sincronizacion-incremental-y-en-lote.md` | `DeviceController::sync()` no usa el candado de `withoutOverlapping()`; el resumen diario se busca y luego se crea | `Cache::lock()` compartido y `updateOrCreate` dentro de una transacción (4.13, 6.7) |
 | SE-14 | `composer audit` sin ejecutar | No se pudo correr en esta revisión | Correr `composer audit` y agregarlo al flujo antes de cada entrega (4.16) |
 
 ### Optimización
 
 | Prioridad | Clave | Hallazgo | Evidencia | Qué hacer |
 |---|---|---|---|---|
-| 🟡 Media | OP-01 | Cada minuto se descarga todo el día desde las 00:00 | `HikvisionSyncCommand.php:28`, `DeviceController.php:22` | Sincronización incremental: desde la última `punched_at` guardada menos un margen (por ejemplo 10 min) |
-| 🟡 Media | OP-02 | Varias consultas por cada checada y recálculo repetido | `AttendanceCalculatorService.php:76` (busca el empleado aunque ya hay mapa), `:86` (busca duplicado), `:108` (recalcula por cada checada) | Usar el mapa `knownEmployees`, traer las checadas existentes del rango en una consulta, insertar en lote y recalcular una vez por empleado y día |
-| 🟡 Media | OP-03 | `whereDate()` impide usar los índices | `DashboardController.php:41` y `:155`, `AttendanceCalculatorService.php:190` | `whereBetween('punched_at', [inicio, fin])` y `where('work_date', $fecha)` (6.2) |
+| 🟡 Media | OP-01 | Cada minuto se descarga todo el día desde las 00:00 · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-00_sincronizacion-incremental-y-en-lote.md` | `HikvisionSyncCommand.php:28`, `DeviceController.php:22` | Sincronización incremental: desde la última `punched_at` guardada menos un margen (por ejemplo 10 min) |
+| 🟡 Media | OP-02 | Varias consultas por cada checada y recálculo repetido · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-00_sincronizacion-incremental-y-en-lote.md` | `AttendanceCalculatorService.php:76` (busca el empleado aunque ya hay mapa), `:86` (busca duplicado), `:108` (recalcula por cada checada) | Usar el mapa `knownEmployees`, traer las checadas existentes del rango en una consulta, insertar en lote y recalcular una vez por empleado y día |
+| 🟡 Media | OP-03 | `whereDate()` impide usar los índices · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-00_sincronizacion-incremental-y-en-lote.md` | `DashboardController.php:41` y `:155`, `AttendanceCalculatorService.php:190` | `whereBetween('punched_at', [inicio, fin])` y `where('work_date', $fecha)` (6.2) |
 | 🟡 Media | OP-04 | Kardex sin rango máximo ni paginación · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` | `ReportController::resolveFilters()` acepta cualquier rango | Validar fechas con `date` y un máximo (por ejemplo 93 días); exportaciones grandes en cola (6.10). También cubre SE-07 |
-| 🟡 Media | OP-05 | Estado de la terminal consultado cada 30 s por cada pestaña | `resources/js/app.js:234`; cada llamada espera hasta 5 s si la terminal no responde | Guardar el estado en caché del servidor de 30 a 60 s |
+| 🟡 Media | OP-05 | Estado de la terminal consultado cada 30 s por cada pestaña · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-00_sincronizacion-incremental-y-en-lote.md` | `resources/js/app.js:234`; cada llamada espera hasta 5 s si la terminal no responde | Guardar el estado en caché del servidor de 30 a 60 s |
 | 🟢 Baja | OP-06 | Todas las librerías de Wijmo y JSZip en todas las páginas | `resources/js/app.js:1-11` | Importar por página (`import()` dinámico) |
 | 🟢 Baja | OP-07 | Listado de empleados completo embebido en la página | `EmployeeController::serializeEmployees()` | Suficiente para cientos de empleados; paginar si se pasa de ~1,000 |
 | 🟢 Baja | OP-08 | `raw_payload` crece sin plazo de conservación | Una fila JSON por checada; el kardex manda hasta 250 | Definir retención y archivado (depende de TE-08); en el kardex, mandar el JSON solo al abrirlo |

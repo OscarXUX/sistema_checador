@@ -48,6 +48,11 @@ class AppServiceProvider extends ServiceProvider
             ->by('login|'.$request->ip())
             ->response($tooMany));
 
+        // Estado de la terminal: la pantalla lo pide cada 30 s por pestaña (con caché, OP-05)
+        RateLimiter::for('device-status', fn (Request $request) => Limit::perMinute(30)
+            ->by('device-status|'.($request->user()?->getAuthIdentifier() ?? $request->ip()))
+            ->response($tooMany));
+
         // Reportes que consultan rangos de fechas
         RateLimiter::for('reports', fn (Request $request) => Limit::perMinute(30)
             ->by('reports|'.($request->user()?->getAuthIdentifier() ?? $request->ip()))

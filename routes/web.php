@@ -24,7 +24,7 @@ Route::middleware('auth')->group(function (): void {
 
     // Estado y Sincronización ISAPI con Terminal Hikvision
     Route::prefix('device')->name('device.')->group(function (): void {
-        Route::get('/status', [DeviceController::class, 'status'])->name('status');
+        Route::get('/status', [DeviceController::class, 'status'])->middleware('throttle:device-status')->name('status');
         Route::post('/sync', [DeviceController::class, 'sync'])->middleware('throttle:device')->name('sync');
     });
 

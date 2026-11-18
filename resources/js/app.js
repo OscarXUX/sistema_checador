@@ -226,10 +226,12 @@ function initDeviceControls() {
     const statusUrl = document.body.dataset.deviceStatusUrl;
     const syncUrl = document.body.dataset.deviceSyncUrl;
 
-    async function refreshStatus() {
+    // fresh = true vuelve a consultar la terminal; si no, el servidor responde de su caché de 30 s (OP-05)
+    async function refreshStatus(fresh = false) {
         if (!statusUrl) return;
         try {
-            const payload = await apiFetch(statusUrl, { method: 'GET' });
+            const url = fresh ? `${statusUrl}?fresh=1` : statusUrl;
+            const payload = await apiFetch(url, { method: 'GET' });
             updateDeviceStatusBadges(payload);
         } catch {
             updateDeviceStatusBadges({
@@ -241,10 +243,10 @@ function initDeviceControls() {
     }
 
     refreshStatus();
-    setInterval(refreshStatus, 30000);
+    setInterval(() => refreshStatus(), 30000);
 
     document.querySelectorAll('[data-refresh-device-status]').forEach((btn) => {
-        btn.addEventListener('click', () => refreshStatus());
+        btn.addEventListener('click', () => refreshStatus(true));
     });
 
     document.querySelectorAll('[data-sync-now-btn]').forEach((btn) => {
@@ -258,10 +260,11 @@ function initDeviceControls() {
                 const res = await apiFetch(syncUrl, { method: 'POST' });
                 showToast(res.message || 'Sincronización completada.', 'success');
                 window.dispatchEvent(new CustomEvent('hikvision:synced', { detail: res }));
-                refreshStatus();
+                refreshStatus(true);
             } catch (err) {
-                showToast(err.message || 'No se pudo sincronizar con la terminal Hikvision.', 'danger');
-                refreshStatus();
+                // 409: ya hay una sincronización en curso (SE-13)
+                showToast(err.message || 'No se pudo sincronizar con la terminal Hikvision.', err.status === 409 ? 'warning' : 'danger');
+                refreshStatus(true);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;

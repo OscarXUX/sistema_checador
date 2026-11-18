@@ -43,14 +43,15 @@ app/
 ├── Support/                                    PasswordPolicy (reglas de contraseña), UserSessions
 └── Services/
     ├── HikvisionIsapiService.php               Cliente HTTP de la terminal
-    ├── AttendanceCalculatorService.php         Guarda checadas y calcula el resumen diario
+    ├── AttendanceCalculatorService.php         Guarda checadas en lote y calcula el resumen diario
+    ├── AttendanceSyncCoordinator.php           Candado único y sincronización incremental
     └── AuditLogger.php                         Escribe la bitácora de acciones
 resources/views/                                dashboard, employees, reports/kardex, shifts
 resources/js/app.js                             Wijmo, estado de la terminal, peticiones con CSRF
 resources/js/csv.js                             Exportación CSV sin fórmulas
 routes/web.php                                  /login abierto; todo lo demás dentro de middleware auth
 routes/console.php                              hikvision:sync cada minuto
-tests/                                          47 pruebas (Feature y Unit)
+tests/                                          55 pruebas (Feature y Unit)
 ```
 
 ---
@@ -93,7 +94,7 @@ tests/                                          47 pruebas (Feature y Unit)
 | Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con su JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data` | Sesión iniciada (sin roles todavía) |
 | Turnos | Alta y edición de turnos | `/shifts` | Sesión iniciada (sin roles todavía) |
 | Sesión | Inicio y cierre de sesión | `GET/POST /login`, `POST /logout` | Abierta solo `/login` |
-| Sincronización automática | Descarga las checadas del día cada minuto | `php artisan hikvision:sync` (scheduler) | — |
+| Sincronización automática | Cada minuto descarga solo lo nuevo desde el último corte (con 10 min de traslape); comparte candado con el botón "Sincronizar" | `php artisan hikvision:sync` (scheduler) | — |
 
 ---
 
@@ -130,6 +131,8 @@ tests/                                          47 pruebas (Feature y Unit)
 | 18/11/2026 | El kardex consulta máximo 93 días; se recorta en lugar de rechazar | Danny | Consultas acotadas sin errores de redirección en el formulario GET (OP-04) |
 | 18/11/2026 | Login propio sin registro público; cuentas por consola; contraseña mínima de 15 | Danny | Menos dependencias; NIST 800-63B rev. 4 (SE-01) |
 | 18/11/2026 | Bitácora en tabla propia sin copiar RFC, CURP ni NSS | Danny | Saber quién hizo qué sin duplicar datos personales (SE-09) |
+| 18/11/2026 | Tarea programada incremental; el botón "Sincronizar" sigue pidiendo el día completo | Danny | Menos carga cada minuto; el botón sirve para recuperar checadas atrasadas (OP-01) |
+| 18/11/2026 | Estado de la terminal en caché 30 s | Danny | Varias pestañas no saturan el aparato (OP-05) |
 
 ---
 
@@ -138,6 +141,7 @@ tests/                                          47 pruebas (Feature y Unit)
 | Detalle | Explicación |
 |---|---|
 | Las pruebas de páginas fallan sin assets compilados | Las vistas usan `@vite`; sin `public/build/manifest.json` responden 500. Correr `npm run build` (o tener `npm run dev` abierto) antes de `php artisan test` |
+| Checadas de alguien que aún no está registrado | La tarea incremental no las vuelve a pedir; se recuperan con el botón "Sincronizar" o `php artisan hikvision:sync --from=AAAA-MM-DD` |
 | `npm run dev` no es la aplicación | Su URL (puerto 5173) solo sirve CSS y JS; la aplicación se abre en la URL de `php artisan serve` |
 | La terminal solo responde en su red | `192.168.0.69` es una IP local; fuera de esa red el dashboard muestra "offline" |
 | `HIKVISION_PASSWORD` vacía | Sin la contraseña del aparato, la conexión falla por autenticación |
@@ -164,7 +168,7 @@ tests/                                          47 pruebas (Feature y Unit)
 |---|---|---|
 | 1 | Definir con el cliente el "por qué sale", roles y aviso de privacidad (TE-01, TE-02, TE-05) | Respuestas registradas en `docs/pendientes/teracrom/` |
 | 2 | Roles (SE-02); login, bitácora, bajas lógicas y huella ya resueltos (SE-01, SE-09, SE-03, SE-04) | Ninguna ruta abierta sin sesión; pruebas de permisos por ruta |
-| 3 | Probar con la terminal real y ajustar la sincronización (OP-01, OP-02) | Checadas reales visibles en el dashboard |
+| 3 | Probar con la terminal real (la sincronización ya está optimizada: OP-01, OP-02) | Checadas reales visibles en el dashboard y medición con el aparato |
 | 4 | Motivo de salida (según TE-01) | Dashboard muestra quién, a qué hora y por qué |
 | 5 | Preparar producción (SE-06, SE-08, OP-09) | Lista 8.3 de la guía de seguridad cumplida |
 
