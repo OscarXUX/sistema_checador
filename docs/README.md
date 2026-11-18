@@ -25,7 +25,8 @@ docs/
 │       ├── 16-20_inicio-de-sesion-y-cuentas.md
 │       ├── 16-25_bitacora-de-acciones.md
 │       ├── 17-00_sincronizacion-incremental-y-en-lote.md
-│       └── 17-15_wijmo-por-pagina-y-empleados-paginados.md
+│       ├── 17-15_wijmo-por-pagina-y-empleados-paginados.md
+│       └── 17-30_orden-de-empleados-en-servidor.md
 └── pendientes/
     ├── README.md                      Resumen y reglas de los pendientes
     ├── seguridad/                     SE-NN

@@ -12,6 +12,7 @@ use App\Services\HikvisionIsapiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class EmployeeController extends Controller
@@ -40,12 +41,16 @@ class EmployeeController extends Controller
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
             'q' => ['nullable', 'string', 'max:100'],
+            'sort' => ['nullable', 'string', Rule::in(array_keys(self::SORTABLE_COLUMNS))],
+            'direction' => ['nullable', 'string', Rule::in(['asc', 'desc'])],
         ]);
 
         return response()->json($this->paginateEmployees(
             (int) ($validated['page'] ?? 1),
             (int) ($validated['per_page'] ?? self::DEFAULT_PER_PAGE),
             trim((string) ($validated['q'] ?? '')),
+            $validated['sort'] ?? 'hikvision_employee_no',
+            $validated['direction'] ?? 'asc',
         ));
     }
 
@@ -58,6 +63,20 @@ class EmployeeController extends Controller
     public const DEFAULT_PER_PAGE = 50;
 
     public const MAX_PER_PAGE = 100;
+
+    /**
+     * Columnas de la tabla que se pueden ordenar en el servidor, con su columna real.
+     * El orden se aplica a todo el padrón (o a todo el resultado de la búsqueda) antes de paginar.
+     */
+    public const SORTABLE_COLUMNS = [
+        'hikvision_employee_no' => 'hikvision_employee_no',
+        'full_name' => 'full_name',
+        'rfc' => 'rfc',
+        'department' => 'department',
+        'shift_name' => 'shift_name',
+        'status_label' => 'is_active',
+        'device_synced_at' => 'device_synced_at',
+    ];
 
     private const AUDITED_FIELDS = [
         'hikvision_employee_no', 'full_name', 'rfc', 'curp', 'nss',
@@ -275,9 +294,31 @@ class EmployeeController extends Controller
      *
      * @return array{employees: array<int, array<string, mixed>>, meta: array<string, int|string>}
      */
-    private function paginateEmployees(int $page, int $perPage, string $term): array
-    {
-        $query = Employee::with('workShift')->orderBy('hikvision_employee_no');
+    private function paginateEmployees(
+        int $page,
+        int $perPage,
+        string $term,
+        string $sort = 'hikvision_employee_no',
+        string $direction = 'asc',
+    ): array {
+        $query = Employee::with('workShift');
+        $column = self::SORTABLE_COLUMNS[$sort] ?? 'hikvision_employee_no';
+
+        if ($column === 'shift_name') {
+            // El turno vive en otra tabla: se ordena por su nombre con una subconsulta
+            $query->orderBy(
+                WorkShift::select('name')->whereColumn('work_shifts.id', 'employees.work_shift_id'),
+                $direction
+            );
+        } elseif ($column === 'is_active') {
+            // Igual que el texto en pantalla: ascendente = "Activo" antes que "Inactivo"
+            $query->orderBy('is_active', $direction === 'asc' ? 'desc' : 'asc');
+        } else {
+            $query->orderBy($column, $direction);
+        }
+
+        // Desempate estable para que ningún empleado se repita ni se salte entre páginas
+        $query->orderBy('employees.id', $direction);
 
         if ($term !== '') {
             // Se escapan % y _ para que se busquen como texto
@@ -311,6 +352,8 @@ class EmployeeController extends Controller
                 'per_page' => $paginator->perPage(),
                 'last_page' => $paginator->lastPage(),
                 'q' => $term,
+                'sort' => $sort,
+                'direction' => $direction,
             ],
         ];
     }

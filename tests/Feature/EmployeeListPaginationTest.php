@@ -116,4 +116,69 @@ class EmployeeListPaginationTest extends TestCase
             ->assertSee('Empleado 50')
             ->assertDontSee('Empleado 51');
     }
+
+    public function test_sorting_applies_to_all_employees_before_paginating(): void
+    {
+        $this->seedEmployees(3);
+        // El nombre "Zacarías" queda al final en orden ascendente, aunque su número de reloj sea el primero
+        Employee::where('hikvision_employee_no', '0001')->update(['full_name' => 'Zacarías Ortega']);
+
+        $this->getJson('/employees/list?per_page=2&sort=full_name&direction=asc')
+            ->assertOk()
+            ->assertJsonPath('employees.0.full_name', 'Empleado 2')
+            ->assertJsonPath('employees.1.full_name', 'Empleado 3')
+            ->assertJsonPath('meta.sort', 'full_name');
+
+        $this->getJson('/employees/list?per_page=2&page=2&sort=full_name&direction=asc')
+            ->assertOk()
+            ->assertJsonPath('employees.0.full_name', 'Zacarías Ortega');
+
+        $this->getJson('/employees/list?per_page=2&sort=full_name&direction=desc')
+            ->assertOk()
+            ->assertJsonPath('employees.0.full_name', 'Zacarías Ortega');
+    }
+
+    public function test_sorting_combines_with_search(): void
+    {
+        $this->seedEmployees(3, 'Almacén');
+        $this->seedEmployees(3, 'Calidad');
+
+        $response = $this->getJson('/employees/list?q=calidad&sort=hikvision_employee_no&direction=desc&per_page=2')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('employees.0.hikvision_employee_no', '0006')
+            ->assertJsonPath('employees.1.hikvision_employee_no', '0005');
+
+        $this->assertSame(['Calidad', 'Calidad'], array_column($response->json('employees'), 'department'));
+    }
+
+    public function test_sorting_by_shift_and_status(): void
+    {
+        $this->seedEmployees(2);
+        $night = WorkShift::create([
+            'name' => 'Nocturno', 'entry_time' => '22:00:00', 'exit_time' => '06:00:00',
+            'meal_duration_minutes' => 30, 'tolerance_minutes' => 10, 'max_weekly_hours' => 48,
+        ]);
+        Employee::where('hikvision_employee_no', '0002')->update(['work_shift_id' => $night->id, 'is_active' => false]);
+
+        $this->getJson('/employees/list?sort=shift_name&direction=desc')
+            ->assertOk()
+            ->assertJsonPath('employees.0.shift_name', 'Nocturno');
+
+        $this->getJson('/employees/list?sort=status_label&direction=asc')
+            ->assertOk()
+            ->assertJsonPath('employees.0.status_label', 'Activo')
+            ->assertJsonPath('employees.1.status_label', 'Inactivo');
+    }
+
+    public function test_sorting_rejects_unknown_columns(): void
+    {
+        $this->getJson('/employees/list?sort=password&direction=asc')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('sort');
+
+        $this->getJson('/employees/list?sort=full_name&direction=sideways')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('direction');
+    }
 }

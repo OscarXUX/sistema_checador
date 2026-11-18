@@ -316,10 +316,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     updateCount();
 
+    // Orden en el servidor: se aplica a todos los empleados (o a toda la búsqueda) antes de paginar.
+    // La tabla no reordena localmente (el comparador siempre empata y conserva el orden del servidor);
+    // solo muestra la flecha de la columna elegida.
+    view.sortComparer = () => 0;
+    let sortState = { sort: meta.sort || 'hikvision_employee_no', direction: meta.direction || 'asc' };
+
+    view.sortDescriptions.collectionChanged.addHandler(() => {
+        const sd = view.sortDescriptions[0];
+        const next = sd
+            ? { sort: sd.property, direction: sd.ascending ? 'asc' : 'desc' }
+            : { sort: 'hikvision_employee_no', direction: 'asc' };
+
+        if (next.sort === sortState.sort && next.direction === sortState.direction) return;
+        sortState = next;
+        loadPage(1);
+    });
+
     async function loadPage(page) {
         const params = new URLSearchParams({
             page: String(Math.max(1, page)),
             q: (searchInput.value || '').trim(),
+            sort: sortState.sort,
+            direction: sortState.direction,
         });
         try {
             const data = await apiFetch(`${routes.list}?${params}`, { method: 'GET' });

@@ -100,5 +100,5 @@ Los módulos compartidos (núcleo de Wijmo, tabla) se descargan una vez y el nav
 
 | Prioridad | Pendiente | Detalle |
 |---|---|---|
-| 🟢 Baja | Ordenar por columna en Empleados | Al hacer clic en un encabezado se ordena solo la página que se ve, no todo el padrón |
+| 🟢 Baja | Ordenar por columna en Empleados · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-30_orden-de-empleados-en-servidor.md` | Al hacer clic en un encabezado se ordena solo la página que se ve, no todo el padrón |
 | 🟢 Baja | Búsqueda con `%` o `_` en SQLite | En MySQL se buscan como texto; en SQLite (pruebas) funcionan como comodín. No afecta en producción |

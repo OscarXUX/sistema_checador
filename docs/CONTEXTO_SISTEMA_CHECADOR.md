@@ -52,7 +52,7 @@ resources/js/wijmo/                             Wijmo por página: grid.js (tabl
 resources/js/csv.js                             Exportación CSV sin fórmulas
 routes/web.php                                  /login abierto; todo lo demás dentro de middleware auth
 routes/console.php                              hikvision:sync cada minuto
-tests/                                          61 pruebas (Feature y Unit)
+tests/                                          65 pruebas (Feature y Unit)
 ```
 
 ---
@@ -91,7 +91,7 @@ tests/                                          61 pruebas (Feature y Unit)
 |---|---|---|---|
 | Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | Sesión iniciada (sin roles todavía) |
 | Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | Sesión iniciada (sin roles todavía) |
-| Empleados y huellas | Listado paginado de 50 con búsqueda en el servidor; alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Sesión iniciada (sin roles todavía) |
+| Empleados y huellas | Listado paginado de 50 con búsqueda y orden por columna en el servidor; alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Sesión iniciada (sin roles todavía) |
 | Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con su JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data` | Sesión iniciada (sin roles todavía) |
 | Turnos | Alta y edición de turnos | `/shifts` | Sesión iniciada (sin roles todavía) |
 | Sesión | Inicio y cierre de sesión | `GET/POST /login`, `POST /logout` | Abierta solo `/login` |
