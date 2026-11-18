@@ -8,7 +8,7 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ Resuelto | 5 |
+| ✅ Resuelto | 7 |
 | ⚠️ Parcial | 0 |
 | ❌ Sin resolver | 0 |
 
@@ -62,6 +62,7 @@ Empleados en un mapa, checadas existentes en una consulta, inserción en lote co
 |---|---|---|---|---|
 | 🟡 Media | **OP-03** · `whereDate()` impide usar índices | Dashboard y cálculo del resumen | `whereBetween` sobre `punched_at` y `where` directo sobre `work_date` | ✅ Resuelto 18/11/2026 |
 | 🟡 Media | **OP-04** · Kardex sin rango máximo | Acepta cualquier rango de fechas. Cubre también SE-07 | Rango máximo (por ejemplo 93 días) y exportaciones grandes en cola | ✅ Resuelto 18/11/2026 |
+| 🟢 Baja | **OP-07** · Listado de empleados sin paginación | Se embebe completo en la página | Paginar si se pasa de ~1,000 empleados | ✅ Resuelto 18/11/2026 |
 
 ### 3.1 OP-03 · Cómo se resolvió
 
@@ -83,8 +84,30 @@ El kardex consulta como máximo 93 días; si se pide más, recorta la fecha de i
 | Pruebas | `test_kardex_range_is_limited_to_max_days`, `test_kardex_range_within_limit_is_not_adjusted`, `test_kardex_page_warns_when_range_is_adjusted` |
 | Detalle | `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` |
 
+### 3.3 OP-07 · Cómo se resolvió
+
+`/employees/list` pagina de 50 (máximo 100) y busca en el servidor; la pantalla tiene paginador y el HTML solo trae la primera página.
+
+| Qué | Cómo quedó |
+|---|---|
+| Controlador | `EmployeeController::list()` y `paginateEmployees()` |
+| Pruebas | `EmployeeListPaginationTest` (6) |
+| Detalle | `docs/parches/2026-11-18/17-15_wijmo-por-pagina-y-empleados-paginados.md` |
+
 ---
 
 ## 4. Front-end y despliegue
 
-No hay.
+| Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
+|---|---|---|---|---|
+| 🟢 Baja | **OP-06** · Todo Wijmo en todas las páginas | Un solo paquete con grid, chart, xlsx y JSZip | Importar por página | ✅ Resuelto 18/11/2026 |
+
+### 4.1 OP-06 · Cómo se resolvió
+
+Wijmo se divide en módulos por página: Dashboard (tablas y gráficas), Empleados (tablas) y Kardex (tablas, filtros y Excel). Turnos y Login ya no lo cargan: Turnos pasó de 440.4 a 47.7 kB de JS comprimido.
+
+| Qué | Cómo quedó |
+|---|---|
+| Entradas | `resources/js/wijmo/grid.js`, `chart.js`, `kardex.js` en `vite.config.js` |
+| Estilos | `resources/css/wijmo.css` |
+| Detalle | `docs/parches/2026-11-18/17-15_wijmo-por-pagina-y-empleados-paginados.md` |

@@ -8,7 +8,7 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ Resuelto | 9 |
+| ✅ Resuelto | 10 |
 | ⚠️ Parcial | 0 |
 | ❌ Sin resolver | 0 |
 
@@ -85,6 +85,7 @@ Tabla `audit_logs` con quién, qué, cuándo, desde dónde y antes/después; reg
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
 | 🟡 Media | **SE-07** · Sin límites de peticiones | Sincronización, captura de huella y kardex sin `throttle` | `throttle` por usuario en esas rutas | ✅ Resuelto 18/11/2026 |
+| 🟢 Baja | **SE-14** · `composer audit` sin ejecutar | No se pudo correr en la auditoría; `npm audit` dio 0 | Correrlo y agregarlo antes de cada entrega | ✅ Resuelto 18/11/2026 |
 
 ### 4.1 SE-07 · Cómo se resolvió
 
@@ -96,6 +97,15 @@ Límites de 10 peticiones por minuto en acciones que llaman a la terminal y 30 e
 | Rutas | `throttle:device` y `throttle:reports` en `routes/web.php` |
 | Pruebas | `test_device_sync_is_rate_limited`, `test_reports_are_rate_limited` |
 | Detalle | `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` |
+
+### 4.2 SE-14 · Cómo se resolvió
+
+Danny corrió `composer audit` el 18/11/2026: sin vulnerabilidades reportadas. `npm audit` también da 0.
+
+| Qué | Cómo quedó |
+|---|---|
+| Resultado | "No security vulnerability advisories found." |
+| Detalle | `docs/parches/2026-11-18/17-15_wijmo-por-pagina-y-empleados-paginados.md` |
 
 ---
 

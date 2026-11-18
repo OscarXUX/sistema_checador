@@ -47,11 +47,12 @@ app/
     ├── AttendanceSyncCoordinator.php           Candado único y sincronización incremental
     └── AuditLogger.php                         Escribe la bitácora de acciones
 resources/views/                                dashboard, employees, reports/kardex, shifts
-resources/js/app.js                             Wijmo, estado de la terminal, peticiones con CSRF
+resources/js/app.js                             Lo común: avisos, peticiones con CSRF, estado de la terminal
+resources/js/wijmo/                             Wijmo por página: grid.js (tablas), chart.js (gráficas), kardex.js (filtros y Excel)
 resources/js/csv.js                             Exportación CSV sin fórmulas
 routes/web.php                                  /login abierto; todo lo demás dentro de middleware auth
 routes/console.php                              hikvision:sync cada minuto
-tests/                                          55 pruebas (Feature y Unit)
+tests/                                          61 pruebas (Feature y Unit)
 ```
 
 ---
@@ -90,7 +91,7 @@ tests/                                          55 pruebas (Feature y Unit)
 |---|---|---|---|
 | Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | Sesión iniciada (sin roles todavía) |
 | Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | Sesión iniciada (sin roles todavía) |
-| Empleados y huellas | Alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Sesión iniciada (sin roles todavía) |
+| Empleados y huellas | Listado paginado de 50 con búsqueda en el servidor; alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Sesión iniciada (sin roles todavía) |
 | Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con su JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data` | Sesión iniciada (sin roles todavía) |
 | Turnos | Alta y edición de turnos | `/shifts` | Sesión iniciada (sin roles todavía) |
 | Sesión | Inicio y cierre de sesión | `GET/POST /login`, `POST /logout` | Abierta solo `/login` |
@@ -133,6 +134,8 @@ tests/                                          55 pruebas (Feature y Unit)
 | 18/11/2026 | Bitácora en tabla propia sin copiar RFC, CURP ni NSS | Danny | Saber quién hizo qué sin duplicar datos personales (SE-09) |
 | 18/11/2026 | Tarea programada incremental; el botón "Sincronizar" sigue pidiendo el día completo | Danny | Menos carga cada minuto; el botón sirve para recuperar checadas atrasadas (OP-01) |
 | 18/11/2026 | Estado de la terminal en caché 30 s | Danny | Varias pestañas no saturan el aparato (OP-05) |
+| 18/11/2026 | Wijmo se carga solo en Dashboard, Empleados y Kardex | Danny | Turnos pasó de 440 a 48 kB de JS (OP-06) |
+| 18/11/2026 | Empleados paginados de 50 en el servidor | Danny | El padrón completo ya no viaja en cada carga (OP-07) |
 
 ---
 
@@ -140,7 +143,8 @@ tests/                                          55 pruebas (Feature y Unit)
 
 | Detalle | Explicación |
 |---|---|
-| Las pruebas de páginas fallan sin assets compilados | Las vistas usan `@vite`; sin `public/build/manifest.json` responden 500. Correr `npm run build` (o tener `npm run dev` abierto) antes de `php artisan test` |
+| Las pruebas de páginas fallan sin assets compilados | Las vistas usan `@vite`; sin `public/build/manifest.json` responden 500. Correr `npm run build` (o tener `npm run dev` abierto) antes de `php artisan test`. Si se agrega una entrada nueva en `vite.config.js`, hay que volver a compilar |
+| Una página nueva con tablas o gráficas | Debe agregar `@push('styles') @vite(['resources/js/wijmo/grid.js', …]) @endpush`; si no, `window.AppUI.wijmo` estará vacío |
 | Checadas de alguien que aún no está registrado | La tarea incremental no las vuelve a pedir; se recuperan con el botón "Sincronizar" o `php artisan hikvision:sync --from=AAAA-MM-DD` |
 | `npm run dev` no es la aplicación | Su URL (puerto 5173) solo sirve CSS y JS; la aplicación se abre en la URL de `php artisan serve` |
 | La terminal solo responde en su red | `192.168.0.69` es una IP local; fuera de esa red el dashboard muestra "offline" |

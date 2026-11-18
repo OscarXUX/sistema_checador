@@ -27,20 +27,38 @@ class EmployeeController extends Controller
         return view('employees.index', [
             'workShifts' => $workShifts,
             'departments' => $departments,
-            'employeesJson' => $this->serializeEmployees(),
+            'employeesPage' => $this->paginateEmployees(1, self::DEFAULT_PER_PAGE, ''),
         ]);
     }
 
-    public function list(): JsonResponse
+    /**
+     * Listado paginado con búsqueda en el servidor (auditoría OP-07).
+     */
+    public function list(Request $request): JsonResponse
     {
-        return response()->json([
-            'employees' => $this->serializeEmployees(),
+        $validated = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
+            'q' => ['nullable', 'string', 'max:100'],
         ]);
+
+        return response()->json($this->paginateEmployees(
+            (int) ($validated['page'] ?? 1),
+            (int) ($validated['per_page'] ?? self::DEFAULT_PER_PAGE),
+            trim((string) ($validated['q'] ?? '')),
+        ));
     }
 
     /**
      * Campos del empleado que se registran en la bitácora (RFC, CURP y NSS se guardan como "[protegido]").
      */
+    /**
+     * Empleados por página en el listado (auditoría OP-07).
+     */
+    public const DEFAULT_PER_PAGE = 50;
+
+    public const MAX_PER_PAGE = 100;
+
     private const AUDITED_FIELDS = [
         'hikvision_employee_no', 'full_name', 'rfc', 'curp', 'nss',
         'department', 'position', 'work_shift_id', 'is_active',
@@ -253,16 +271,48 @@ class EmployeeController extends Controller
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * Una página de empleados con el total para el paginador.
+     *
+     * @return array{employees: array<int, array<string, mixed>>, meta: array<string, int|string>}
      */
-    private function serializeEmployees(): array
+    private function paginateEmployees(int $page, int $perPage, string $term): array
     {
-        return Employee::with('workShift')
-            ->orderBy('hikvision_employee_no')
-            ->get()
-            ->map(fn (Employee $employee): array => $this->formatEmployeeRow($employee))
-            ->values()
-            ->all();
+        $query = Employee::with('workShift')->orderBy('hikvision_employee_no');
+
+        if ($term !== '') {
+            // Se escapan % y _ para que se busquen como texto
+            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term).'%';
+            $query->where(function ($q) use ($like): void {
+                $q->where('hikvision_employee_no', 'like', $like)
+                    ->orWhere('full_name', 'like', $like)
+                    ->orWhere('rfc', 'like', $like)
+                    ->orWhere('curp', 'like', $like)
+                    ->orWhere('department', 'like', $like)
+                    ->orWhere('position', 'like', $like)
+                    ->orWhereHas('workShift', fn ($shift) => $shift->where('name', 'like', $like));
+            });
+        }
+
+        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
+
+        // Si se pidió una página que ya no existe (por ejemplo, tras una baja), se regresa la última
+        if ($paginator->isEmpty() && $page > 1 && $paginator->lastPage() < $page) {
+            $paginator = (clone $query)->paginate($perPage, ['*'], 'page', $paginator->lastPage());
+        }
+
+        return [
+            'employees' => $paginator->getCollection()
+                ->map(fn (Employee $employee): array => $this->formatEmployeeRow($employee))
+                ->values()
+                ->all(),
+            'meta' => [
+                'total' => $paginator->total(),
+                'page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'last_page' => $paginator->lastPage(),
+                'q' => $term,
+            ],
+        ];
     }
 
     /**

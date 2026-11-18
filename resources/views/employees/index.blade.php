@@ -4,6 +4,11 @@
 @section('page_title', 'Gestión de Empleados y Enrolamiento')
 @section('page_subtitle', 'Padrón fiscal laboral conectado por ISAPI con DS-K1T804AEF')
 
+@push('styles')
+    {{-- Wijmo solo en esta página (auditoría OP-06) --}}
+    @vite(['resources/js/wijmo/grid.js'])
+@endpush
+
 @section('content')
 <section class="surface-card p-3 p-md-4 isolated-panel">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
@@ -26,7 +31,7 @@
                 </form>
             </search>
             <span class="badge text-bg-dark border border-secondary-subtle" id="employee-count-badge">
-                {{ count($employeesJson) }} empleados
+                {{ $employeesPage['meta']['total'] }} empleados
             </span>
         </div>
 
@@ -37,6 +42,19 @@
     </div>
 
     <div id="employees-grid" aria-label="Tabla de empleados y acciones biométricas"></div>
+
+    {{-- Paginación en el servidor (auditoría OP-07) --}}
+    <nav class="d-flex justify-content-between align-items-center gap-2 mt-3" aria-label="Páginas de empleados">
+        <button id="employees-prev" type="button" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-chevron-left" aria-hidden="true"></i> Anterior
+        </button>
+        <span id="employees-page-label" class="small text-secondary font-mono-tabular" aria-live="polite">
+            Página {{ $employeesPage['meta']['page'] }} de {{ $employeesPage['meta']['last_page'] }}
+        </span>
+        <button id="employees-next" type="button" class="btn btn-outline-secondary btn-sm">
+            Siguiente <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </button>
+    </nav>
 </section>
 
 <!-- Modal nativo <dialog>: Crear / Editar Empleado -->
@@ -260,7 +278,7 @@
 @endsection
 
 @push('scripts')
-<script id="employees-initial-data" type="application/json">@json($employeesJson)</script>
+<script id="employees-initial-data" type="application/json">@json($employeesPage)</script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const { core: wjCore, grid: wjGrid } = window.AppUI.wijmo;
@@ -272,32 +290,47 @@ document.addEventListener('DOMContentLoaded', () => {
         list: '{{ route("employees.list") }}',
     };
 
-    let employees = JSON.parse(document.getElementById('employees-initial-data').textContent);
+    // Paginación y búsqueda en el servidor (auditoría OP-07): la página solo trae 50 empleados a la vez
+    const initialPage = JSON.parse(document.getElementById('employees-initial-data').textContent);
+    let employees = initialPage.employees || [];
+    let meta = initialPage.meta;
     const view = new wjCore.CollectionView(employees);
     const searchInput = document.getElementById('employee-search-input');
+    const prevBtn = document.getElementById('employees-prev');
+    const nextBtn = document.getElementById('employees-next');
     document.getElementById('employee-filter-form')?.addEventListener('submit', (e) => e.preventDefault());
 
-    view.filter = (item) => {
-        const term = (searchInput.value || '').trim().toLowerCase();
-        if (!term) return true;
-        return [
-            item.hikvision_employee_no,
-            item.full_name,
-            item.rfc,
-            item.curp,
-            item.department,
-            item.position,
-            item.shift_name,
-        ].some((v) => String(v || '').toLowerCase().includes(term));
-    };
-
+    let searchTimer = null;
     searchInput.addEventListener('input', () => {
-        view.refresh();
-        updateCount();
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadPage(1), 300);
     });
+    prevBtn.addEventListener('click', () => loadPage(meta.page - 1));
+    nextBtn.addEventListener('click', () => loadPage(meta.page + 1));
 
     function updateCount() {
-        document.getElementById('employee-count-badge').textContent = `${view.items.length} empleados`;
+        document.getElementById('employee-count-badge').textContent = `${meta.total} empleados`;
+        document.getElementById('employees-page-label').textContent = `Página ${meta.page} de ${meta.last_page}`;
+        prevBtn.disabled = meta.page <= 1;
+        nextBtn.disabled = meta.page >= meta.last_page;
+    }
+    updateCount();
+
+    async function loadPage(page) {
+        const params = new URLSearchParams({
+            page: String(Math.max(1, page)),
+            q: (searchInput.value || '').trim(),
+        });
+        try {
+            const data = await apiFetch(`${routes.list}?${params}`, { method: 'GET' });
+            employees = data.employees || [];
+            meta = data.meta;
+            view.sourceCollection = employees;
+            view.refresh();
+            updateCount();
+        } catch (err) {
+            showToast(err.message || 'No se pudo cargar la lista de empleados.', 'danger');
+        }
     }
 
     const grid = new wjGrid.FlexGrid('#employees-grid', {
@@ -565,11 +598,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function reloadEmployees() {
-        const data = await apiFetch(routes.list, { method: 'GET' });
-        employees = data.employees || [];
-        view.sourceCollection = employees;
-        view.refresh();
-        updateCount();
+        // Recarga la página actual con la búsqueda actual
+        await loadPage(meta.page);
     }
 
     // Delegación única de eventos sobre FlexGrid

@@ -4,6 +4,11 @@
 @section('page_title', 'Dashboard Ejecutivo')
 @section('page_subtitle', 'Monitoreo en tiempo real de planta, comidas, retardos y horas extra')
 
+@push('styles')
+    {{-- Wijmo solo en esta página (auditoría OP-06) --}}
+    @vite(['resources/js/wijmo/grid.js', 'resources/js/wijmo/chart.js'])
+@endpush
+
 @section('content')
 @php
     $kpis = $dashboardData['kpis'];

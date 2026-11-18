@@ -1,0 +1,98 @@
+/* Estilos de Wijmo: solo se cargan en las páginas que usan tablas o gráficas (auditoría OP-06) */
+@import "@mescius/wijmo.styles/wijmo.css";
+@import "@mescius/wijmo.styles/themes/wijmo.theme.cleandark.css";
+
+/* Armonización Wijmo FlexGrid & FlexChart en tema oscuro */
+.wj-control {
+    background-color: #111827;
+    color: #e2e8f0;
+    border-color: var(--border-subtle);
+    font-family: inherit;
+}
+
+.wj-flexgrid {
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.65rem;
+    overflow: hidden;
+    min-height: 360px;
+}
+
+.wj-flexgrid .wj-colheaders .wj-header {
+    background-color: #172033;
+    color: #cbd5e1;
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    border-color: rgba(148, 163, 184, 0.14);
+}
+
+.wj-flexgrid .wj-cell {
+    background-color: #111827;
+    border-color: rgba(148, 163, 184, 0.1);
+    padding: 0.55rem 0.65rem;
+    display: flex;
+    align-items: center;
+}
+
+.wj-flexgrid .wj-cell.wj-alt {
+    background-color: #141c2e;
+}
+
+.wj-flexgrid .wj-cell.wj-group {
+    background-color: #1a243b;
+    color: #7dd3fc;
+    font-weight: 600;
+}
+
+.wj-flexgrid .wj-columnfooters .wj-cell {
+    background-color: #0f172a;
+    color: #38bdf8;
+    font-weight: 700;
+    border-top: 2px solid rgba(56, 189, 248, 0.35);
+}
+
+.wj-flexgrid .wj-state-selected {
+    background-color: rgba(14, 165, 233, 0.24) !important;
+    color: #fff !important;
+}
+
+.wj-flexgrid .wj-state-multi-selected {
+    background-color: rgba(14, 165, 233, 0.16) !important;
+}
+
+.wj-flexchart {
+    background-color: transparent;
+    border: 0;
+    padding: 0.25rem;
+    height: 300px;
+}
+
+.wj-flexchart .wj-label {
+    fill: #94a3b8;
+    font-size: 11px;
+}
+
+.wj-flexchart .wj-gridline {
+    stroke: rgba(148, 163, 184, 0.12);
+}
+
+.wj-flexchart .wj-axis-line {
+    stroke: rgba(148, 163, 184, 0.24);
+}
+
+.wj-tooltip {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(56, 189, 248, 0.35) !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45) !important;
+    padding: 0.5rem 0.75rem !important;
+}
+
+.wj-dropdown-panel,
+.wj-columnfiltereditor {
+    background-color: #161f31 !important;
+    color: #f1f5f9 !important;
+    border: 1px solid rgba(148, 163, 184, 0.25) !important;
+}

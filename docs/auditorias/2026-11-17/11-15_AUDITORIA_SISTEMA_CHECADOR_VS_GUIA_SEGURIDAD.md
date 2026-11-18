@@ -127,7 +127,7 @@ Los apartados parciales de la tabla 2 se detallan como faltantes en la sección 
 |---|---|---|---|
 | SE-12 | Mensajes de error con detalle interno · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` | `HikvisionIsapiService.php:141` y `:427` concatenan `$e->getMessage()` (cURL, URL) en la respuesta | Mensaje genérico al usuario y detalle solo en el log (4.13) |
 | SE-13 | Sincronización manual y programada pueden correr a la vez · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-00_sincronizacion-incremental-y-en-lote.md` | `DeviceController::sync()` no usa el candado de `withoutOverlapping()`; el resumen diario se busca y luego se crea | `Cache::lock()` compartido y `updateOrCreate` dentro de una transacción (4.13, 6.7) |
-| SE-14 | `composer audit` sin ejecutar | No se pudo correr en esta revisión | Correr `composer audit` y agregarlo al flujo antes de cada entrega (4.16) |
+| SE-14 | `composer audit` sin ejecutar · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-15_wijmo-por-pagina-y-empleados-paginados.md` | No se pudo correr en esta revisión | Correr `composer audit` y agregarlo al flujo antes de cada entrega (4.16) |
 
 ### Optimización
 
@@ -138,8 +138,8 @@ Los apartados parciales de la tabla 2 se detallan como faltantes en la sección 
 | 🟡 Media | OP-03 | `whereDate()` impide usar los índices · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-00_sincronizacion-incremental-y-en-lote.md` | `DashboardController.php:41` y `:155`, `AttendanceCalculatorService.php:190` | `whereBetween('punched_at', [inicio, fin])` y `where('work_date', $fecha)` (6.2) |
 | 🟡 Media | OP-04 | Kardex sin rango máximo ni paginación · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` | `ReportController::resolveFilters()` acepta cualquier rango | Validar fechas con `date` y un máximo (por ejemplo 93 días); exportaciones grandes en cola (6.10). También cubre SE-07 |
 | 🟡 Media | OP-05 | Estado de la terminal consultado cada 30 s por cada pestaña · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-00_sincronizacion-incremental-y-en-lote.md` | `resources/js/app.js:234`; cada llamada espera hasta 5 s si la terminal no responde | Guardar el estado en caché del servidor de 30 a 60 s |
-| 🟢 Baja | OP-06 | Todas las librerías de Wijmo y JSZip en todas las páginas | `resources/js/app.js:1-11` | Importar por página (`import()` dinámico) |
-| 🟢 Baja | OP-07 | Listado de empleados completo embebido en la página | `EmployeeController::serializeEmployees()` | Suficiente para cientos de empleados; paginar si se pasa de ~1,000 |
+| 🟢 Baja | OP-06 | Todas las librerías de Wijmo y JSZip en todas las páginas · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-15_wijmo-por-pagina-y-empleados-paginados.md` | `resources/js/app.js:1-11` | Importar por página (`import()` dinámico) |
+| 🟢 Baja | OP-07 | Listado de empleados completo embebido en la página · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/17-15_wijmo-por-pagina-y-empleados-paginados.md` | `EmployeeController::serializeEmployees()` | Suficiente para cientos de empleados; paginar si se pasa de ~1,000 |
 | 🟢 Baja | OP-08 | `raw_payload` crece sin plazo de conservación | Una fila JSON por checada; el kardex manda hasta 250 | Definir retención y archivado (depende de TE-08); en el kardex, mandar el JSON solo al abrirlo |
 | 🟢 Baja | OP-09 | Cachés y tarea programada de producción | Sin guía de despliegue | `config:cache`, `route:cache`, `view:cache`, OPcache y cron de `schedule:run` en la guía de despliegue |
 

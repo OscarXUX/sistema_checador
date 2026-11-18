@@ -22,8 +22,8 @@ Cada carpeta tiene `pendientes.md` (todo), `resuelto.md` (resueltos y parciales 
 
 | Apartado | Resueltos | Parciales | Sin resolver | 🔴 Alta abiertos |
 |---|---|---|---|---|
-| `seguridad/` | 9 | 0 | 6 | 1 |
-| `optimizacion/` | 5 | 0 | 4 | 0 |
+| `seguridad/` | 10 | 0 | 5 | 1 |
+| `optimizacion/` | 7 | 0 | 2 | 0 |
 | `teracrom/` | 0 | 0 | 8 | 2 |
 
 Origen: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.

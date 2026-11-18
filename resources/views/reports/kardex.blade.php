@@ -4,6 +4,11 @@
 @section('page_title', 'Kardex Fiscal y Auditoría Laboral')
 @section('page_subtitle', 'Agrupación por empleado, totales acumulados y exportación directa a Excel/CSV')
 
+@push('styles')
+    {{-- Wijmo solo en esta página (auditoría OP-06) --}}
+    @vite(['resources/js/wijmo/grid.js', 'resources/js/wijmo/kardex.js'])
+@endpush
+
 @section('content')
 @if($filters['range_adjusted'])
     <div class="alert alert-warning alert-dismissible fade show" role="status">

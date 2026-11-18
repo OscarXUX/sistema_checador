@@ -1,20 +1,10 @@
 import './bootstrap';
 import * as bootstrap from 'bootstrap';
-import wjCore from './wijmo-bootstrap';
-import '@mescius/wijmo.cultures/wijmo.culture.es-MX.js';
-import * as wjGrid from '@mescius/wijmo.grid';
-import * as wjFilter from '@mescius/wijmo.grid.filter';
-import * as wjXlsx from '@mescius/wijmo.xlsx';
-import * as wjGridXlsx from '@mescius/wijmo.grid.xlsx';
-import * as wjChart from '@mescius/wijmo.chart';
-import JSZip from 'jszip';
 import { csvEscape } from './csv';
 
 window.bootstrap = bootstrap;
 
-// Registrar JSZip para exportación nativa a Excel con FlexGridXlsxConverter
-const resolvedJsZip = typeof JSZip === 'function' ? JSZip : (JSZip?.default ?? JSZip);
-wjXlsx.useJSZip(resolvedJsZip);
+// Wijmo se carga solo en las páginas que lo usan: resources/js/wijmo/*.js (auditoría OP-06)
 
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
@@ -273,20 +263,14 @@ function initDeviceControls() {
     });
 }
 
-window.AppUI = {
-    wijmo: {
-        core: wjCore,
-        grid: wjGrid,
-        filter: wjFilter,
-        xlsx: wjXlsx,
-        gridXlsx: wjGridXlsx,
-        chart: wjChart,
-    },
+// Se combina con lo que ya hayan registrado los módulos de Wijmo de la página
+window.AppUI = Object.assign(window.AppUI || {}, {
+    wijmo: window.AppUI?.wijmo || {},
     apiFetch,
     showToast,
     escapeHtml,
     csvEscape,
-};
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     initDialogFallbacks();

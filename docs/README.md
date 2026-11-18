@@ -24,7 +24,8 @@ docs/
 │       ├── 16-10_csv-sin-formulas.md
 │       ├── 16-20_inicio-de-sesion-y-cuentas.md
 │       ├── 16-25_bitacora-de-acciones.md
-│       └── 17-00_sincronizacion-incremental-y-en-lote.md
+│       ├── 17-00_sincronizacion-incremental-y-en-lote.md
+│       └── 17-15_wijmo-por-pagina-y-empleados-paginados.md
 └── pendientes/
     ├── README.md                      Resumen y reglas de los pendientes
     ├── seguridad/                     SE-NN
