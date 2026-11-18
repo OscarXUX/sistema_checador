@@ -3,12 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\WorkShift;
+use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class WorkShiftController extends Controller
 {
+    private const AUDITED_FIELDS = [
+        'name', 'entry_time', 'exit_time', 'meal_duration_minutes', 'tolerance_minutes', 'max_weekly_hours',
+    ];
+
     public function index(): View
     {
         return view('shifts.index', [
@@ -16,16 +21,29 @@ class WorkShiftController extends Controller
         ]);
     }
 
+    public function __construct(private readonly AuditLogger $audit)
+    {
+    }
+
     public function store(Request $request): RedirectResponse
     {
-        WorkShift::create($this->validateShift($request));
+        $shift = WorkShift::create($this->validateShift($request));
+
+        $this->audit->record('shift.created', $shift, "Alta del turno {$shift->name}", [], $shift->only(self::AUDITED_FIELDS));
 
         return redirect()->route('shifts.index')->with('status', 'Turno laboral creado correctamente.');
     }
 
     public function update(Request $request, WorkShift $shift): RedirectResponse
     {
+        $before = $shift->only(self::AUDITED_FIELDS);
         $shift->update($this->validateShift($request));
+
+        [$old, $new] = $this->audit->diff($before, $shift->only(self::AUDITED_FIELDS));
+        if ($new !== []) {
+            // Cambiar horarios o tolerancia cambia retardos y horas extra: queda registrado
+            $this->audit->record('shift.updated', $shift, "Cambio en el turno {$shift->name}", $old, $new);
+        }
 
         return redirect()->route('shifts.index')->with('status', "Turno {$shift->name} actualizado.");
     }

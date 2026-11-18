@@ -87,6 +87,15 @@ async function apiFetch(url, options = {}) {
 
     const data = await response.json().catch(() => ({}));
 
+    // 401: sin sesión; 419: token CSRF vencido junto con la sesión (auditoría SE-01)
+    if (response.status === 401 || response.status === 419) {
+        const loginUrl = document.body.dataset.loginUrl || '/login';
+        window.location.assign(`${loginUrl}?expirada=1`);
+        const error = new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
+        error.status = response.status;
+        throw error;
+    }
+
     if (!response.ok) {
         const error = new Error(data.message || `Error HTTP ${response.status}`);
         error.status = response.status;

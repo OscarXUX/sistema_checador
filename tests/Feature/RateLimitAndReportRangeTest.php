@@ -5,11 +5,20 @@ namespace Tests\Feature;
 use App\Http\Controllers\ReportController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use App\Models\User;
 use Tests\TestCase;
 
 class RateLimitAndReportRangeTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Todas las rutas requieren sesión (SE-01)
+        $this->actingAs(User::factory()->create());
+    }
 
     public function test_device_sync_is_rate_limited(): void
     {

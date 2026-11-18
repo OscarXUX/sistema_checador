@@ -8,7 +8,7 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ Resuelto | 6 |
+| ✅ Resuelto | 8 |
 | ⚠️ Parcial | 0 |
 | ❌ Sin resolver | 0 |
 
@@ -18,7 +18,21 @@ Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADO
 
 ## 2. Acceso
 
-No hay.
+| Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
+|---|---|---|---|---|
+| 🔴 Alta | **SE-01** · No hay inicio de sesión | Todas las rutas de `routes/web.php` están abiertas a cualquiera en la red | Login de Laravel sin registro público, límite de intentos y todas las rutas con `auth` | ✅ Resuelto 18/11/2026 |
+
+### 2.1 SE-01 · Cómo se resolvió
+
+Login propio sin registro público: todas las rutas piden sesión salvo `/login`; 5 intentos fallidos por minuto; mensaje genérico; cuentas por consola con contraseña de 15 caracteres o más.
+
+| Qué | Cómo quedó |
+|---|---|
+| Rutas | `Route::middleware('auth')` en `routes/web.php`; `RouteProtectionTest` falla si una ruta queda abierta |
+| Login | `AuthController`, `LoginRequest`, `resources/views/auth/login.blade.php` |
+| Cuentas | `usuarios:crear`, `usuarios:restablecer`, `usuarios:estado`; columna `users.is_active` |
+| Pruebas | `AuthTest`, `RouteProtectionTest`, `UserCommandsTest` |
+| Detalle | `docs/parches/2026-11-18/16-20_inicio-de-sesion-y-cuentas.md` |
 
 ---
 
@@ -28,6 +42,7 @@ No hay.
 |---|---|---|---|---|
 | 🔴 Alta | **SE-03** · Borrar un empleado borra sus checadas | `cascadeOnDelete()` en `attendance_logs` y `daily_summaries`; `EmployeeController::destroy()` borra físicamente | Baja lógica y `restrictOnDelete()`; las checadas se conservan | ✅ Resuelto 17/11/2026 |
 | 🔴 Alta | **SE-04** · La plantilla de huella llega al navegador y al log | `device_response` con `fingerData` en la respuesta de captura; `raw_body` completo en el log | Quitar ambos; registrar solo códigos de error | ✅ Resuelto 17/11/2026 |
+| 🟡 Media | **SE-09** · No hay bitácora de acciones de usuarios | No queda registro de quién creó, editó, borró o sincronizó. Depende de SE-01 | Tabla de auditoría con usuario, acción, antes y después, IP y fecha | ✅ Resuelto 18/11/2026 |
 
 ### 3.1 SE-03 · Cómo se resolvió
 
@@ -50,6 +65,18 @@ La captura ya no devuelve la respuesta cruda de la terminal y el log de errores 
 | Log | `redactSensitive()` en `HikvisionIsapiService`; sin `raw_body` |
 | Pruebas | `test_capture_result_does_not_include_fingerprint_template`, `test_error_log_redacts_fingerprint_template`, `test_fingerprint_capture_response_does_not_expose_template` |
 | Detalle | `docs/parches/2026-11-17/11-32_huella-fuera-de-respuestas-y-logs.md` |
+
+### 3.3 SE-09 · Cómo se resolvió
+
+Tabla `audit_logs` con quién, qué, cuándo, desde dónde y antes/después; registra login, empleados, turnos, acciones en la terminal y comandos de cuentas. RFC, CURP y NSS se guardan como `[protegido]`.
+
+| Qué | Cómo quedó |
+|---|---|
+| Servicio | `App\Services\AuditLogger` |
+| Modelo | `AuditLog`, no se modifica ni se borra desde la aplicación |
+| Consulta | En DBeaver por ahora; la pantalla espera a los roles (SE-02) |
+| Pruebas | `AuditLogTest`, `test_login_logout_and_failures_are_audited` |
+| Detalle | `docs/parches/2026-11-18/16-25_bitacora-de-acciones.md` |
 
 ---
 

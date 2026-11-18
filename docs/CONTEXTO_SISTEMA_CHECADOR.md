@@ -1,6 +1,6 @@
 # Sistema checador: control de entradas y salidas con terminal Hikvision
 
-> Referencia · actualizado 18/11/2026 · Para quien se integra al proyecto (persona o sesión de Claude).
+> Referencia · actualizado 18/11/2026 · Para quien se integra al proyecto.
 
 ---
 
@@ -10,8 +10,8 @@
 |---|---|
 | Qué es | Sistema web que descarga las checadas de una terminal biométrica Hikvision y las muestra en un dashboard: quién entra, quién sale, a qué hora, retardos, comida y horas extra |
 | Pedido original | Oscar: "un dashboard para registrar cada vez que alguien entra y sale, con un checador conectado a una página web. Que muestre quién sale, a qué hora sale, por qué sale y todo eso" |
-| Estado | Base funcional hecha por Oscar (commit del 12/11/2026). Sin login ni roles; sin pruebas contra la terminal real |
-| Participantes | Oscar (base del proyecto), Danny |
+| Estado | Base funcional de Oscar (12/11/2026) con correcciones de seguridad de Danny: login, bitácora de acciones, límites de peticiones. Sin roles; sin pruebas contra la terminal real |
+| Participantes | Oscar, Danny |
 | Tipo de proyecto | Desde cero: los estados "En revisión" y "Sujeto a cambios" sí aplican |
 
 ---
@@ -35,19 +35,22 @@
 
 ```text
 app/
-├── Console/Commands/HikvisionSyncCommand.php   Comando hikvision:sync
-├── Http/Controllers/                           Dashboard, Device, Employee, Report, WorkShift
+├── Console/Commands/                           hikvision:sync y usuarios:crear, usuarios:restablecer, usuarios:estado
+├── Http/Controllers/                           Dashboard, Device, Employee, Report, WorkShift; Auth/AuthController (login)
+├── Http/Requests/Auth/LoginRequest.php         Credenciales, límite de intentos y mensaje genérico
 ├── Http/Requests/                              Validación de empleados (RFC, CURP, NSS)
-├── Models/                                     Employee, WorkShift, AttendanceLog, DailySummary
+├── Models/                                     Employee, WorkShift, AttendanceLog, DailySummary, User, AuditLog
+├── Support/                                    PasswordPolicy (reglas de contraseña), UserSessions
 └── Services/
     ├── HikvisionIsapiService.php               Cliente HTTP de la terminal
-    └── AttendanceCalculatorService.php         Guarda checadas y calcula el resumen diario
+    ├── AttendanceCalculatorService.php         Guarda checadas y calcula el resumen diario
+    └── AuditLogger.php                         Escribe la bitácora de acciones
 resources/views/                                dashboard, employees, reports/kardex, shifts
 resources/js/app.js                             Wijmo, estado de la terminal, peticiones con CSRF
 resources/js/csv.js                             Exportación CSV sin fórmulas
-routes/web.php                                  Todas las rutas (sin login)
+routes/web.php                                  /login abierto; todo lo demás dentro de middleware auth
 routes/console.php                              hikvision:sync cada minuto
-tests/                                          28 pruebas (Feature y Unit)
+tests/                                          47 pruebas (Feature y Unit)
 ```
 
 ---
@@ -60,7 +63,7 @@ tests/                                          28 pruebas (Feature y Unit)
 | Respuestas | Los controladores responden JSON cuando la petición lo pide (`expectsJson()`) y redirección en formularios |
 | Validación | Form Requests (`StoreEmployeeRequest`, `UpdateEmployeeRequest`) y `$request->validated()` |
 | Zona horaria | `APP_TIMEZONE=America/Mexico_City` |
-| Documentación | `docs/` según el estándar de Danny; el commit se propone en el chat, no en los .md |
+| Documentación | `docs/` según el estándar de Danny|
 
 ---
 
@@ -72,7 +75,9 @@ tests/                                          28 pruebas (Feature y Unit)
 | `employees` | Empleados con su número en el reloj (`hikvision_employee_no`), RFC, CURP, NSS, departamento, puesto | `fingerprint_enrolled` y `device_synced_at` reflejan el estado en la terminal |
 | `attendance_logs` | Cada checada tal como llegó del reloj, con `event_type` y `raw_payload` (JSON) | Único `(employee_id, punched_at)`; no se puede editar desde Eloquent. La base impide borrar a un empleado que tenga checadas (`restrictOnDelete`) |
 | `daily_summaries` | Resumen por empleado y día: entrada, comida, salida, minutos trabajados, retardo, horas extra, estado | Se recalcula al llegar cada checada nueva |
-| `users`, `sessions`, `cache`, `jobs` | Tablas base de Laravel | `users` existe pero no se usa (no hay login) |
+| `users` | Cuentas del sistema | `is_active` para desactivar sin borrar; se crean por consola (`usuarios:crear`) |
+| `audit_logs` | Bitácora: quién, qué, cuándo y desde dónde | Antes y después de los campos que cambiaron; RFC, CURP y NSS como `[protegido]`; no se modifica desde la aplicación |
+| `sessions`, `cache`, `jobs` | Tablas base de Laravel | `sessions` permite cerrar las sesiones de una cuenta |
 
 `event_type` admite: `check_in` (Entrada), `break_out` (Salida a comida), `break_in` (Regreso de comida), `check_out` (Salida) y `unclassified`. Si el reloj no manda el tipo, se asigna por orden: 1.ª entrada, 2.ª salida a comida, 3.ª regreso, 4.ª salida.
 
@@ -82,11 +87,12 @@ tests/                                          28 pruebas (Feature y Unit)
 
 | Módulo | Qué hace | Pantallas / rutas | Permisos |
 |---|---|---|---|
-| Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | Ninguno |
-| Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | Ninguno |
-| Empleados y huellas | Alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Ninguno |
-| Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con su JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data` | Ninguno |
-| Turnos | Alta y edición de turnos | `/shifts` | Ninguno |
+| Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | Sesión iniciada (sin roles todavía) |
+| Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | Sesión iniciada (sin roles todavía) |
+| Empleados y huellas | Alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Sesión iniciada (sin roles todavía) |
+| Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con su JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data` | Sesión iniciada (sin roles todavía) |
+| Turnos | Alta y edición de turnos | `/shifts` | Sesión iniciada (sin roles todavía) |
+| Sesión | Inicio y cierre de sesión | `GET/POST /login`, `POST /logout` | Abierta solo `/login` |
 | Sincronización automática | Descarga las checadas del día cada minuto | `php artisan hikvision:sync` (scheduler) | — |
 
 ---
@@ -95,6 +101,8 @@ tests/                                          28 pruebas (Feature y Unit)
 
 | Funcionalidad | Estado |
 |---|---|
+| Inicio de sesión sin registro público | ✅ Implementado (SE-01) |
+| Bitácora de acciones de usuarios | ✅ Implementado; se consulta en DBeaver (SE-09) |
 | Descargar checadas de la terminal por ISAPI (paginado) | ✅ Implementado, probado solo con respuestas simuladas |
 | Evitar checadas duplicadas | ✅ Implementado |
 | Calcular retardos, minutos de comida, trabajados y horas extra | ✅ Implementado |
@@ -102,7 +110,7 @@ tests/                                          28 pruebas (Feature y Unit)
 | Kardex con filtros y exportación a Excel | ✅ Implementado |
 | Alta de empleados en la terminal y captura remota de huella | ✅ Implementado, sin probar con el aparato |
 | Mostrar **por qué** sale una persona | ❌ No existe; falta definirlo (TE-01) |
-| Inicio de sesión y roles | ❌ No existe (SE-01, SE-02) |
+| Roles y permisos | ❌ No existe (SE-02) |
 | Monitor que se actualice solo | ❌ Solo se actualiza con el botón "Refrescar"; lo automático es el estado de la terminal (cada 30 s) |
 | Turnos que cruzan la medianoche | ❌ El cálculo es por día calendario (SE-11) |
 
@@ -120,6 +128,8 @@ tests/                                          28 pruebas (Feature y Unit)
 | 17/11/2026 | La plantilla de huella no sale del servidor ni se guarda en logs | Danny | Es un dato biométrico (SE-04) |
 | 18/11/2026 | Límites de 10 peticiones por minuto a la terminal y 30 a reportes | Danny | Evitar abuso y saturar el aparato (SE-07) |
 | 18/11/2026 | El kardex consulta máximo 93 días; se recorta en lugar de rechazar | Danny | Consultas acotadas sin errores de redirección en el formulario GET (OP-04) |
+| 18/11/2026 | Login propio sin registro público; cuentas por consola; contraseña mínima de 15 | Danny | Menos dependencias; NIST 800-63B rev. 4 (SE-01) |
+| 18/11/2026 | Bitácora en tabla propia sin copiar RFC, CURP ni NSS | Danny | Saber quién hizo qué sin duplicar datos personales (SE-09) |
 
 ---
 
@@ -153,7 +163,7 @@ tests/                                          28 pruebas (Feature y Unit)
 | Fase | Qué | Criterio de terminado |
 |---|---|---|
 | 1 | Definir con el cliente el "por qué sale", roles y aviso de privacidad (TE-01, TE-02, TE-05) | Respuestas registradas en `docs/pendientes/teracrom/` |
-| 2 | Login y roles (SE-01, SE-02); bajas lógicas y huella ya resueltas (SE-03, SE-04) | Ninguna ruta abierta sin sesión; pruebas de permisos por ruta |
+| 2 | Roles (SE-02); login, bitácora, bajas lógicas y huella ya resueltos (SE-01, SE-09, SE-03, SE-04) | Ninguna ruta abierta sin sesión; pruebas de permisos por ruta |
 | 3 | Probar con la terminal real y ajustar la sincronización (OP-01, OP-02) | Checadas reales visibles en el dashboard |
 | 4 | Motivo de salida (según TE-01) | Dashboard muestra quién, a qué hora y por qué |
 | 5 | Preparar producción (SE-06, SE-08, OP-09) | Lista 8.3 de la guía de seguridad cumplida |
@@ -175,6 +185,8 @@ El detalle está en `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR
 
 ## 13. Entorno
 
+La guía completa de instalación, arranque y problemas comunes está en `README.md`, en la raíz del proyecto. Aquí va el resumen.
+
 **Requisitos:** PHP ≥ 8.2, Composer, Node y MySQL (o MariaDB de XAMPP). Base de datos con DBeaver sobre la conexión `localhost:3306`.
 
 ```powershell
@@ -184,6 +196,7 @@ copy .env.example .env
 php artisan key:generate
 # Crear en DBeaver: CREATE DATABASE sistema_checador CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 php artisan migrate
+php artisan usuarios:crear     # tu cuenta para entrar
 npm run build
 php artisan test
 ```
@@ -208,4 +221,4 @@ HIKVISION_USER=admin
 HIKVISION_PASSWORD=     # la del aparato; nunca en el repositorio
 ```
 
-No hay usuarios del sistema porque no hay login.
+No hay cuentas de fábrica: cada quien crea la suya con `php artisan usuarios:crear` (contraseña de 15 caracteres o más; puede ser una frase). `SESSION_DRIVER=database` y `SESSION_LIFETIME=30`.

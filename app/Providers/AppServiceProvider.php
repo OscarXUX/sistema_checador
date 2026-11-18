@@ -43,6 +43,11 @@ class AppServiceProvider extends ServiceProvider
             ->by('device|'.($request->user()?->getAuthIdentifier() ?? $request->ip()))
             ->response($tooMany));
 
+        // Envíos del formulario de login por IP; el límite por correo + IP está en LoginRequest
+        RateLimiter::for('login', fn (Request $request) => Limit::perMinute(20)
+            ->by('login|'.$request->ip())
+            ->response($tooMany));
+
         // Reportes que consultan rangos de fechas
         RateLimiter::for('reports', fn (Request $request) => Limit::perMinute(30)
             ->by('reports|'.($request->user()?->getAuthIdentifier() ?? $request->ip()))

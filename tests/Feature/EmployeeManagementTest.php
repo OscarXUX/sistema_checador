@@ -9,11 +9,20 @@ use App\Models\WorkShift;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use App\Models\User;
 use Tests\TestCase;
 
 class EmployeeManagementTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Todas las rutas requieren sesión (SE-01)
+        $this->actingAs(User::factory()->create());
+    }
 
     private function seedShift(): WorkShift
     {

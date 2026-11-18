@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\HikvisionConnectionException;
 use App\Services\AttendanceCalculatorService;
+use App\Services\AuditLogger;
 use App\Services\HikvisionIsapiService;
 use Illuminate\Http\JsonResponse;
 
@@ -16,10 +17,18 @@ class DeviceController extends Controller
 
     public function sync(
         HikvisionIsapiService $isapi,
-        AttendanceCalculatorService $calculator
+        AttendanceCalculatorService $calculator,
+        AuditLogger $audit
     ): JsonResponse {
         try {
             $stats = $calculator->syncFromDevice($isapi, now()->startOfDay(), now());
+
+            $audit->record('device.sync', null, "Sincronización manual: {$stats['inserted']} checadas nuevas", [], [
+                'received' => $stats['received'],
+                'inserted' => $stats['inserted'],
+                'skipped' => $stats['skipped'],
+                'unmatched' => $stats['unmatched'],
+            ]);
 
             return response()->json([
                 'success' => true,

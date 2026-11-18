@@ -89,7 +89,7 @@ Los apartados parciales de la tabla 2 se detallan como faltantes en la sección 
 
 ### 🔴 Alta (bloquea producción)
 
-**SE-01 · No hay inicio de sesión** (4.2, OWASP A01/A07)
+**SE-01 · No hay inicio de sesión** (4.2, OWASP A01/A07) · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/16-20_inicio-de-sesion-y-cuentas.md`
 - Evidencia: `routes/web.php` no tiene middleware `auth`; `bootstrap/app.php` no registra ninguno. La tabla `users` existe pero no se usa.
 - Consecuencia: cualquier equipo en la red puede ver RFC, CURP y NSS, borrar empleados, mandar usuarios al reloj o activar el lector de huellas.
 - Qué hacer: login con el sistema de Laravel (por ejemplo Breeze sin registro público), `bcrypt` o Argon2id, límite de intentos (`throttle`), todas las rutas dentro de `Route::middleware('auth')`, y una prueba que falle si una ruta queda sin `auth`.
@@ -117,7 +117,7 @@ Los apartados parciales de la tabla 2 se detallan como faltantes en la sección 
 | SE-06 | Comunicación con la terminal sin cifrar | `.env.example:32` `HIKVISION_URL=http://…`; Digest Auth sobre HTTP | Habilitar HTTPS en la terminal si el firmware lo permite; si no, red o VLAN aislada entre servidor y terminal (4.8, 4.19). Depende de TE-04 |
 | SE-07 | Sin límites de peticiones en acciones costosas · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` | `POST /device/sync`, `/employees/{id}/capture-fingerprint`, `/reports/kardex/data` sin `throttle` | `throttle` por usuario en estas rutas (4.12) |
 | SE-08 | Configuración de producción y cabeceras | `APP_DEBUG=true` en `.env.example`; sin `SESSION_SECURE_COOKIE`; sin cabeceras de seguridad | En producción: `APP_DEBUG=false`, HTTPS, `SESSION_SECURE_COOKIE=true` y un middleware con `nosniff`, `X-Frame-Options`, `Referrer-Policy`, HSTS y CSP básica (4.9, 4.10) |
-| SE-09 | No hay bitácora de quién hizo qué | Altas, cambios, bajas, sincronizaciones y capturas de huella no registran usuario | Tabla de auditoría (usuario, acción, registro, antes y después, IP, fecha) (4.15). Depende de SE-01 |
+| SE-09 | No hay bitácora de quién hizo qué · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/16-25_bitacora-de-acciones.md` | Altas, cambios, bajas, sincronizaciones y capturas de huella no registran usuario | Tabla de auditoría (usuario, acción, registro, antes y después, IP, fecha) (4.15). Depende de SE-01 |
 | SE-10 | La captura marca "Huella OK" aunque no llegue la plantilla · ✅ Resuelto 18/11/2026: `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` | `HikvisionIsapiService.php:276` actualiza `fingerprint_enrolled = true` siempre | Marcarla solo si se recibió y se vinculó la plantilla; si no, mensaje de error (4.13) |
 | SE-11 | Turnos que cruzan la medianoche se calculan mal | `recalculateForEmployeeDate()` agrupa por día calendario; `WorkShift::ordinaryDailyMinutes()` sí contempla el cruce | Asignar la checada a la jornada según el turno, no a la fecha (4.14). Depende de TE-07 |
 
@@ -149,7 +149,7 @@ Los apartados parciales de la tabla 2 se detallan como faltantes en la sección 
 
 | Prioridad | Pendiente | Esfuerzo estimado |
 |---|---|---|
-| 🔴 Alta | SE-01 Login | 1 día |
+| 🔴 Alta | SE-01 Login | ✅ Resuelto 18/11/2026 |
 | 🔴 Alta | SE-02 Roles | 1 día (después de TE-05) |
 | 🔴 Alta | SE-03 Baja lógica sin borrar checadas | ✅ Resuelto 17/11/2026 |
 | 🔴 Alta | SE-04 Quitar la huella de respuestas y logs | ✅ Resuelto 17/11/2026 |

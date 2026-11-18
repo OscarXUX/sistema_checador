@@ -7,6 +7,7 @@ use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
 use App\Models\Employee;
 use App\Models\WorkShift;
+use App\Services\AuditLogger;
 use App\Services\HikvisionIsapiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -37,10 +38,30 @@ class EmployeeController extends Controller
         ]);
     }
 
+    /**
+     * Campos del empleado que se registran en la bitácora (RFC, CURP y NSS se guardan como "[protegido]").
+     */
+    private const AUDITED_FIELDS = [
+        'hikvision_employee_no', 'full_name', 'rfc', 'curp', 'nss',
+        'department', 'position', 'work_shift_id', 'is_active',
+    ];
+
+    public function __construct(private readonly AuditLogger $audit)
+    {
+    }
+
     public function store(StoreEmployeeRequest $request): JsonResponse|RedirectResponse
     {
         $employee = Employee::create($request->validated());
         $employee->load('workShift');
+
+        $this->audit->record(
+            'employee.created',
+            $employee,
+            "Alta del empleado #{$employee->hikvision_employee_no} {$employee->full_name}",
+            [],
+            $employee->only(self::AUDITED_FIELDS)
+        );
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -57,8 +78,20 @@ class EmployeeController extends Controller
 
     public function update(UpdateEmployeeRequest $request, Employee $employee): JsonResponse|RedirectResponse
     {
+        $before = $employee->only(self::AUDITED_FIELDS);
         $employee->update($request->validated());
         $employee->load('workShift');
+
+        [$old, $new] = $this->audit->diff($before, $employee->only(self::AUDITED_FIELDS));
+        if ($new !== []) {
+            $this->audit->record(
+                'employee.updated',
+                $employee,
+                "Cambio en el empleado #{$employee->hikvision_employee_no} {$employee->full_name}",
+                $old,
+                $new
+            );
+        }
 
         if ($request->expectsJson()) {
             return response()->json([
@@ -118,10 +151,13 @@ class EmployeeController extends Controller
             $employee->forceFill($changes)->save();
 
             $message = "Empleado {$employeeName} dado de baja (inactivo). Se conserva su historial de checadas.{$deviceNotice}";
+            $this->audit->record('employee.deactivated', $employee, "Baja del empleado #{$employeeNo} {$employeeName}".($removedFromDevice ? ' (también en la terminal)' : ''), ['is_active' => true], ['is_active' => false]);
         } else {
+            $snapshot = $employee->only(self::AUDITED_FIELDS);
             $employee->delete();
 
             $message = "Empleado {$employeeName} eliminado del sistema.{$deviceNotice}";
+            $this->audit->record('employee.deleted', $employee, "Eliminación del empleado #{$employeeNo} {$employeeName} (sin historial)".($removedFromDevice ? ' (también en la terminal)' : ''), $snapshot);
         }
 
         if ($request->expectsJson()) {
@@ -143,6 +179,8 @@ class EmployeeController extends Controller
             $result = $isapi->syncUserToDevice($employee);
             $employee->refresh()->load('workShift');
 
+            $this->audit->record('device.user_synced', $employee, "Empleado #{$employee->hikvision_employee_no} enviado a la terminal");
+
             return response()->json([
                 'success' => true,
                 'message' => $result['message'],
@@ -161,6 +199,7 @@ class EmployeeController extends Controller
     {
         try {
             $result = $isapi->deleteUserFromDevice($employee->hikvision_employee_no);
+            $this->audit->record('device.user_deleted', $employee, "Empleado #{$employee->hikvision_employee_no} borrado de la terminal");
             $employee->forceFill([
                 'device_synced_at' => null,
                 'fingerprint_enrolled' => false,
@@ -194,6 +233,8 @@ class EmployeeController extends Controller
         try {
             $result = $isapi->triggerRemoteFingerprintCapture($employee->hikvision_employee_no, $fingerNo);
             $employee->refresh()->load('workShift');
+
+            $this->audit->record('device.fingerprint_captured', $employee, "Huella #{$fingerNo} capturada para el empleado #{$employee->hikvision_employee_no}");
 
             // Solo datos de estado: la plantilla de huella no se envía al navegador (SE-04).
             return response()->json([

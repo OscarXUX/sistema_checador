@@ -21,7 +21,9 @@ docs/
 │   │   └── 11-32_huella-fuera-de-respuestas-y-logs.md
 │   └── 2026-11-18/
 │       ├── 15-55_limites-rango-kardex-y-errores.md
-│       └── 16-10_csv-sin-formulas.md
+│       ├── 16-10_csv-sin-formulas.md
+│       ├── 16-20_inicio-de-sesion-y-cuentas.md
+│       └── 16-25_bitacora-de-acciones.md
 └── pendientes/
     ├── README.md                      Resumen y reglas de los pendientes
     ├── seguridad/                     SE-NN

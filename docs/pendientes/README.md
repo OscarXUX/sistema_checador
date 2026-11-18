@@ -22,7 +22,7 @@ Cada carpeta tiene `pendientes.md` (todo), `resuelto.md` (resueltos y parciales 
 
 | Apartado | Resueltos | Parciales | Sin resolver | 🔴 Alta abiertos |
 |---|---|---|---|---|
-| `seguridad/` | 6 | 0 | 9 | 2 |
+| `seguridad/` | 8 | 0 | 7 | 1 |
 | `optimizacion/` | 1 | 0 | 8 | 0 |
 | `teracrom/` | 0 | 0 | 8 | 2 |
 
