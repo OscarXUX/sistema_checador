@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AttendanceLog;
 use App\Models\DailySummary;
 use App\Models\Employee;
+use App\Support\PersonalData;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -118,11 +119,12 @@ class ReportController extends Controller
                     $emp?->hikvision_employee_no ?? '-',
                     $emp?->full_name ?? 'N/D',
                     $emp?->department ?? '-',
-                    $emp?->rfc ?: 'S/R'
+                    PersonalData::maskRfc($emp?->rfc) ?? 'S/R'
                 ),
-                'rfc' => $emp?->rfc ?? '-',
-                'curp' => $emp?->curp ?? '-',
-                'nss' => $emp?->nss ?? '-',
+                // Enmascarados también en pantalla y exportaciones (auditoría SE-05)
+                'rfc' => PersonalData::maskRfc($emp?->rfc) ?? '-',
+                'curp' => PersonalData::maskCurp($emp?->curp) ?? '-',
+                'nss' => PersonalData::maskNss($emp?->nss) ?? '-',
                 'department' => $emp?->department ?? '-',
                 'shift_name' => $shift?->name ?? '-',
                 'work_date' => $summary->work_date->toDateString(),

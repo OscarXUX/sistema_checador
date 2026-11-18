@@ -8,8 +8,8 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ Resuelto | 10 |
-| ⚠️ Parcial | 0 |
+| ✅ Resuelto | 11 |
+| ⚠️ Parcial | 1 |
 | ❌ Sin resolver | 0 |
 
 Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
@@ -42,6 +42,7 @@ Login propio sin registro público: todas las rutas piden sesión salvo `/login`
 |---|---|---|---|---|
 | 🔴 Alta | **SE-03** · Borrar un empleado borra sus checadas | `cascadeOnDelete()` en `attendance_logs` y `daily_summaries`; `EmployeeController::destroy()` borra físicamente | Baja lógica y `restrictOnDelete()`; las checadas se conservan | ✅ Resuelto 17/11/2026 |
 | 🔴 Alta | **SE-04** · La plantilla de huella llega al navegador y al log | `device_response` con `fingerData` en la respuesta de captura; `raw_body` completo en el log | Quitar ambos; registrar solo códigos de error | ✅ Resuelto 17/11/2026 |
+| 🟡 Media | **SE-05** · RFC, CURP y NSS completos y sin cifrar | Van completos en el JSON del listado y del kardex | Enmascarar en listados y *cast* `encrypted` en la base | ✅ Resuelto 18/11/2026 |
 | 🟡 Media | **SE-09** · No hay bitácora de acciones de usuarios | No queda registro de quién creó, editó, borró o sincronizó. Depende de SE-01 | Tabla de auditoría con usuario, acción, antes y después, IP y fecha | ✅ Resuelto 18/11/2026 |
 
 ### 3.1 SE-03 · Cómo se resolvió
@@ -66,7 +67,18 @@ La captura ya no devuelve la respuesta cruda de la terminal y el log de errores 
 | Pruebas | `test_capture_result_does_not_include_fingerprint_template`, `test_error_log_redacts_fingerprint_template`, `test_fingerprint_capture_response_does_not_expose_template` |
 | Detalle | `docs/parches/2026-11-17/11-32_huella-fuera-de-respuestas-y-logs.md` |
 
-### 3.3 SE-09 · Cómo se resolvió
+### 3.3 SE-05 · Cómo se resolvió
+
+RFC, CURP y NSS cifrados en la base con el cast `encrypted` (APP_KEY) e índice ciego para buscarlos completos; enmascarados en Empleados y en el kardex (pantalla y exportaciones). El formulario de edición pide los completos y la consulta queda en la bitácora.
+
+| Qué | Cómo quedó |
+|---|---|
+| Base | Migración `2026_11_18_000003_encrypt_employee_personal_ids.php` |
+| Código | `App\Support\PersonalData`, `EmployeeController::show()` |
+| Pruebas | `PersonalDataProtectionTest` (6) |
+| Detalle | `docs/parches/2026-11-18/17-35_rfc-curp-nss-cifrados-y-enmascarados.md` |
+
+### 3.4 SE-09 · Cómo se resolvió
 
 Tabla `audit_logs` con quién, qué, cuándo, desde dónde y antes/después; registra login, empleados, turnos, acciones en la terminal y comandos de cuentas. RFC, CURP y NSS se guardan como `[protegido]`.
 
@@ -85,6 +97,7 @@ Tabla `audit_logs` con quién, qué, cuándo, desde dónde y antes/después; reg
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
 | 🟡 Media | **SE-07** · Sin límites de peticiones | Sincronización, captura de huella y kardex sin `throttle` | `throttle` por usuario en esas rutas | ✅ Resuelto 18/11/2026 |
+| 🟡 Media | **SE-08** · Configuración de producción y cabeceras | `APP_DEBUG=true`, sin cookie `Secure` ni cabeceras de seguridad | `.env` de producción y middleware de cabeceras (HSTS, nosniff, X-Frame-Options, CSP) | ⚠️ Parcial 18/11/2026 |
 | 🟢 Baja | **SE-14** · `composer audit` sin ejecutar | No se pudo correr en la auditoría; `npm audit` dio 0 | Correrlo y agregarlo antes de cada entrega | ✅ Resuelto 18/11/2026 |
 
 ### 4.1 SE-07 · Cómo se resolvió
@@ -98,7 +111,17 @@ Límites de 10 peticiones por minuto en acciones que llaman a la terminal y 30 e
 | Pruebas | `test_device_sync_is_rate_limited`, `test_reports_are_rate_limited` |
 | Detalle | `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` |
 
-### 4.2 SE-14 · Cómo se resolvió
+### 4.2 SE-08 · Qué se resolvió y qué falta
+
+Hecho: cabeceras de seguridad y CSP con nonce en todas las respuestas. Falta: `.env` de producción (`APP_DEBUG=false`, HTTPS, `SESSION_SECURE_COOKIE=true`), que va con la guía de despliegue (TE-06).
+
+| Qué | Cómo quedó |
+|---|---|
+| Middleware | `App\Http\Middleware\SecurityHeaders` |
+| Pruebas | `SecurityHeadersTest` (4) |
+| Detalle | `docs/parches/2026-11-18/17-36_cabeceras-de-seguridad.md` |
+
+### 4.3 SE-14 · Cómo se resolvió
 
 Danny corrió `composer audit` el 18/11/2026: sin vulnerabilidades reportadas. `npm audit` también da 0.
 

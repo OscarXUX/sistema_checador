@@ -23,7 +23,7 @@
                         <input id="employee-search-input"
                                type="search"
                                class="form-control bg-dark border-secondary-subtle"
-                               placeholder="Buscar nombre, ID reloj, RFC, depto..."
+                               placeholder="Buscar nombre, ID reloj, depto o RFC/CURP completo..."
                                autocorrect="off"
                                autocapitalize="none"
                                spellcheck="false">
@@ -279,7 +279,7 @@
 
 @push('scripts')
 <script id="employees-initial-data" type="application/json">@json($employeesPage)</script>
-<script>
+<script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
     const { core: wjCore, grid: wjGrid } = window.AppUI.wijmo;
     const { apiFetch, showToast, escapeHtml } = window.AppUI;
@@ -361,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
         columns: [
             { binding: 'hikvision_employee_no', header: 'ID Reloj', width: 95, cssClass: 'font-mono-tabular' },
             { binding: 'full_name', header: 'Nombre Completo', width: '*', minWidth: 200 },
-            { binding: 'rfc', header: 'RFC', width: 140, cssClass: 'font-mono-tabular' },
+            { binding: 'rfc', header: 'RFC', width: 140, cssClass: 'font-mono-tabular', allowSorting: false },
             { binding: 'department', header: 'Departamento', width: 130 },
             { binding: 'shift_name', header: 'Turno', width: 165 },
             { binding: 'status_label', header: 'Estado', width: 95 },
@@ -435,7 +435,16 @@ document.addEventListener('DOMContentLoaded', () => {
         formDialog.showModal();
     }
 
-    function openEditModal(emp) {
+    // La tabla trae RFC, CURP y NSS enmascarados; los completos se piden solo al editar (SE-05)
+    async function openEditModal(rowEmp) {
+        let emp;
+        try {
+            emp = (await apiFetch(`${routes.updateBase}/${rowEmp.id}`, { method: 'GET' })).employee;
+        } catch (err) {
+            showToast(err.message || 'No se pudieron cargar los datos del empleado.', 'danger');
+            return;
+        }
+
         clearFormErrors();
         document.getElementById('emp-id').value = emp.id;
         document.getElementById('emp-no').value = emp.hikvision_employee_no || '';

@@ -26,7 +26,9 @@ docs/
 │       ├── 16-25_bitacora-de-acciones.md
 │       ├── 17-00_sincronizacion-incremental-y-en-lote.md
 │       ├── 17-15_wijmo-por-pagina-y-empleados-paginados.md
-│       └── 17-30_orden-de-empleados-en-servidor.md
+│       ├── 17-30_orden-de-empleados-en-servidor.md
+│       ├── 17-35_rfc-curp-nss-cifrados-y-enmascarados.md
+│       └── 17-36_cabeceras-de-seguridad.md
 └── pendientes/
     ├── README.md                      Resumen y reglas de los pendientes
     ├── seguridad/                     SE-NN

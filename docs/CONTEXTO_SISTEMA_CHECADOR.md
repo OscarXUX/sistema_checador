@@ -40,7 +40,8 @@ app/
 ├── Http/Requests/Auth/LoginRequest.php         Credenciales, límite de intentos y mensaje genérico
 ├── Http/Requests/                              Validación de empleados (RFC, CURP, NSS)
 ├── Models/                                     Employee, WorkShift, AttendanceLog, DailySummary, User, AuditLog
-├── Support/                                    PasswordPolicy (reglas de contraseña), UserSessions
+├── Support/                                    PasswordPolicy (reglas de contraseña), UserSessions, PersonalData (enmascarado e índice ciego)
+├── Http/Middleware/SecurityHeaders.php         Cabeceras de seguridad y CSP con nonce
 └── Services/
     ├── HikvisionIsapiService.php               Cliente HTTP de la terminal
     ├── AttendanceCalculatorService.php         Guarda checadas en lote y calcula el resumen diario
@@ -52,7 +53,7 @@ resources/js/wijmo/                             Wijmo por página: grid.js (tabl
 resources/js/csv.js                             Exportación CSV sin fórmulas
 routes/web.php                                  /login abierto; todo lo demás dentro de middleware auth
 routes/console.php                              hikvision:sync cada minuto
-tests/                                          65 pruebas (Feature y Unit)
+tests/                                          75 pruebas (Feature y Unit)
 ```
 
 ---
@@ -74,7 +75,7 @@ tests/                                          65 pruebas (Feature y Unit)
 | Tabla | Para qué | Notas |
 |---|---|---|
 | `work_shifts` | Turnos: entrada, salida, minutos de comida, tolerancia, horas por semana | Requerido para crear empleados |
-| `employees` | Empleados con su número en el reloj (`hikvision_employee_no`), RFC, CURP, NSS, departamento, puesto | `fingerprint_enrolled` y `device_synced_at` reflejan el estado en la terminal |
+| `employees` | Empleados con su número en el reloj (`hikvision_employee_no`), RFC, CURP, NSS, departamento, puesto | RFC, CURP y NSS **cifrados** con `APP_KEY`; `rfc_hash` y `curp_hash` permiten buscarlos completos | `fingerprint_enrolled` y `device_synced_at` reflejan el estado en la terminal |
 | `attendance_logs` | Cada checada tal como llegó del reloj, con `event_type` y `raw_payload` (JSON) | Único `(employee_id, punched_at)`; no se puede editar desde Eloquent. La base impide borrar a un empleado que tenga checadas (`restrictOnDelete`) |
 | `daily_summaries` | Resumen por empleado y día: entrada, comida, salida, minutos trabajados, retardo, horas extra, estado | Se recalcula al llegar cada checada nueva |
 | `users` | Cuentas del sistema | `is_active` para desactivar sin borrar; se crean por consola (`usuarios:crear`) |
@@ -91,7 +92,7 @@ tests/                                          65 pruebas (Feature y Unit)
 |---|---|---|---|
 | Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | Sesión iniciada (sin roles todavía) |
 | Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | Sesión iniciada (sin roles todavía) |
-| Empleados y huellas | Listado paginado de 50 con búsqueda y orden por columna en el servidor; alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Sesión iniciada (sin roles todavía) |
+| Empleados y huellas | Listado paginado de 50 con búsqueda y orden por columna en el servidor; RFC, CURP y NSS enmascarados (completos solo al editar); alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Sesión iniciada (sin roles todavía) |
 | Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con su JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data` | Sesión iniciada (sin roles todavía) |
 | Turnos | Alta y edición de turnos | `/shifts` | Sesión iniciada (sin roles todavía) |
 | Sesión | Inicio y cierre de sesión | `GET/POST /login`, `POST /logout` | Abierta solo `/login` |
@@ -136,6 +137,8 @@ tests/                                          65 pruebas (Feature y Unit)
 | 18/11/2026 | Estado de la terminal en caché 30 s | Danny | Varias pestañas no saturan el aparato (OP-05) |
 | 18/11/2026 | Wijmo se carga solo en Dashboard, Empleados y Kardex | Danny | Turnos pasó de 440 a 48 kB de JS (OP-06) |
 | 18/11/2026 | Empleados paginados de 50 en el servidor | Danny | El padrón completo ya no viaja en cada carga (OP-07) |
+| 18/11/2026 | RFC, CURP y NSS cifrados y enmascarados, también en el kardex | Danny | Minimizar la exposición de datos personales (SE-05) |
+| 18/11/2026 | CSP con nonce y cabeceras de seguridad en todas las respuestas | Danny | Guía 4.10 (SE-08) |
 
 ---
 
@@ -144,6 +147,8 @@ tests/                                          65 pruebas (Feature y Unit)
 | Detalle | Explicación |
 |---|---|
 | Las pruebas de páginas fallan sin assets compilados | Las vistas usan `@vite`; sin `public/build/manifest.json` responden 500. Correr `npm run build` (o tener `npm run dev` abierto) antes de `php artisan test`. Si se agrega una entrada nueva en `vite.config.js`, hay que volver a compilar |
+| `APP_KEY` | RFC, CURP y NSS están cifrados con ella: no se cambia sin volver a cifrar, y un respaldo de la base no sirve sin su `APP_KEY` |
+| Un `<script>` nuevo en una vista | Debe llevar `nonce="{{ Vite::cspNonce() }}"`; sin nonce la CSP lo bloquea |
 | Una página nueva con tablas o gráficas | Debe agregar `@push('styles') @vite(['resources/js/wijmo/grid.js', …]) @endpush`; si no, `window.AppUI.wijmo` estará vacío |
 | Checadas de alguien que aún no está registrado | La tarea incremental no las vuelve a pedir; se recuperan con el botón "Sincronizar" o `php artisan hikvision:sync --from=AAAA-MM-DD` |
 | `npm run dev` no es la aplicación | Su URL (puerto 5173) solo sirve CSS y JS; la aplicación se abre en la URL de `php artisan serve` |

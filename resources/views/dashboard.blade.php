@@ -189,7 +189,7 @@
 
 @push('scripts')
 <script id="dashboard-initial-data" type="application/json">@json($dashboardData)</script>
-<script>
+<script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
     const { core: wjCore, grid: wjGrid, chart: wjChart } = window.AppUI.wijmo;
     const { apiFetch, escapeHtml } = window.AppUI;

@@ -9,8 +9,8 @@
 | Estado | Cantidad |
 |---|---|
 | ✅ Resuelto | 0 |
-| ⚠️ Parcial | 0 |
-| ❌ Sin resolver | 5 |
+| ⚠️ Parcial | 1 |
+| ❌ Sin resolver | 3 |
 
 Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
 
@@ -26,9 +26,7 @@ Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADO
 
 ## 3. Datos y privacidad
 
-| Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
-|---|---|---|---|---|
-| 🟡 Media | **SE-05** · RFC, CURP y NSS completos y sin cifrar | Van completos en el JSON del listado y del kardex | Enmascarar en listados y *cast* `encrypted` en la base | ❌ Sin resolver |
+No hay.
 
 ---
 
@@ -37,7 +35,7 @@ Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADO
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
 | 🟡 Media | **SE-06** · Comunicación con la terminal sin cifrar | ISAPI por `http://` con Digest Auth. Depende de TE-04 | HTTPS en la terminal o red aislada entre servidor y terminal | ❌ Sin resolver |
-| 🟡 Media | **SE-08** · Configuración de producción y cabeceras | `APP_DEBUG=true`, sin cookie `Secure` ni cabeceras de seguridad | `.env` de producción y middleware de cabeceras (HSTS, nosniff, X-Frame-Options, CSP) | ❌ Sin resolver |
+| 🟡 Media | **SE-08** · Configuración de producción y cabeceras | `APP_DEBUG=true`, sin cookie `Secure` ni cabeceras de seguridad | `.env` de producción y middleware de cabeceras (HSTS, nosniff, X-Frame-Options, CSP) | ⚠️ Parcial 18/11/2026 |
 
 ---
 

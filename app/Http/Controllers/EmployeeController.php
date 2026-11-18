@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\WorkShift;
 use App\Services\AuditLogger;
 use App\Services\HikvisionIsapiService;
+use App\Support\PersonalData;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -71,7 +72,6 @@ class EmployeeController extends Controller
     public const SORTABLE_COLUMNS = [
         'hikvision_employee_no' => 'hikvision_employee_no',
         'full_name' => 'full_name',
-        'rfc' => 'rfc',
         'department' => 'department',
         'shift_name' => 'shift_name',
         'status_label' => 'is_active',
@@ -85,6 +85,25 @@ class EmployeeController extends Controller
 
     public function __construct(private readonly AuditLogger $audit)
     {
+    }
+
+    /**
+     * Datos completos de un empleado para el formulario de edición. Queda en la bitácora
+     * quién vio RFC, CURP y NSS (auditoría SE-05, guía 4.21).
+     */
+    public function show(Employee $employee): JsonResponse
+    {
+        $employee->load('workShift');
+
+        $this->audit->record(
+            'employee.personal_data_viewed',
+            $employee,
+            "Consulta de RFC, CURP y NSS del empleado #{$employee->hikvision_employee_no}"
+        );
+
+        return response()->json([
+            'employee' => $this->formatEmployeeRow($employee, true),
+        ]);
     }
 
     public function store(StoreEmployeeRequest $request): JsonResponse|RedirectResponse
@@ -323,11 +342,13 @@ class EmployeeController extends Controller
         if ($term !== '') {
             // Se escapan % y _ para que se busquen como texto
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $term).'%';
-            $query->where(function ($q) use ($like): void {
+            $query->where(function ($q) use ($like, $term): void {
+                // RFC y CURP están cifrados: se buscan completos y exactos con su índice ciego (SE-05)
+                $blind = PersonalData::blindIndex($term);
                 $q->where('hikvision_employee_no', 'like', $like)
                     ->orWhere('full_name', 'like', $like)
-                    ->orWhere('rfc', 'like', $like)
-                    ->orWhere('curp', 'like', $like)
+                    ->orWhere('rfc_hash', $blind)
+                    ->orWhere('curp_hash', $blind)
                     ->orWhere('department', 'like', $like)
                     ->orWhere('position', 'like', $like)
                     ->orWhereHas('workShift', fn ($shift) => $shift->where('name', 'like', $like));
@@ -359,17 +380,21 @@ class EmployeeController extends Controller
     }
 
     /**
+     * Fila para la tabla. RFC, CURP y NSS van enmascarados salvo que se pidan completos
+     * (solo al abrir el formulario de edición). Auditoría SE-05.
+     *
      * @return array<string, mixed>
      */
-    private function formatEmployeeRow(Employee $employee): array
+    private function formatEmployeeRow(Employee $employee, bool $withPersonalIds = false): array
     {
         return [
             'id' => $employee->id,
             'hikvision_employee_no' => $employee->hikvision_employee_no,
             'full_name' => $employee->full_name,
-            'rfc' => $employee->rfc,
-            'curp' => $employee->curp,
-            'nss' => $employee->nss,
+            'rfc' => $withPersonalIds ? $employee->rfc : PersonalData::maskRfc($employee->rfc),
+            'curp' => $withPersonalIds ? $employee->curp : PersonalData::maskCurp($employee->curp),
+            'nss' => $withPersonalIds ? $employee->nss : PersonalData::maskNss($employee->nss),
+            'personal_ids_masked' => ! $withPersonalIds,
             'department' => $employee->department,
             'position' => $employee->position,
             'work_shift_id' => $employee->work_shift_id,

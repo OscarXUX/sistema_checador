@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PersonalData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -36,7 +37,31 @@ class Employee extends Model
             'is_active' => 'boolean',
             'fingerprint_enrolled' => 'boolean',
             'device_synced_at' => 'datetime',
+            // Cifrados en la base con APP_KEY (auditoría SE-05)
+            'rfc' => 'encrypted',
+            'curp' => 'encrypted',
+            'nss' => 'encrypted',
         ];
+    }
+
+    /**
+     * Columnas que nunca salen en JSON por accidente.
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['rfc_hash', 'curp_hash'];
+
+    protected static function booted(): void
+    {
+        // Índice ciego para buscar RFC o CURP exactos sin descifrar toda la tabla
+        static::saving(function (Employee $employee): void {
+            if ($employee->isDirty('rfc')) {
+                $employee->rfc_hash = PersonalData::blindIndex($employee->rfc);
+            }
+            if ($employee->isDirty('curp')) {
+                $employee->curp_hash = PersonalData::blindIndex($employee->curp);
+            }
+        });
     }
 
     public function workShift(): BelongsTo

@@ -56,7 +56,7 @@ CREATE DATABASE sistema_checador CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_c
 
 ### 2.3 Configurar el `.env`
 
-Abre `.env` y revisa estas variables. Nunca subas el `.env` al repositorio.
+Abre `.env` y revisa estas variables. Nunca subas el `.env` al repositorio. **No cambies `APP_KEY` después de capturar empleados**: RFC, CURP y NSS se cifran con ella.
 
 ```env
 APP_URL=http://127.0.0.1:8000
@@ -165,6 +165,8 @@ Revisa también el parche más reciente en `docs/parches/`: su sección "Pasos m
 | "Tu sesión expiró" | 30 minutos sin actividad | Vuelve a iniciar sesión |
 | "Ya hay una sincronización en curso" | La tarea programada u otro usuario está sincronizando | Espera unos segundos y vuelve a intentar |
 | Marca de agua de Wijmo arriba a la derecha | Wijmo corre en modo evaluación | Pendiente de licencia (TE-03 en `docs/pendientes/teracrom/`) |
+| En la consola sale "violates the following Content Security Policy" | Un `<script>` sin nonce o un recurso de otro dominio | Agregar `nonce="{{ Vite::cspNonce() }}"` al `<script>`; si usas `npm run dev`, reinícialo |
+| La búsqueda no encuentra un RFC | RFC y CURP están cifrados: solo se encuentran completos y exactos | Escribe el RFC o CURP completo |
 | `package-lock.json` aparece modificado sin cambios reales | Versión de npm distinta | `git checkout -- package-lock.json` o subirlo; usar la misma versión de Node que el equipo |
 
 ---

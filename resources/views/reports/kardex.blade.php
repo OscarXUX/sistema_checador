@@ -172,7 +172,7 @@
 
 @push('scripts')
 <script id="kardex-initial-data" type="application/json">@json(['rows' => $kardexRows, 'logs' => $auditLogs, 'filters' => $filters])</script>
-<script>
+<script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
     const { core: wjCore, grid: wjGrid, filter: wjFilter, gridXlsx: wjGridXlsx } = window.AppUI.wijmo;
     const { showToast, escapeHtml, csvEscape } = window.AppUI;

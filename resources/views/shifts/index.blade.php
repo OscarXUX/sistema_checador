@@ -107,7 +107,7 @@
 @endsection
 
 @push('scripts')
-<script>
+<script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
     const dialog = document.getElementById('shift-dialog');
     const form = document.getElementById('shift-form');
