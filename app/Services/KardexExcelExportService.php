@@ -48,6 +48,8 @@ class KardexExcelExportService
         'P' => ['Horas Extra', 14],
         'Q' => ['Horas Totales', 15],
         'R' => ['Estatus Fiscal', 18],
+        'S' => ['Eventos', 32],
+        'T' => ['Incidencias', 36],
     ];
 
     /**
@@ -105,7 +107,13 @@ class KardexExcelExportService
 
         $departmentFilter = trim((string) $department);
 
-        $summaries = DailySummary::with(['employee.workShift', 'employee.groups:id'])
+        $summaries = DailySummary::with([
+            'employee.workShift',
+            'employee.groups:id',
+            'entryEventType',
+            'exitEventType',
+            'mealEventType',
+        ])
             ->whereBetween('work_date', [$startDay->toDateString(), $endDay->toDateString()])
             ->whereHas('employee', function ($q) use ($departmentFilter, $employeeId): void {
                 if ($departmentFilter !== '') {
@@ -167,7 +175,7 @@ class KardexExcelExportService
             $sheet->getColumnDimension($col)->setWidth($width);
         }
 
-        $sheet->getStyle('A1:R1')->applyFromArray([
+        $sheet->getStyle('A1:T1')->applyFromArray([
             'font' => [
                 'bold' => true,
                 'color' => ['argb' => 'FFF8FAFC'],
@@ -211,6 +219,7 @@ class KardexExcelExportService
                 $totalOrdinaryMinutes = 0;
                 $totalOvertimeMinutes = 0;
                 $totalWorkedMinutes = 0;
+                $totalIncidents = 0;
                 $daysCount = 0;
 
                 foreach ($employeeSummaries as $summary) {
@@ -219,12 +228,21 @@ class KardexExcelExportService
                         : $emp?->workShift;
                     $shiftName = (string) ($resolvedShift?->name ?? $emp?->workShift?->name ?? '-');
                     $ordinaryMinutes = max(0, $summary->worked_minutes - $summary->overtime_minutes);
+                    $eventsLabel = collect([$summary->entryEventType, $summary->mealEventType, $summary->exitEventType])
+                        ->filter()
+                        ->pluck('name')
+                        ->implode(', ');
+                    $incidents = $summary->incidentList();
+                    $incidentsLabel = collect($incidents)
+                        ->map(fn (array $i): string => "{$i['label']} ({$i['at']})")
+                        ->implode('; ');
 
                     $totalMealMinutes += $summary->meal_minutes;
                     $totalLateMinutes += $summary->late_minutes;
                     $totalOrdinaryMinutes += $ordinaryMinutes;
                     $totalOvertimeMinutes += $summary->overtime_minutes;
                     $totalWorkedMinutes += $summary->worked_minutes;
+                    $totalIncidents += count($incidents);
                     $daysCount++;
 
                     // Todos los textos se escriben explícitamente como STRING para impedir ejecución de fórmulas (=, +, -, @)
@@ -257,6 +275,8 @@ class KardexExcelExportService
                     $sheet->getStyle("O{$row}:Q{$row}")->getNumberFormat()->setFormatCode('0.00');
 
                     $this->writeStringCell($sheet, "R{$row}", DailySummary::statusLabel($summary->status));
+                    $this->writeStringCell($sheet, "S{$row}", $eventsLabel);
+                    $this->writeStringCell($sheet, "T{$row}", $incidentsLabel);
 
                     $row++;
                 }
@@ -274,10 +294,12 @@ class KardexExcelExportService
                 $sheet->setCellValueExplicit("P{$row}", round($totalOvertimeMinutes / 60, 2), DataType::TYPE_NUMERIC);
                 $sheet->setCellValueExplicit("Q{$row}", round($totalWorkedMinutes / 60, 2), DataType::TYPE_NUMERIC);
                 $this->writeStringCell($sheet, "R{$row}", "{$daysCount} días");
+                $this->writeStringCell($sheet, "S{$row}", '');
+                $this->writeStringCell($sheet, "T{$row}", $totalIncidents === 1 ? '1 incidencia' : "{$totalIncidents} incidencias");
 
                 $sheet->getStyle("M{$row}:N{$row}")->getNumberFormat()->setFormatCode('0');
                 $sheet->getStyle("O{$row}:Q{$row}")->getNumberFormat()->setFormatCode('0.00');
-                $sheet->getStyle("A{$row}:R{$row}")->applyFromArray([
+                $sheet->getStyle("A{$row}:T{$row}")->applyFromArray([
                     'font' => [
                         'bold' => true,
                         'color' => ['argb' => 'FF0F172A'],
@@ -297,7 +319,7 @@ class KardexExcelExportService
         }
 
         $lastRow = max(1, $row - 1);
-        $sheet->setAutoFilter("A1:R{$lastRow}");
+        $sheet->setAutoFilter("A1:T{$lastRow}");
     }
 
     private function writeStringCell(Worksheet $sheet, string $coordinate, string $value): void

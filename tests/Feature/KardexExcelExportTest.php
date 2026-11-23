@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\AttendanceEventType;
 use App\Models\DailySummary;
 use App\Models\Employee;
 use App\Models\User;
 use App\Models\WorkShift;
+use App\Services\PunchClassifier;
 use App\Support\PersonalData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
@@ -65,6 +67,8 @@ class KardexExcelExportTest extends TestCase
             'is_active' => true,
         ]);
 
+        $onTimeEventId = AttendanceEventType::where('code', 'a_tiempo')->value('id');
+
         foreach (['2026-01-15', '2026-02-15', '2026-03-15'] as $workDate) {
             DailySummary::create([
                 'employee_id' => $this->employee->id,
@@ -78,6 +82,10 @@ class KardexExcelExportTest extends TestCase
                 'late_minutes' => 0,
                 'overtime_minutes' => 60,
                 'status' => DailySummary::STATUS_ON_TIME,
+                'entry_event_type_id' => $workDate === '2026-01-15' ? $onTimeEventId : null,
+                'incidents' => $workDate === '2026-01-15'
+                    ? [['code' => PunchClassifier::INCIDENT_EXTRA_ENTRY, 'at' => '2026-01-15 09:05:00']]
+                    : null,
             ]);
         }
 
@@ -117,7 +125,9 @@ class KardexExcelExportTest extends TestCase
             $this->assertNotNull($janSheet);
 
             // Encabezado en negritas, primera fila congelada y autofiltro activo
-            $this->assertTrue($janSheet->getStyle('A1:R1')->getFont()->getBold());
+            $this->assertTrue($janSheet->getStyle('A1:T1')->getFont()->getBold());
+            $this->assertSame('Eventos', $janSheet->getCell('S1')->getValue());
+            $this->assertSame('Incidencias', $janSheet->getCell('T1')->getValue());
             $this->assertSame('A2', $janSheet->getFreezePane());
             $this->assertNotSame('', $janSheet->getAutoFilter()->getRange());
             $this->assertGreaterThan(10, $janSheet->getColumnDimension('B')->getWidth());
@@ -125,6 +135,8 @@ class KardexExcelExportTest extends TestCase
             // Formatos requeridos: fechas dd/mm/yyyy (dd/mm/aaaa) y horas 0.00
             $this->assertSame('dd/mm/yyyy', $janSheet->getStyle('H2')->getNumberFormat()->getFormatCode());
             $this->assertSame('0.00', $janSheet->getStyle('Q2')->getNumberFormat()->getFormatCode());
+            $this->assertSame('A tiempo', $janSheet->getCell('S2')->getValue());
+            $this->assertSame('Entrada repetida (09:05:00)', $janSheet->getCell('T2')->getValue());
 
             // Verificar que los valores crudos sensibles NUNCA aparecen en ninguna hoja
             foreach ($spreadsheet->getAllSheets() as $sheet) {
@@ -138,7 +150,8 @@ class KardexExcelExportTest extends TestCase
             // RFC enmascarado y texto con '=' escrito explícitamente como STRING (nunca fórmula)
             $this->assertSame(PersonalData::maskRfc(self::RFC), $janSheet->getCell('C2')->getValue());
             $this->assertSame('TOTAL Sofía Herrera León', $janSheet->getCell('B3')->getValue());
-            $this->assertTrue($janSheet->getStyle('A3:R3')->getFont()->getBold());
+            $this->assertTrue($janSheet->getStyle('A3:T3')->getFont()->getBold());
+            $this->assertSame('1 incidencia', $janSheet->getCell('T3')->getValue());
             $this->assertEqualsWithDelta(9.0, (float) $janSheet->getCell('Q3')->getValue(), 0.001);
 
             $formulaCell = $janSheet->getCell('B4');

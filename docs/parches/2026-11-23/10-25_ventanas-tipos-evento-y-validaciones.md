@@ -97,5 +97,5 @@ Los empleados sin turno siguen con la clasificación anterior.
 | Prioridad | Pendiente | Detalle |
 |---|---|---|
 | ✅ Resuelto | Corrección manual de una checada | `docs/parches/2026-11-23/10-50_correccion-de-checadas-e-incidencias-en-dashboard.md` |
-| 🟡 Media | Excel del servidor (O1) | El Excel por mes de Oscar todavía no trae "Eventos" ni "Incidencias"; el CSV sí. Lo hace Oscar |
+| ✅ Resuelto | Excel del servidor (O1) | Columnas `Eventos` (`S`) e `Incidencias` (`T`) ya incluidas en `KardexExcelExportService` |
 | ✅ Resuelto | Dashboard | Mismo parche: aviso de incidencias de hoy |
