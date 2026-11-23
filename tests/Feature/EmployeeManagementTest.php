@@ -2,15 +2,27 @@
 
 namespace Tests\Feature;
 
+use App\Models\AttendanceLog;
+use App\Models\DailySummary;
 use App\Models\Employee;
 use App\Models\WorkShift;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use App\Models\User;
 use Tests\TestCase;
 
 class EmployeeManagementTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Todas las rutas requieren sesión (SE-01)
+        $this->actingAs(User::factory()->create());
+    }
 
     private function seedShift(): WorkShift
     {
@@ -51,6 +63,16 @@ class EmployeeManagementTest extends TestCase
                 'statusString' => 'OK',
             ], 200),
             'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => Http::response([
+                'CaptureFingerPrint' => [
+                    'fingerPrintData' => [
+                        'fingerPrintID' => 2,
+                        'fingerData' => 'PLANTILLA_BIOMETRICA_DE_PRUEBA',
+                    ],
+                ],
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+            'http://192.168.0.69/ISAPI/AccessControl/FingerPrint/SetUp?format=json' => Http::response([
                 'statusCode' => 1,
                 'statusString' => 'OK',
             ], 200),
@@ -106,5 +128,91 @@ class EmployeeManagementTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['rfc', 'curp', 'nss']);
     }
-}
 
+    private function seedEmployeeWithPunch(WorkShift $shift, string $employeeNo = '4600'): Employee
+    {
+        $employee = Employee::create([
+            'hikvision_employee_no' => $employeeNo,
+            'full_name' => 'Mario Ruiz Torres',
+            'department' => 'Almacén',
+            'position' => 'Montacarguista',
+            'work_shift_id' => $shift->id,
+            'is_active' => true,
+        ]);
+
+        AttendanceLog::create([
+            'employee_id' => $employee->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => now()->setTime(9, 0),
+            'event_type' => AttendanceLog::EVENT_CHECK_IN,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['attendanceStatus' => 'checkIn'],
+        ]);
+
+        return $employee;
+    }
+
+    public function test_employee_with_attendance_is_deactivated_and_history_is_kept(): void
+    {
+        $employee = $this->seedEmployeeWithPunch($this->seedShift());
+
+        $this->deleteJson("/employees/{$employee->id}")
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('deactivated', true);
+
+        $this->assertDatabaseHas('employees', ['id' => $employee->id, 'is_active' => false]);
+        $this->assertSame(1, AttendanceLog::where('employee_id', $employee->id)->count());
+        $this->assertSame(1, DailySummary::where('employee_id', $employee->id)->count());
+    }
+
+    public function test_database_blocks_deleting_employee_with_attendance(): void
+    {
+        $employee = $this->seedEmployeeWithPunch($this->seedShift());
+
+        $this->expectException(QueryException::class);
+
+        $employee->delete();
+    }
+
+    public function test_fingerprint_capture_response_does_not_expose_template(): void
+    {
+        $shift = $this->seedShift();
+        $employee = Employee::create([
+            'hikvision_employee_no' => '4700',
+            'full_name' => 'Laura Gómez Paz',
+            'department' => 'Calidad',
+            'position' => 'Inspectora',
+            'work_shift_id' => $shift->id,
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'http://192.168.0.69/ISAPI/AccessControl/UserInfo/Record?format=json' => Http::response([
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+            'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => Http::response([
+                'CaptureFingerPrint' => [
+                    'fingerPrintData' => [
+                        'fingerPrintID' => 1,
+                        'fingerData' => 'PLANTILLA_BIOMETRICA_DE_PRUEBA',
+                    ],
+                ],
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+            'http://192.168.0.69/ISAPI/AccessControl/FingerPrint/SetUp?format=json' => Http::response([
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+        ]);
+
+        $response = $this->postJson("/employees/{$employee->id}/capture-fingerprint", ['finger_no' => 1])
+            ->assertOk()
+            ->assertJsonPath('template_captured', true)
+            ->assertJsonMissingPath('detail');
+
+        $this->assertStringNotContainsString('PLANTILLA_BIOMETRICA_DE_PRUEBA', (string) $response->getContent());
+    }
+}

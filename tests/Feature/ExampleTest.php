@@ -7,11 +7,20 @@ use App\Models\Employee;
 use App\Models\WorkShift;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use App\Models\User;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Todas las rutas requieren sesión (SE-01)
+        $this->actingAs(User::factory()->create());
+    }
 
     public function test_dashboard_kardex_shifts_and_device_endpoints_render_cleanly(): void
     {

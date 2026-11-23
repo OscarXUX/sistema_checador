@@ -11,7 +11,8 @@
     @stack('styles')
 </head>
 <body data-device-status-url="{{ route('device.status') }}"
-      data-device-sync-url="{{ route('device.sync') }}">
+      data-device-sync-url="{{ route('device.sync') }}"
+      data-login-url="{{ route('login') }}">
 
 <div class="app-shell">
     <!-- Sidebar fijo en escritorio -->
@@ -55,6 +56,17 @@
                     <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
                     <span>Sincronizar</span>
                 </button>
+                @auth
+                    <form method="POST" action="{{ route('logout') }}" class="d-flex align-items-center gap-2 ms-1">
+                        @csrf
+                        <span class="small text-secondary d-none d-md-inline" title="{{ auth()->user()->email }}">
+                            <i class="bi bi-person-circle me-1" aria-hidden="true"></i>{{ auth()->user()->name }}
+                        </span>
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" title="Cerrar sesión" aria-label="Cerrar sesión">
+                            <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                        </button>
+                    </form>
+                @endauth
             </div>
         </header>
 

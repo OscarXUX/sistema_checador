@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AttendanceLog;
 use App\Models\DailySummary;
 use App\Models\Employee;
+use App\Support\PersonalData;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,11 @@ use Illuminate\View\View;
 
 class ReportController extends Controller
 {
+    /**
+     * Rango máximo de días que se consulta en el kardex (auditoría OP-04).
+     */
+    public const MAX_RANGE_DAYS = 93;
+
     public function kardex(Request $request): View
     {
         $filters = $this->resolveFilters($request);
@@ -61,9 +67,19 @@ class ReportController extends Controller
             [$start, $end] = [$end, $start];
         }
 
+        // Si el rango excede el máximo, se recorta la fecha de inicio y se avisa en pantalla
+        $rangeAdjusted = false;
+        $earliestStart = Carbon::parse($end)->subDays(self::MAX_RANGE_DAYS - 1)->toDateString();
+        if ($start < $earliestStart) {
+            $start = $earliestStart;
+            $rangeAdjusted = true;
+        }
+
         return [
             'start_date' => $start,
             'end_date' => $end,
+            'range_adjusted' => $rangeAdjusted,
+            'max_range_days' => self::MAX_RANGE_DAYS,
             'department' => trim((string) $request->query('department', '')),
             'employee_id' => $request->filled('employee_id') ? (int) $request->query('employee_id') : null,
         ];
@@ -103,11 +119,12 @@ class ReportController extends Controller
                     $emp?->hikvision_employee_no ?? '-',
                     $emp?->full_name ?? 'N/D',
                     $emp?->department ?? '-',
-                    $emp?->rfc ?: 'S/R'
+                    PersonalData::maskRfc($emp?->rfc) ?? 'S/R'
                 ),
-                'rfc' => $emp?->rfc ?? '-',
-                'curp' => $emp?->curp ?? '-',
-                'nss' => $emp?->nss ?? '-',
+                // Enmascarados también en pantalla y exportaciones (auditoría SE-05)
+                'rfc' => PersonalData::maskRfc($emp?->rfc) ?? '-',
+                'curp' => PersonalData::maskCurp($emp?->curp) ?? '-',
+                'nss' => PersonalData::maskNss($emp?->nss) ?? '-',
                 'department' => $emp?->department ?? '-',
                 'shift_name' => $shift?->name ?? '-',
                 'work_date' => $summary->work_date->toDateString(),

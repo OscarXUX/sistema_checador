@@ -4,6 +4,11 @@
 @section('page_title', 'Gestión de Empleados y Enrolamiento')
 @section('page_subtitle', 'Padrón fiscal laboral conectado por ISAPI con DS-K1T804AEF')
 
+@push('styles')
+    {{-- Wijmo solo en esta página (auditoría OP-06) --}}
+    @vite(['resources/js/wijmo/grid.js'])
+@endpush
+
 @section('content')
 <section class="surface-card p-3 p-md-4 isolated-panel">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
@@ -18,7 +23,7 @@
                         <input id="employee-search-input"
                                type="search"
                                class="form-control bg-dark border-secondary-subtle"
-                               placeholder="Buscar nombre, ID reloj, RFC, depto..."
+                               placeholder="Buscar nombre, ID reloj, depto o RFC/CURP completo..."
                                autocorrect="off"
                                autocapitalize="none"
                                spellcheck="false">
@@ -26,7 +31,7 @@
                 </form>
             </search>
             <span class="badge text-bg-dark border border-secondary-subtle" id="employee-count-badge">
-                {{ count($employeesJson) }} empleados
+                {{ $employeesPage['meta']['total'] }} empleados
             </span>
         </div>
 
@@ -37,6 +42,19 @@
     </div>
 
     <div id="employees-grid" aria-label="Tabla de empleados y acciones biométricas"></div>
+
+    {{-- Paginación en el servidor (auditoría OP-07) --}}
+    <nav class="d-flex justify-content-between align-items-center gap-2 mt-3" aria-label="Páginas de empleados">
+        <button id="employees-prev" type="button" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-chevron-left" aria-hidden="true"></i> Anterior
+        </button>
+        <span id="employees-page-label" class="small text-secondary font-mono-tabular" aria-live="polite">
+            Página {{ $employeesPage['meta']['page'] }} de {{ $employeesPage['meta']['last_page'] }}
+        </span>
+        <button id="employees-next" type="button" class="btn btn-outline-secondary btn-sm">
+            Siguiente <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        </button>
+    </nav>
 </section>
 
 <!-- Modal nativo <dialog>: Crear / Editar Empleado -->
@@ -241,14 +259,15 @@
 <dialog id="delete-employee-dialog" class="app-dialog" closedby="any" aria-labelledby="delete-dialog-title">
     <div class="surface-card overflow-hidden">
         <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
-            <h2 id="delete-dialog-title" class="h6 mb-0 fw-semibold text-danger">Confirmar Eliminación</h2>
+            <h2 id="delete-dialog-title" class="h6 mb-0 fw-semibold text-danger">Confirmar Baja</h2>
             <button type="button" class="btn-close" data-close-dialog="delete-employee-dialog" aria-label="Cerrar ventana"></button>
         </div>
 
         <div class="p-3 p-md-4">
             <p class="mb-3">
-                ¿Deseas eliminar a <strong id="del-employee-name"></strong> (<span id="del-employee-no" class="font-mono-tabular"></span>)?
-                Esta acción eliminará su historial local de resúmenes y bitácora asociada.
+                ¿Deseas dar de baja a <strong id="del-employee-name"></strong> (<span id="del-employee-no" class="font-mono-tabular"></span>)?
+                Si ya tiene checadas, quedará como <strong>Inactivo</strong> y se conserva su historial.
+                Si no tiene checadas, se elimina del sistema.
             </p>
             <div class="form-check">
                 <input id="del-from-device" class="form-check-input" type="checkbox" value="1">
@@ -263,7 +282,7 @@
                 Cancelar
             </button>
             <button id="del-confirm-btn" type="button" class="btn btn-danger btn-sm">
-                Eliminar Definitivamente
+                Dar de Baja
             </button>
         </div>
     </div>
@@ -271,8 +290,8 @@
 @endsection
 
 @push('scripts')
-<script id="employees-initial-data" type="application/json">@json($employeesJson)</script>
-<script>
+<script id="employees-initial-data" type="application/json">@json($employeesPage)</script>
+<script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
     const { core: wjCore, grid: wjGrid } = window.AppUI.wijmo;
     const { apiFetch, showToast, escapeHtml } = window.AppUI;
@@ -283,32 +302,66 @@ document.addEventListener('DOMContentLoaded', () => {
         list: '{{ route("employees.list") }}',
     };
 
-    let employees = JSON.parse(document.getElementById('employees-initial-data').textContent);
+    // Paginación y búsqueda en el servidor (auditoría OP-07): la página solo trae 50 empleados a la vez
+    const initialPage = JSON.parse(document.getElementById('employees-initial-data').textContent);
+    let employees = initialPage.employees || [];
+    let meta = initialPage.meta;
     const view = new wjCore.CollectionView(employees);
     const searchInput = document.getElementById('employee-search-input');
+    const prevBtn = document.getElementById('employees-prev');
+    const nextBtn = document.getElementById('employees-next');
     document.getElementById('employee-filter-form')?.addEventListener('submit', (e) => e.preventDefault());
 
-    view.filter = (item) => {
-        const term = (searchInput.value || '').trim().toLowerCase();
-        if (!term) return true;
-        return [
-            item.hikvision_employee_no,
-            item.full_name,
-            item.rfc,
-            item.curp,
-            item.department,
-            item.position,
-            item.shift_name,
-        ].some((v) => String(v || '').toLowerCase().includes(term));
-    };
-
+    let searchTimer = null;
     searchInput.addEventListener('input', () => {
-        view.refresh();
-        updateCount();
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadPage(1), 300);
     });
+    prevBtn.addEventListener('click', () => loadPage(meta.page - 1));
+    nextBtn.addEventListener('click', () => loadPage(meta.page + 1));
 
     function updateCount() {
-        document.getElementById('employee-count-badge').textContent = `${view.items.length} empleados`;
+        document.getElementById('employee-count-badge').textContent = `${meta.total} empleados`;
+        document.getElementById('employees-page-label').textContent = `Página ${meta.page} de ${meta.last_page}`;
+        prevBtn.disabled = meta.page <= 1;
+        nextBtn.disabled = meta.page >= meta.last_page;
+    }
+    updateCount();
+
+    // Orden en el servidor: se aplica a todos los empleados (o a toda la búsqueda) antes de paginar.
+    // La tabla no reordena localmente (el comparador siempre empata y conserva el orden del servidor);
+    // solo muestra la flecha de la columna elegida.
+    view.sortComparer = () => 0;
+    let sortState = { sort: meta.sort || 'hikvision_employee_no', direction: meta.direction || 'asc' };
+
+    view.sortDescriptions.collectionChanged.addHandler(() => {
+        const sd = view.sortDescriptions[0];
+        const next = sd
+            ? { sort: sd.property, direction: sd.ascending ? 'asc' : 'desc' }
+            : { sort: 'hikvision_employee_no', direction: 'asc' };
+
+        if (next.sort === sortState.sort && next.direction === sortState.direction) return;
+        sortState = next;
+        loadPage(1);
+    });
+
+    async function loadPage(page) {
+        const params = new URLSearchParams({
+            page: String(Math.max(1, page)),
+            q: (searchInput.value || '').trim(),
+            sort: sortState.sort,
+            direction: sortState.direction,
+        });
+        try {
+            const data = await apiFetch(`${routes.list}?${params}`, { method: 'GET' });
+            employees = data.employees || [];
+            meta = data.meta;
+            view.sourceCollection = employees;
+            view.refresh();
+            updateCount();
+        } catch (err) {
+            showToast(err.message || 'No se pudo cargar la lista de empleados.', 'danger');
+        }
     }
 
     const grid = new wjGrid.FlexGrid('#employees-grid', {
@@ -320,7 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
         columns: [
             { binding: 'hikvision_employee_no', header: 'ID Reloj', width: 95, cssClass: 'font-mono-tabular' },
             { binding: 'full_name', header: 'Nombre Completo', width: '*', minWidth: 200 },
-            { binding: 'rfc', header: 'RFC', width: 140, cssClass: 'font-mono-tabular' },
+            { binding: 'rfc', header: 'RFC', width: 140, cssClass: 'font-mono-tabular', allowSorting: false },
             { binding: 'department', header: 'Departamento', width: 130 },
             { binding: 'shift_name', header: 'Turno', width: 165 },
             { binding: 'status_label', header: 'Estado', width: 95 },
@@ -359,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button type="button" class="btn btn-outline-light" data-action="edit" data-id="${row.id}" title="Editar empleado">
                         <i class="bi bi-pencil" aria-hidden="true"></i>
                     </button>
-                    <button type="button" class="btn btn-outline-danger" data-action="delete" data-id="${row.id}" title="Eliminar empleado">
+                    <button type="button" class="btn btn-outline-danger" data-action="delete" data-id="${row.id}" title="Dar de baja">
                         <i class="bi bi-trash" aria-hidden="true"></i>
                     </button>
                 </div>`;
@@ -394,7 +447,16 @@ document.addEventListener('DOMContentLoaded', () => {
         formDialog.showModal();
     }
 
-    function openEditModal(emp) {
+    // La tabla trae RFC, CURP y NSS enmascarados; los completos se piden solo al editar (SE-05)
+    async function openEditModal(rowEmp) {
+        let emp;
+        try {
+            emp = (await apiFetch(`${routes.updateBase}/${rowEmp.id}`, { method: 'GET' })).employee;
+        } catch (err) {
+            showToast(err.message || 'No se pudieron cargar los datos del empleado.', 'danger');
+            return;
+        }
+
         clearFormErrors();
         document.getElementById('emp-id').value = emp.id;
         document.getElementById('emp-no').value = emp.hikvision_employee_no || '';
@@ -576,11 +638,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function reloadEmployees() {
-        const data = await apiFetch(routes.list, { method: 'GET' });
-        employees = data.employees || [];
-        view.sourceCollection = employees;
-        view.refresh();
-        updateCount();
+        // Recarga la página actual con la búsqueda actual
+        await loadPage(meta.page);
     }
 
     // Delegación única de eventos sobre FlexGrid

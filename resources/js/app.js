@@ -1,19 +1,10 @@
 import './bootstrap';
 import * as bootstrap from 'bootstrap';
-import wjCore from './wijmo-bootstrap';
-import '@mescius/wijmo.cultures/wijmo.culture.es-MX.js';
-import * as wjGrid from '@mescius/wijmo.grid';
-import * as wjFilter from '@mescius/wijmo.grid.filter';
-import * as wjXlsx from '@mescius/wijmo.xlsx';
-import * as wjGridXlsx from '@mescius/wijmo.grid.xlsx';
-import * as wjChart from '@mescius/wijmo.chart';
-import JSZip from 'jszip';
+import { csvEscape } from './csv';
 
 window.bootstrap = bootstrap;
 
-// Registrar JSZip para exportación nativa a Excel con FlexGridXlsxConverter
-const resolvedJsZip = typeof JSZip === 'function' ? JSZip : (JSZip?.default ?? JSZip);
-wjXlsx.useJSZip(resolvedJsZip);
+// Wijmo se carga solo en las páginas que lo usan: resources/js/wijmo/*.js (auditoría OP-06)
 
 function getCsrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
@@ -85,6 +76,15 @@ async function apiFetch(url, options = {}) {
     });
 
     const data = await response.json().catch(() => ({}));
+
+    // 401: sin sesión; 419: token CSRF vencido junto con la sesión (auditoría SE-01)
+    if (response.status === 401 || response.status === 419) {
+        const loginUrl = document.body.dataset.loginUrl || '/login';
+        window.location.assign(`${loginUrl}?expirada=1`);
+        const error = new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
+        error.status = response.status;
+        throw error;
+    }
 
     if (!response.ok) {
         const error = new Error(data.message || `Error HTTP ${response.status}`);
@@ -216,10 +216,12 @@ function initDeviceControls() {
     const statusUrl = document.body.dataset.deviceStatusUrl;
     const syncUrl = document.body.dataset.deviceSyncUrl;
 
-    async function refreshStatus() {
+    // fresh = true vuelve a consultar la terminal; si no, el servidor responde de su caché de 30 s (OP-05)
+    async function refreshStatus(fresh = false) {
         if (!statusUrl) return;
         try {
-            const payload = await apiFetch(statusUrl, { method: 'GET' });
+            const url = fresh ? `${statusUrl}?fresh=1` : statusUrl;
+            const payload = await apiFetch(url, { method: 'GET' });
             updateDeviceStatusBadges(payload);
         } catch {
             updateDeviceStatusBadges({
@@ -231,10 +233,10 @@ function initDeviceControls() {
     }
 
     refreshStatus();
-    setInterval(refreshStatus, 30000);
+    setInterval(() => refreshStatus(), 30000);
 
     document.querySelectorAll('[data-refresh-device-status]').forEach((btn) => {
-        btn.addEventListener('click', () => refreshStatus());
+        btn.addEventListener('click', () => refreshStatus(true));
     });
 
     document.querySelectorAll('[data-sync-now-btn]').forEach((btn) => {
@@ -248,10 +250,11 @@ function initDeviceControls() {
                 const res = await apiFetch(syncUrl, { method: 'POST' });
                 showToast(res.message || 'Sincronización completada.', 'success');
                 window.dispatchEvent(new CustomEvent('hikvision:synced', { detail: res }));
-                refreshStatus();
+                refreshStatus(true);
             } catch (err) {
-                showToast(err.message || 'No se pudo sincronizar con la terminal Hikvision.', 'danger');
-                refreshStatus();
+                // 409: ya hay una sincronización en curso (SE-13)
+                showToast(err.message || 'No se pudo sincronizar con la terminal Hikvision.', err.status === 409 ? 'warning' : 'danger');
+                refreshStatus(true);
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalHtml;
@@ -260,19 +263,14 @@ function initDeviceControls() {
     });
 }
 
-window.AppUI = {
-    wijmo: {
-        core: wjCore,
-        grid: wjGrid,
-        filter: wjFilter,
-        xlsx: wjXlsx,
-        gridXlsx: wjGridXlsx,
-        chart: wjChart,
-    },
+// Se combina con lo que ya hayan registrado los módulos de Wijmo de la página
+window.AppUI = Object.assign(window.AppUI || {}, {
+    wijmo: window.AppUI?.wijmo || {},
     apiFetch,
     showToast,
     escapeHtml,
-};
+    csvEscape,
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     initDialogFallbacks();

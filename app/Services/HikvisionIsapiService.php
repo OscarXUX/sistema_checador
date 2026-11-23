@@ -138,7 +138,8 @@ class HikvisionIsapiService
                 'mac_address' => null,
                 'http_status' => null,
                 'checked_at' => $checkedAt,
-                'message' => 'Error de comunicación ISAPI: '.$e->getMessage(),
+                // Mensaje genérico; el detalle queda en el log (SE-12)
+                'message' => 'Error inesperado al comunicarse con la terminal. Revisa el log del sistema.',
             ];
         }
     }
@@ -268,7 +269,7 @@ XML;
                 'employee_no' => $employeeNo,
                 'finger_no' => $fingerIndex,
                 'http_status' => $response->status(),
-                'raw_body' => $response->body(),
+                'body' => $this->redactSensitive($body),
             ]);
 
             $xmlWithoutReader = <<<XML
@@ -294,9 +295,21 @@ XML;
 
         $cleanFingerData = is_string($fingerData) ? trim($fingerData) : '';
 
-        if ($cleanFingerData !== '') {
-            $this->bindCapturedFingerprint($employeeNo, $fingerIndex, $cleanFingerData);
+        // Sin plantilla no hay huella registrada: se falla en lugar de marcarla como capturada (SE-10)
+        if ($cleanFingerData === '') {
+            Log::warning('La terminal respondió OK a CaptureFingerPrint pero sin plantilla de huella', [
+                'employee_no' => $employeeNo,
+                'finger_no' => $fingerIndex,
+            ]);
+
+            throw new HikvisionConnectionException(
+                'La terminal no devolvió la huella capturada. Coloca el dedo de nuevo en el lector e intenta otra vez.',
+                $response->status(),
+                $endpoint
+            );
         }
+
+        $this->bindCapturedFingerprint($employeeNo, $fingerIndex, $cleanFingerData);
 
         Employee::where('hikvision_employee_no', $employeeNo)->update([
             'fingerprint_enrolled' => true,
@@ -307,8 +320,8 @@ XML;
             'success' => true,
             'employee_no' => $employeeNo,
             'finger_no' => $fingerIndex,
-            'template_captured' => $cleanFingerData !== '',
-            'device_response' => $body,
+            'template_captured' => true,
+            // Sin device_response: trae la plantilla biométrica (fingerData) y no debe salir del servidor (SE-04).
             'message' => "Huella #{$fingerIndex} capturada y asociada al empleado {$employeeNo}.",
         ];
     }
@@ -324,6 +337,11 @@ XML;
                 ->withBody($xmlPayload, 'application/xml')
                 ->post($this->endpoint($endpoint));
         } catch (ConnectionException $e) {
+            Log::warning('Hikvision ISAPI CaptureFingerPrint connection failed', [
+                'endpoint' => $endpoint,
+                'error' => $e->getMessage(),
+            ]);
+
             throw new HikvisionConnectionException(
                 'Tiempo de espera agotado al activar el lector biométrico en '.$this->getDeviceIp().'.',
                 null,
@@ -484,8 +502,14 @@ XML;
                 default => $request->post($this->endpoint($endpoint), $payload),
             };
         } catch (ConnectionException $e) {
+            // El detalle técnico (cURL) va al log, no al usuario (SE-12)
+            Log::warning('Hikvision ISAPI connection failed', [
+                'endpoint' => $endpoint,
+                'error' => $e->getMessage(),
+            ]);
+
             throw new HikvisionConnectionException(
-                'No se pudo conectar con la terminal Hikvision en '.$this->getDeviceIp().': '.$e->getMessage(),
+                'No se pudo conectar con la terminal Hikvision en '.$this->getDeviceIp().'. Verifica que esté encendida y en la misma red.',
                 null,
                 $endpoint,
                 $e
@@ -571,12 +595,12 @@ XML;
             return;
         }
 
+        // Se registra el cuerpo para depurar, pero sin datos biométricos ni credenciales (SE-04).
         Log::error('Hikvision ISAPI rechazó la petición o devolvió statusCode != 1', [
             'endpoint' => $endpoint,
             'http_status' => $response->status(),
             'status_code' => $statusCode,
-            'body' => $body,
-            'raw_body' => $response->body(),
+            'body' => $this->redactSensitive($body),
         ]);
 
         $detail = $body['errorMsg']
@@ -588,6 +612,42 @@ XML;
             $response->status(),
             $endpoint
         );
+    }
+
+    /**
+     * Llaves que nunca se registran ni se devuelven al cliente (comparación sin mayúsculas).
+     */
+    private const SENSITIVE_KEYS = [
+        'fingerdata',
+        'facedata',
+        'facepic',
+        'facepicdata',
+        'picdata',
+        'password',
+        'pwd',
+    ];
+
+    private const MAX_RAW_LOG_LENGTH = 500;
+
+    /**
+     * Reemplaza datos biométricos y credenciales por [REDACTADO] y recorta texto crudo.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @return array<array-key, mixed>
+     */
+    private function redactSensitive(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if (is_string($key) && in_array(strtolower($key), self::SENSITIVE_KEYS, true)) {
+                $data[$key] = '[REDACTADO]';
+            } elseif (is_array($value)) {
+                $data[$key] = $this->redactSensitive($value);
+            } elseif ($key === 'raw' && is_string($value) && mb_strlen($value) > self::MAX_RAW_LOG_LENGTH) {
+                $data[$key] = mb_substr($value, 0, self::MAX_RAW_LOG_LENGTH).'… [recortado]';
+            }
+        }
+
+        return $data;
     }
 
     /**

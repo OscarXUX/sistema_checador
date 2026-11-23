@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
 /**
@@ -17,7 +18,15 @@ use Illuminate\Support\Collection;
 class AttendanceCalculatorService
 {
     /**
+     * Filas por sentencia INSERT al guardar checadas descargadas.
+     */
+    private const INSERT_CHUNK = 500;
+
+    /**
      * Descarga eventos desde el dispositivo ISAPI en un rango y los procesa en bitácora y kardex.
+     *
+     * Optimizado (auditoría OP-02): empleados en un mapa, checadas existentes del rango en una
+     * consulta, inserción en lote con insertOrIgnore y un solo recálculo por empleado y día.
      *
      * @return array<string, int|string>
      */
@@ -27,37 +36,104 @@ class AttendanceCalculatorService
         CarbonInterface $end
     ): array {
         $events = $isapi->fetchAttendanceEvents($start, $end);
-        $knownEmployees = Employee::pluck('id', 'hikvision_employee_no');
 
-        $inserted = 0;
-        $skipped = 0;
+        /** @var \Illuminate\Support\Collection<string, Employee> $knownEmployees */
+        $knownEmployees = Employee::with('workShift')->get()->keyBy('hikvision_employee_no');
+
         $unmatched = 0;
+        $candidates = [];
 
         foreach ($events as $event) {
-            $employeeNo = (string) ($event['employee_no'] ?? '');
+            $employee = $knownEmployees->get((string) ($event['employee_no'] ?? ''));
 
-            if ($employeeNo === '' || ! $knownEmployees->has($employeeNo)) {
+            if ($employee === null) {
                 $unmatched++;
 
                 continue;
             }
 
-            $log = $this->ingestEvent($event);
+            $punchedAt = $event['punched_at'] instanceof CarbonInterface
+                ? Carbon::instance($event['punched_at'])
+                : Carbon::parse((string) $event['punched_at']);
 
-            if ($log !== null) {
-                $inserted++;
-            } else {
-                $skipped++;
-            }
+            // La misma checada puede venir repetida en la misma descarga
+            $candidates[$employee->id.'|'.$punchedAt->format('Y-m-d H:i:s')] = [$employee, $punchedAt, $event];
         }
+
+        $existing = $this->existingPunchKeys($candidates);
+        $now = now();
+        $rows = [];
+        $touchedDays = [];
+
+        foreach ($candidates as $key => [$employee, $punchedAt, $event]) {
+            if (isset($existing[$key])) {
+                continue;
+            }
+
+            $rows[] = [
+                'employee_id' => $employee->id,
+                'device_ip' => (string) ($event['device_ip'] ?? $isapi->getDeviceIp()),
+                'punched_at' => $punchedAt->format('Y-m-d H:i:s'),
+                'event_type' => (string) ($event['event_type'] ?? AttendanceLog::EVENT_UNCLASSIFIED),
+                'verification_mode' => mb_substr((string) ($event['verification_mode'] ?? 'fingerprint'), 0, 32),
+                'raw_payload' => json_encode($event['raw_payload'] ?? [], JSON_UNESCAPED_UNICODE),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+
+            $touchedDays[$employee->id.'|'.$punchedAt->toDateString()] = [$employee, $punchedAt];
+        }
+
+        $inserted = 0;
+        foreach (array_chunk($rows, self::INSERT_CHUNK) as $chunk) {
+            // insertOrIgnore respeta el índice único si otra sincronización ya insertó la checada
+            $inserted += DB::table('attendance_logs')->insertOrIgnore($chunk);
+        }
+
+        foreach ($touchedDays as [$employee, $workDate]) {
+            $this->recalculateForEmployeeDate($employee, $workDate);
+        }
+
+        $matched = count($events) - $unmatched;
 
         return [
             'received' => count($events),
             'inserted' => $inserted,
-            'skipped' => $skipped,
+            'skipped' => $matched - $inserted,
             'unmatched' => $unmatched,
             'synced_at' => now()->toIso8601String(),
         ];
+    }
+
+    /**
+     * Llaves "empleado|fecha y hora" que ya existen en la bitácora para los candidatos, en una sola consulta.
+     *
+     * @param  array<string, array{0: Employee, 1: Carbon, 2: array<string, mixed>}>  $candidates
+     * @return array<string, true>
+     */
+    private function existingPunchKeys(array $candidates): array
+    {
+        if ($candidates === []) {
+            return [];
+        }
+
+        $times = array_map(fn (array $c): string => $c[1]->format('Y-m-d H:i:s'), $candidates);
+        $employeeIds = array_values(array_unique(array_map(fn (array $c): int => $c[0]->id, $candidates)));
+
+        $keys = [];
+        AttendanceLog::query()
+            ->whereBetween('punched_at', [min($times), max($times)])
+            ->whereIn('employee_id', $employeeIds)
+            ->toBase()
+            ->select(['employee_id', 'punched_at'])
+            ->orderBy('id')
+            ->chunk(5000, function ($logs) use (&$keys): void {
+                foreach ($logs as $log) {
+                    $keys[$log->employee_id.'|'.Carbon::parse($log->punched_at)->format('Y-m-d H:i:s')] = true;
+                }
+            });
+
+        return $keys;
     }
 
     /**
@@ -97,7 +173,7 @@ class AttendanceCalculatorService
                     'device_ip' => (string) ($eventData['device_ip'] ?? '192.168.0.69'),
                     'punched_at' => $punchedAt,
                     'event_type' => (string) ($eventData['event_type'] ?? AttendanceLog::EVENT_UNCLASSIFIED),
-                    'verification_mode' => (string) ($eventData['verification_mode'] ?? 'fingerprint'),
+                    'verification_mode' => mb_substr((string) ($eventData['verification_mode'] ?? 'fingerprint'), 0, 32),
                     'raw_payload' => $eventData['raw_payload'] ?? $eventData,
                 ]);
             });
@@ -186,21 +262,12 @@ class AttendanceCalculatorService
             'status' => $status,
         ];
 
-        $existingSummary = DailySummary::where('employee_id', $employee->id)
-            ->whereDate('work_date', $date->toDateString())
-            ->first();
-
-        if ($existingSummary !== null) {
-            $existingSummary->update($attributes);
-
-            return $existingSummary;
-        }
-
-        return DailySummary::create([
-            'employee_id' => $employee->id,
-            'work_date' => $date->toDateString(),
-            ...$attributes,
-        ]);
+        // Comparación directa (sin whereDate) para usar el índice único (OP-03).
+        // updateOrCreate dentro de una transacción evita duplicar el resumen si dos procesos coinciden (SE-13).
+        return DB::transaction(fn (): DailySummary => DailySummary::updateOrCreate(
+            ['employee_id' => $employee->id, 'work_date' => $date->toDateString()],
+            $attributes,
+        ));
     }
 
     /**

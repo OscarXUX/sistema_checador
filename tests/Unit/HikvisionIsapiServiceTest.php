@@ -8,6 +8,7 @@ use App\Models\WorkShift;
 use App\Services\HikvisionIsapiService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -232,7 +233,9 @@ class HikvisionIsapiServiceTest extends TestCase
             ->once()
             ->withArgs(function (string $message, array $context): bool {
                 return str_contains($message, '0x50000001')
-                    && str_contains((string) ($context['raw_body'] ?? ''), 'badXmlContent');
+                    && ! array_key_exists('raw_body', $context)
+                    && ($context['body']['subStatusCode'] ?? null) === 'badXmlContent'
+                    && ($context['body']['errorCode'] ?? null) === '0x50000001';
             });
 
         Http::assertSent(function (Request $request): bool {
@@ -372,5 +375,120 @@ class HikvisionIsapiServiceTest extends TestCase
         $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
         $service->deleteUserFromDevice('9999');
     }
-}
 
+    public function test_capture_result_does_not_include_fingerprint_template(): void
+    {
+        $this->createEmployee('3002');
+
+        Http::fake([
+            'http://192.168.0.69/ISAPI/AccessControl/UserInfo/Record?format=json' => Http::response([
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+            'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => Http::response([
+                'CaptureFingerPrint' => [
+                    'fingerPrintData' => [
+                        'fingerPrintID' => 1,
+                        'fingerData' => 'PLANTILLA_BIOMETRICA_DE_PRUEBA',
+                    ],
+                ],
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+            'http://192.168.0.69/ISAPI/AccessControl/FingerPrint/SetUp?format=json' => Http::response([
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+        ]);
+
+        $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
+        $result = $service->triggerRemoteFingerprintCapture('3002', 1);
+
+        $this->assertTrue($result['template_captured']);
+        $this->assertArrayNotHasKey('device_response', $result);
+        $this->assertStringNotContainsString('PLANTILLA_BIOMETRICA_DE_PRUEBA', (string) json_encode($result));
+    }
+
+    public function test_error_log_redacts_fingerprint_template(): void
+    {
+        Log::spy();
+
+        Http::fake([
+            'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => Http::response([
+                'CaptureFingerPrint' => [
+                    'fingerPrintData' => [
+                        'fingerData' => 'PLANTILLA_BIOMETRICA_DE_PRUEBA',
+                    ],
+                ],
+                'statusCode' => 4,
+                'statusString' => 'Invalid Operation',
+                'subStatusCode' => 'deviceError',
+            ], 400),
+        ]);
+
+        $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
+
+        try {
+            $service->triggerRemoteFingerprintCapture('3003', 1);
+            $this->fail('Se esperaba HikvisionConnectionException');
+        } catch (HikvisionConnectionException) {
+            Log::shouldHaveReceived('error')
+                ->once()
+                ->withArgs(function (string $message, array $context): bool {
+                    $encoded = (string) json_encode($context);
+
+                    return ($context['status_code'] ?? null) === 4
+                        && ! array_key_exists('raw_body', $context)
+                        && ! str_contains($encoded, 'PLANTILLA_BIOMETRICA_DE_PRUEBA')
+                        && ($context['body']['CaptureFingerPrint']['fingerPrintData']['fingerData'] ?? null) === '[REDACTADO]';
+                });
+        }
+    }
+
+    public function test_capture_without_template_fails_and_does_not_mark_fingerprint(): void
+    {
+        $employee = $this->createEmployee('3004');
+
+        Http::fake([
+            'http://192.168.0.69/ISAPI/AccessControl/UserInfo/Record?format=json' => Http::response([
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+            'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => Http::response([
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+        ]);
+
+        $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
+
+        try {
+            $service->triggerRemoteFingerprintCapture('3004', 1);
+            $this->fail('Se esperaba HikvisionConnectionException');
+        } catch (HikvisionConnectionException $e) {
+            $this->assertStringContainsString('no devolvió la huella', $e->getMessage());
+        }
+
+        $this->assertFalse($employee->fresh()->fingerprint_enrolled);
+        Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'FingerPrint/SetUp'));
+    }
+
+    public function test_connection_error_message_hides_technical_detail(): void
+    {
+        $this->createEmployee('3005');
+
+        Http::fake(function () {
+            throw new ConnectionException('cURL error 7: Failed to connect to 192.168.0.69 port 80 after 5001 ms');
+        });
+
+        $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
+
+        try {
+            $service->syncUserToDevice(Employee::where('hikvision_employee_no', '3005')->firstOrFail());
+            $this->fail('Se esperaba HikvisionConnectionException');
+        } catch (HikvisionConnectionException $e) {
+            $this->assertStringContainsString('No se pudo conectar', $e->getMessage());
+            $this->assertStringNotContainsString('cURL', $e->getMessage());
+        }
+    }
+}
