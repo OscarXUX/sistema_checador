@@ -491,4 +491,95 @@ class HikvisionIsapiServiceTest extends TestCase
             $this->assertStringNotContainsString('cURL', $e->getMessage());
         }
     }
+
+    public function test_maps_ds_k1t804aef_status_value_3_and_4_correctly(): void
+    {
+        Http::fake([
+            'http://192.168.0.69/ISAPI/AccessControl/AcsEvent?format=json' => Http::response([
+                'AcsEvent' => [
+                    'responseStatusStrg' => 'OK',
+                    'totalMatches' => 4,
+                    'numOfMatches' => 4,
+                    'InfoList' => [
+                        [
+                            'employeeNoString' => '2',
+                            'time' => '2026-11-12T09:00:00-06:00',
+                            'attendanceStatus' => 'checkIn',
+                            'statusValue' => 1,
+                            'currentVerifyMode' => 'fingerPrint',
+                        ],
+                        [
+                            'employeeNoString' => '2',
+                            'time' => '2026-11-12T14:00:00-06:00',
+                            'attendanceStatus' => 'breakIn',
+                            'statusValue' => 3,
+                            'currentVerifyMode' => 'fingerPrint',
+                        ],
+                        [
+                            'employeeNoString' => '2',
+                            'time' => '2026-11-12T14:45:00-06:00',
+                            'attendanceStatus' => 'breakOut',
+                            'statusValue' => 4,
+                            'currentVerifyMode' => 'fingerPrint',
+                        ],
+                        [
+                            'employeeNoString' => '2',
+                            'time' => '2026-11-12T18:05:00-06:00',
+                            'attendanceStatus' => 'checkOut',
+                            'statusValue' => 2,
+                            'currentVerifyMode' => 'fingerPrint',
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5, true);
+        $events = $service->fetchAttendanceEvents(
+            Carbon::parse('2026-11-12 00:00:00', 'America/Mexico_City'),
+            Carbon::parse('2026-11-12 23:59:59', 'America/Mexico_City')
+        );
+
+        $this->assertCount(4, $events);
+        $this->assertSame('check_in', $events[0]['event_type']);
+        $this->assertSame('break_out', $events[1]['event_type']);
+        $this->assertSame('break_in', $events[2]['event_type']);
+        $this->assertSame('check_out', $events[3]['event_type']);
+    }
+
+    public function test_parses_device_wall_time_when_device_reports_wrong_timezone_offset(): void
+    {
+        Http::fake([
+            'http://192.168.0.69/ISAPI/AccessControl/AcsEvent?format=json' => Http::response([
+                'AcsEvent' => [
+                    'responseStatusStrg' => 'OK',
+                    'totalMatches' => 1,
+                    'numOfMatches' => 1,
+                    'InfoList' => [
+                        [
+                            'employeeNoString' => '2',
+                            'time' => '2026-11-12T14:30:08+08:00',
+                            'attendanceStatus' => 'checkIn',
+                            'statusValue' => 1,
+                            'currentVerifyMode' => 'fingerPrint',
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $wallTimeService = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5, true);
+        $wallEvents = $wallTimeService->fetchAttendanceEvents(
+            Carbon::parse('2026-11-12 00:00:00', 'America/Mexico_City'),
+            Carbon::parse('2026-11-12 23:59:59', 'America/Mexico_City')
+        );
+        $this->assertSame('2026-11-12 14:30:08', $wallEvents[0]['punched_at']->format('Y-m-d H:i:s'));
+
+        $offsetService = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5, false);
+        $offsetEvents = $offsetService->fetchAttendanceEvents(
+            Carbon::parse('2026-11-12 00:00:00', 'America/Mexico_City'),
+            Carbon::parse('2026-11-12 23:59:59', 'America/Mexico_City')
+        );
+        $this->assertSame('2026-11-12 00:30:08', $offsetEvents[0]['punched_at']->format('Y-m-d H:i:s'));
+    }
 }

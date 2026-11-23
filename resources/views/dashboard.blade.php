@@ -21,7 +21,7 @@
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                     <div class="text-secondary small fw-medium">Empleados en Planta</div>
-                    <div class="display-6 fw-bold mt-1 font-mono-tabular" id="kpi-in-plant">{{ $kpis['in_plant'] }}</div>
+                    <div class="kpi-value fw-bold mt-1 font-mono-tabular" id="kpi-in-plant">{{ $kpis['in_plant'] }}</div>
                 </div>
                 <div class="kpi-icon bg-info bg-opacity-10 text-info border border-info border-opacity-25">
                     <i class="bi bi-building-check" aria-hidden="true"></i>
@@ -38,7 +38,7 @@
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                     <div class="text-secondary small fw-medium">En Hora de Comida</div>
-                    <div class="display-6 fw-bold mt-1 font-mono-tabular" id="kpi-in-meal">{{ $kpis['in_meal'] }}</div>
+                    <div class="kpi-value fw-bold mt-1 font-mono-tabular" id="kpi-in-meal">{{ $kpis['in_meal'] }}</div>
                 </div>
                 <div class="kpi-icon bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">
                     <i class="bi bi-cup-hot" aria-hidden="true"></i>
@@ -64,7 +64,7 @@
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                     <div class="text-secondary small fw-medium">Retardos Hoy</div>
-                    <div class="display-6 fw-bold mt-1 font-mono-tabular text-warning" id="kpi-late-today">{{ $kpis['late_today'] }}</div>
+                    <div class="kpi-value fw-bold mt-1 font-mono-tabular text-warning" id="kpi-late-today">{{ $kpis['late_today'] }}</div>
                 </div>
                 <div class="kpi-icon bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
                     <i class="bi bi-alarm" aria-hidden="true"></i>
@@ -81,7 +81,7 @@
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                     <div class="text-secondary small fw-medium">Horas Extra (Semana)</div>
-                    <div class="display-6 fw-bold mt-1 font-mono-tabular text-info">
+                    <div class="kpi-value fw-bold mt-1 font-mono-tabular text-info">
                         <span id="kpi-overtime-hours">{{ number_format($kpis['weekly_overtime_hours'], 1) }}</span>
                         <span class="fs-5 text-secondary fw-normal">hrs</span>
                     </div>
@@ -124,7 +124,7 @@
 <section class="row g-3 mb-4" aria-label="Gráficas analíticas">
     <div class="col-12 col-lg-6">
         <div class="surface-card p-3 p-md-4 h-100 isolated-panel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                 <div>
                     <h2 class="h6 fw-semibold mb-0">Puntualidad Semanal</h2>
                     <small class="text-secondary">Comparativa diaria: A tiempo vs Retardos (últimos 7 días)</small>
@@ -137,7 +137,7 @@
 
     <div class="col-12 col-lg-6">
         <div class="surface-card p-3 p-md-4 h-100 isolated-panel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                 <div>
                     <h2 class="h6 fw-semibold mb-0">Horas Ordinarias vs Extra por Departamento</h2>
                     <small class="text-secondary">Acumulado semanal por área operativa</small>
@@ -153,17 +153,19 @@
 <section class="surface-card p-3 p-md-4 isolated-panel" aria-label="Monitor de checadas en vivo">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
         <div>
-            <h2 class="h6 fw-semibold mb-0">Monitor en Vivo de Checadas (Hoy)</h2>
+            <h2 class="h6 fw-semibold mb-0" id="live-monitor-title">
+                {{ ($dashboardData['live_logs_scope'] ?? 'today') === 'recent' ? 'Monitor en Vivo de Checadas (Últimas registradas)' : 'Monitor en Vivo de Checadas (Hoy)' }}
+            </h2>
             <small class="text-secondary">
                 Última actualización: <span id="dashboard-generated-at" class="font-mono-tabular">{{ $dashboardData['generated_at'] }}</span>
             </small>
         </div>
 
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            <search>
+        <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 w-100 w-md-auto">
+            <search class="flex-grow-1">
                 <form id="live-filter-form" class="d-flex align-items-center">
                     <label for="live-search-input" class="visually-hidden">Filtrar checadas del día</label>
-                    <div class="input-group input-group-sm">
+                    <div class="input-group input-group-sm w-100">
                         <span class="input-group-text bg-dark border-secondary-subtle text-secondary">
                             <i class="bi bi-search" aria-hidden="true"></i>
                         </span>
@@ -177,13 +179,15 @@
                     </div>
                 </form>
             </search>
-            <button id="refresh-dashboard-btn" type="button" class="btn btn-sm btn-outline-secondary">
+            <button id="refresh-dashboard-btn" type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0">
                 <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Refrescar
             </button>
         </div>
     </div>
 
-    <div id="live-monitor-grid" aria-label="Tabla en vivo de checadas biométricas"></div>
+    <div class="grid-region" tabindex="0" role="region" aria-label="Tabla en vivo de checadas biométricas">
+        <div id="live-monitor-grid"></div>
+    </div>
 </section>
 @endsection
 
@@ -331,6 +335,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('kpi-overtime-hours').textContent = Number(k.weekly_overtime_hours).toFixed(1);
         document.getElementById('kpi-overtime-minutes').textContent = k.weekly_overtime_minutes;
         document.getElementById('dashboard-generated-at').textContent = next.generated_at;
+        document.getElementById('live-monitor-title').textContent = next.live_logs_scope === 'recent'
+            ? 'Monitor en Vivo de Checadas (Últimas registradas)'
+            : 'Monitor en Vivo de Checadas (Hoy)';
 
         const alertBadge = document.getElementById('kpi-meal-alert-badge');
         if (k.meal_exceeded_count > 0) {

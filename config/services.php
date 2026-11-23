@@ -41,6 +41,7 @@ return [
         'password' => (string) env('HIKVISION_PASSWORD', ''),
         'device_serial' => (string) env('HIKVISION_DEVICE_SERIAL', 'DS-K1T804AEF'),
         'timeout' => (int) env('HIKVISION_TIMEOUT', 10),
+        'use_device_wall_time' => filter_var(env('HIKVISION_USE_DEVICE_WALL_TIME', true), FILTER_VALIDATE_BOOLEAN),
     ],
 
 ];

@@ -6,41 +6,41 @@
 
 @section('content')
 <section class="surface-card p-3 p-md-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
         <div>
-            <h2 class="h6 fw-semibold mb-0">Catálogo de Turnos</h2>
+            <h2 id="shifts-catalog-heading" class="h6 fw-semibold mb-0">Catálogo de Turnos</h2>
             <small class="text-secondary">Los cálculos de retardo, comida y horas extra se basan en estas reglas</small>
         </div>
-        <button id="btn-new-shift" type="button" class="btn btn-primary btn-sm">
+        <button id="btn-new-shift" type="button" class="btn btn-primary btn-sm align-self-start align-self-sm-auto">
             <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nuevo Turno
         </button>
     </div>
 
-    <div class="table-responsive">
-        <table class="table table-dark table-hover align-middle mb-0">
+    <div tabindex="0" role="region" aria-labelledby="shifts-catalog-heading" class="shifts-table-wrapper">
+        <table class="table table-dark table-hover align-middle mb-0 shifts-table">
             <thead>
                 <tr class="text-secondary small text-uppercase">
-                    <th>Turno</th>
-                    <th>Horario</th>
-                    <th>Jornada Neta</th>
-                    <th>Comida Máx.</th>
-                    <th>Tolerancia</th>
-                    <th>Tope Semanal</th>
-                    <th>Empleados</th>
-                    <th class="text-end">Acción</th>
+                    <th scope="col">Turno</th>
+                    <th scope="col">Horario</th>
+                    <th scope="col">Jornada Neta</th>
+                    <th scope="col">Comida Máx.</th>
+                    <th scope="col">Tolerancia</th>
+                    <th scope="col">Tope Semanal</th>
+                    <th scope="col">Empleados</th>
+                    <th scope="col" class="text-end">Acción</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($shifts as $shift)
                     <tr>
-                        <td class="fw-semibold">{{ $shift->name }}</td>
-                        <td class="font-mono-tabular">{{ $shift->schedule_label }}</td>
-                        <td class="font-mono-tabular text-info">{{ number_format($shift->ordinaryDailyMinutes() / 60, 2) }} hrs/día</td>
-                        <td class="font-mono-tabular">{{ $shift->meal_duration_minutes }} min</td>
-                        <td class="font-mono-tabular">{{ $shift->tolerance_minutes }} min</td>
-                        <td class="font-mono-tabular">{{ $shift->max_weekly_hours }} hrs</td>
-                        <td><span class="badge text-bg-secondary">{{ $shift->employees_count }}</span></td>
-                        <td class="text-end">
+                        <th scope="row" class="fw-semibold">{{ $shift->name }}</th>
+                        <td data-label="Horario" class="font-mono-tabular">{{ $shift->schedule_label }}</td>
+                        <td data-label="Jornada Neta" class="font-mono-tabular text-info">{{ number_format($shift->ordinaryDailyMinutes() / 60, 2) }} hrs/día</td>
+                        <td data-label="Comida Máx." class="font-mono-tabular">{{ $shift->meal_duration_minutes }} min</td>
+                        <td data-label="Tolerancia" class="font-mono-tabular">{{ $shift->tolerance_minutes }} min</td>
+                        <td data-label="Tope Semanal" class="font-mono-tabular">{{ $shift->max_weekly_hours }} hrs</td>
+                        <td data-label="Empleados"><span class="badge text-bg-secondary">{{ $shift->employees_count }}</span></td>
+                        <td data-label="Acción" class="text-end">
                             <button type="button"
                                     class="btn btn-outline-light btn-sm btn-edit-shift"
                                     data-shift='@json($shift)'>
@@ -65,33 +65,33 @@
             @csrf
             <input type="hidden" id="shift-method" name="_method" value="POST">
 
-            <div class="p-3 p-md-4 row g-3">
+            <div class="p-3 p-md-4 row g-3 app-dialog-body">
                 <div class="col-12">
                     <label for="shift-name" class="form-label small fw-medium">Nombre del Turno <span class="text-danger">*</span></label>
                     <input id="shift-name" name="name" type="text" class="form-control" required maxlength="100" autofocus>
                 </div>
 
-                <div class="col-6">
+                <div class="col-12 col-sm-6">
                     <label for="shift-entry" class="form-label small fw-medium">Hora de Entrada <span class="text-danger">*</span></label>
                     <input id="shift-entry" name="entry_time" type="time" class="form-control font-mono-tabular" required value="09:00">
                 </div>
 
-                <div class="col-6">
+                <div class="col-12 col-sm-6">
                     <label for="shift-exit" class="form-label small fw-medium">Hora de Salida <span class="text-danger">*</span></label>
                     <input id="shift-exit" name="exit_time" type="time" class="form-control font-mono-tabular" required value="18:00">
                 </div>
 
-                <div class="col-4">
+                <div class="col-12 col-sm-4">
                     <label for="shift-meal" class="form-label small fw-medium">Comida (min)</label>
                     <input id="shift-meal" name="meal_duration_minutes" type="number" class="form-control font-mono-tabular" min="15" max="180" required value="60">
                 </div>
 
-                <div class="col-4">
+                <div class="col-12 col-sm-4">
                     <label for="shift-tolerance" class="form-label small fw-medium">Tolerancia (min)</label>
                     <input id="shift-tolerance" name="tolerance_minutes" type="number" class="form-control font-mono-tabular" min="0" max="60" required value="10">
                 </div>
 
-                <div class="col-4">
+                <div class="col-12 col-sm-4">
                     <label for="shift-weekly" class="form-label small fw-medium">Tope Semanal (h)</label>
                     <input id="shift-weekly" name="max_weekly_hours" type="number" class="form-control font-mono-tabular" min="20" max="60" required value="48">
                 </div>

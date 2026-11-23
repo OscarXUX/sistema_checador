@@ -35,7 +35,7 @@
 
 ```text
 app/
-├── Console/Commands/                           hikvision:sync y usuarios:crear, usuarios:restablecer, usuarios:estado
+├── Console/Commands/                           hikvision:sync, attendance:recalculate y usuarios:crear, usuarios:restablecer, usuarios:estado
 ├── Http/Controllers/                           Dashboard, Device, Employee, Report, WorkShift; Auth/AuthController (login)
 ├── Http/Requests/Auth/LoginRequest.php         Credenciales, límite de intentos y mensaje genérico
 ├── Http/Requests/                              Validación de empleados (RFC, CURP, NSS)
@@ -53,7 +53,7 @@ resources/js/wijmo/                             Wijmo por página: grid.js (tabl
 resources/js/csv.js                             Exportación CSV sin fórmulas
 routes/web.php                                  /login abierto; todo lo demás dentro de middleware auth
 routes/console.php                              hikvision:sync cada minuto
-tests/                                          78 pruebas (Feature y Unit)
+tests/                                          84 pruebas (Feature y Unit)
 ```
 
 ---
@@ -193,6 +193,7 @@ El detalle está en `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR
 | 17/11/2026 | La plantilla de huella llegaba al navegador y al log | Se devolvía y registraba la respuesta cruda de la terminal | `docs/parches/2026-11-17/11-32_huella-fuera-de-respuestas-y-logs.md` |
 | 18/11/2026 | Se marcaba "Huella OK" sin plantilla | La captura no exigía `fingerData` | `docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md` |
 | 18/11/2026 | El CSV del kardex podía ejecutar fórmulas en Excel | `csvEscape()` no neutralizaba `=`, `+`, `-`, `@` | `docs/parches/2026-11-18/16-10_csv-sin-formulas.md` |
+| 22/11/2026 | Horarios de comida y retardos en `0` aunque hubiera checadas | Teclado DS-K1T804AEF invierte `statusValue` 3/4 (`breakIn`/`breakOut`) y el reloj reportó offset `+08:00` | `docs/parches/2026-11-22/21-50_horarios-comida-recalculo-y-responsividad.md` |
 
 ---
 

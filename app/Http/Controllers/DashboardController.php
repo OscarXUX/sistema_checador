@@ -38,12 +38,33 @@ class DashboardController extends Controller
         $activeEmployeesCount = Employee::active()->count();
 
         // Comparaciones directas en lugar de whereDate() para usar los índices (auditoría OP-03)
-        $todaySummaries = DailySummary::with(['employee.workShift'])
-            ->where('work_date', $todayStr)
-            ->get();
+        // Incluye turnos nocturnos iniciados ayer cuya ventana laboral siga activa en $now (SE-11)
+        $yesterdayStr = $today->subDay()->toDateString();
+        $activeWindowDates = DailySummary::with(['employee.workShift'])
+            ->whereIn('work_date', [$yesterdayStr, $todayStr])
+            ->get()
+            ->filter(function (DailySummary $summary) use ($now, $todayStr): bool {
+                if ($summary->work_date?->toDateString() === $todayStr) {
+                    return true;
+                }
+
+                $shift = $summary->employee?->workShift;
+                if ($shift === null || ! $shift->crossesMidnight()) {
+                    return false;
+                }
+
+                [$winStart, $winEnd] = $shift->shiftWindowForDate($summary->work_date);
+
+                return $now->betweenIncluded($winStart, $winEnd);
+            })
+            ->values();
+
+        $todaySummaries = $activeWindowDates->filter(
+            fn (DailySummary $summary): bool => $summary->work_date?->toDateString() === $todayStr
+        );
 
         // Empleados actualmente dentro de planta (entraron, no han salido ni están en comida activa)
-        $inPlantCount = $todaySummaries->filter(function (DailySummary $summary): bool {
+        $inPlantCount = $activeWindowDates->filter(function (DailySummary $summary): bool {
             $inActiveMeal = $summary->break_out !== null
                 && $summary->break_in === null
                 && $summary->last_check_out === null;
@@ -54,14 +75,14 @@ class DashboardController extends Controller
         })->count();
 
         // Empleados actualmente en hora de comida (break_out marcado y sin break_in/check_out)
-        $currentlyInMeal = $todaySummaries->filter(function (DailySummary $summary): bool {
+        $currentlyInMeal = $activeWindowDates->filter(function (DailySummary $summary): bool {
             return $summary->break_out !== null
                 && $summary->break_in === null
                 && $summary->last_check_out === null;
         });
 
         $mealAlerts = [];
-        foreach ($todaySummaries as $summary) {
+        foreach ($activeWindowDates as $summary) {
             $allowed = $summary->employee?->workShift?->meal_duration_minutes ?? 60;
             $isActiveMeal = $summary->break_out !== null && $summary->break_in === null && $summary->last_check_out === null;
 
@@ -149,18 +170,42 @@ class DashboardController extends Controller
             ];
         })->values()->all();
 
-        // FlexGrid Monitor en Vivo: últimas checadas del día (fallback a últimos 3 días si hoy aún no hay)
-        $todaySummariesByEmp = $todaySummaries->keyBy('employee_id');
-
+        // FlexGrid Monitor en Vivo: últimas checadas del día (fallback a últimas registradas si hoy aún no hay)
         $liveLogsQuery = AttendanceLog::with(['employee.workShift'])
             ->whereBetween('punched_at', [$today, $today->endOfDay()])
             ->orderByDesc('punched_at')
             ->limit(150)
             ->get();
 
-        $liveLogs = $liveLogsQuery->map(function (AttendanceLog $log) use ($todaySummariesByEmp): array {
+        $liveLogsScope = 'today';
+        if ($liveLogsQuery->isEmpty()) {
+            $liveLogsQuery = AttendanceLog::with(['employee.workShift'])
+                ->orderByDesc('punched_at')
+                ->limit(50)
+                ->get();
+            if ($liveLogsQuery->isNotEmpty()) {
+                $liveLogsScope = 'recent';
+            }
+        }
+
+        $summariesMap = DailySummary::whereIn('employee_id', $liveLogsQuery->pluck('employee_id')->unique()->all())
+            ->whereIn('work_date', $liveLogsQuery->map(function (AttendanceLog $log): string {
+                $shift = $log->employee?->workShift;
+
+                return $shift !== null
+                    ? $shift->resolveWorkDateForPunch($log->punched_at)->toDateString()
+                    : CarbonImmutable::instance($log->punched_at)->toDateString();
+            })->unique()->all())
+            ->get()
+            ->keyBy(fn (DailySummary $s): string => $s->employee_id.'|'.$s->work_date->toDateString());
+
+        $liveLogs = $liveLogsQuery->map(function (AttendanceLog $log) use ($summariesMap): array {
             $emp = $log->employee;
-            $summary = $emp ? $todaySummariesByEmp->get($emp->id) : null;
+            $shift = $emp?->workShift;
+            $workDate = $shift !== null
+                ? $shift->resolveWorkDateForPunch($log->punched_at)->toDateString()
+                : CarbonImmutable::instance($log->punched_at)->toDateString();
+            $summary = $emp ? $summariesMap->get($emp->id.'|'.$workDate) : null;
             $status = $summary?->status ?? DailySummary::STATUS_INCOMPLETE;
 
             return [
@@ -168,7 +213,7 @@ class DashboardController extends Controller
                 'employee_no' => $emp?->hikvision_employee_no ?? '-',
                 'full_name' => $emp?->full_name ?? 'Desconocido',
                 'department' => $emp?->department ?? '-',
-                'shift_name' => $emp?->workShift?->name ?? '-',
+                'shift_name' => $shift?->name ?? '-',
                 'punched_at' => $log->punched_at->format('Y-m-d H:i:s'),
                 'punched_time' => $log->punched_at->format('H:i:s'),
                 'event_type' => $log->event_type,
@@ -198,6 +243,7 @@ class DashboardController extends Controller
                 'departments' => $departmentChart,
             ],
             'live_logs' => $liveLogs,
+            'live_logs_scope' => $liveLogsScope,
             'generated_at' => $now->format('d/m/Y H:i:s'),
         ];
     }

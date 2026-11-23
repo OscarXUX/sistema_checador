@@ -11,12 +11,12 @@
 
 @section('content')
 <section class="surface-card p-3 p-md-4 isolated-panel">
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            <search>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-3">
+        <div class="d-flex flex-wrap align-items-center gap-2 flex-grow-1">
+            <search class="flex-grow-1" style="max-width: 420px;">
                 <form id="employee-filter-form" class="d-flex align-items-center">
                     <label for="employee-search-input" class="visually-hidden">Buscar empleados</label>
-                    <div class="input-group input-group-sm">
+                    <div class="input-group input-group-sm w-100">
                         <span class="input-group-text bg-dark border-secondary-subtle text-secondary">
                             <i class="bi bi-search" aria-hidden="true"></i>
                         </span>
@@ -35,16 +35,18 @@
             </span>
         </div>
 
-        <button id="btn-new-employee" type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-2">
+        <button id="btn-new-employee" type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 flex-shrink-0">
             <i class="bi bi-person-plus-fill" aria-hidden="true"></i>
             <span>Nuevo Empleado</span>
         </button>
     </div>
 
-    <div id="employees-grid" aria-label="Tabla de empleados y acciones biométricas"></div>
+    <div class="grid-region" tabindex="0" role="region" aria-label="Tabla de empleados y acciones biométricas">
+        <div id="employees-grid"></div>
+    </div>
 
     {{-- Paginación en el servidor (auditoría OP-07) --}}
-    <nav class="d-flex justify-content-between align-items-center gap-2 mt-3" aria-label="Páginas de empleados">
+    <nav class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3" aria-label="Páginas de empleados">
         <button id="employees-prev" type="button" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-chevron-left" aria-hidden="true"></i> Anterior
         </button>
@@ -69,7 +71,7 @@
             @csrf
             <input type="hidden" id="emp-id" name="id" value="">
 
-            <div class="p-3 p-md-4 row g-3">
+            <div class="p-3 p-md-4 row g-3 app-dialog-body">
                 <div id="employee-form-errors" class="col-12 d-none">
                     <div class="alert alert-danger py-2 small mb-0" role="alert" aria-live="polite"></div>
                 </div>
@@ -218,7 +220,7 @@
             <button type="button" class="btn-close" data-close-dialog="fingerprint-dialog" aria-label="Cerrar ventana"></button>
         </div>
 
-        <div class="p-4 text-center">
+        <div class="p-4 text-center app-dialog-body">
             <div id="fp-pulse-indicator" class="fingerprint-pulse mb-3">
                 <i class="bi bi-fingerprint" aria-hidden="true"></i>
             </div>
@@ -263,7 +265,7 @@
             <button type="button" class="btn-close" data-close-dialog="delete-employee-dialog" aria-label="Cerrar ventana"></button>
         </div>
 
-        <div class="p-3 p-md-4">
+        <div class="p-3 p-md-4 app-dialog-body">
             <p class="mb-3">
                 ¿Deseas dar de baja a <strong id="del-employee-name"></strong> (<span id="del-employee-no" class="font-mono-tabular"></span>)?
                 Si ya tiene checadas, quedará como <strong>Inactivo</strong> y se conserva su historial.

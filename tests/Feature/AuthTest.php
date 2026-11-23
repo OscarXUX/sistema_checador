@@ -49,10 +49,18 @@ class AuthTest extends TestCase
 
     public function test_login_page_renders_without_registration_link(): void
     {
-        $this->get('/login')
+        $response = $this->get('/login')
             ->assertOk()
             ->assertSee('Iniciar sesión')
+            ->assertSee('id="toggle-password"', false)
+            ->assertSee('aria-pressed="false"', false)
+            ->assertSee('aria-label="Mostrar contraseña"', false)
             ->assertDontSee('Registrarse');
+
+        $csp = (string) $response->headers->get('Content-Security-Policy');
+        preg_match("/'nonce-([A-Za-z0-9+\/=]+)'/", $csp, $match);
+        $this->assertNotEmpty($match[1] ?? '');
+        $response->assertSee('<script nonce="'.$match[1].'">', false);
 
         $this->get('/register')->assertNotFound();
     }

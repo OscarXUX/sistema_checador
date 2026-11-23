@@ -2,7 +2,7 @@
 <html lang="es" data-bs-theme="dark">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="dark">
     <meta name="robots" content="noindex">
     <title>Iniciar sesión — Checador Hikvision</title>
@@ -49,6 +49,9 @@
                        class="form-control"
                        value="{{ old('email') }}"
                        autocomplete="username"
+                       autocorrect="off"
+                       autocapitalize="none"
+                       spellcheck="false"
                        maxlength="255"
                        required
                        autofocus>
@@ -56,13 +59,25 @@
 
             <div class="mb-4">
                 <label for="password" class="form-label small fw-medium">Contraseña</label>
-                <input id="password"
-                       name="password"
-                       type="password"
-                       class="form-control"
-                       autocomplete="current-password"
-                       maxlength="255"
-                       required>
+                <div class="input-group">
+                    <input id="password"
+                           name="password"
+                           type="password"
+                           class="form-control"
+                           autocomplete="current-password"
+                           maxlength="255"
+                           required>
+                    <button id="toggle-password"
+                            type="button"
+                            class="btn btn-outline-secondary border-secondary-subtle"
+                            aria-pressed="false"
+                            aria-label="Mostrar contraseña"
+                            aria-controls="password"
+                            aria-describedby="toggle-password-warning">
+                        <i id="toggle-password-icon" class="bi bi-eye" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <span id="toggle-password-warning" class="visually-hidden">Advertencia: esto mostrará tu contraseña en la pantalla.</span>
             </div>
 
             <button type="submit" class="btn btn-primary w-100">
@@ -75,5 +90,31 @@
         ¿Olvidaste tu contraseña? Pide al administrador que la restablezca.
     </p>
 </main>
+<script nonce="{{ Vite::cspNonce() }}">
+document.addEventListener('DOMContentLoaded', () => {
+    const passwordInput = document.getElementById('password');
+    const toggleBtn = document.getElementById('toggle-password');
+    const toggleIcon = document.getElementById('toggle-password-icon');
+    const loginForm = passwordInput?.closest('form');
+    if (!passwordInput || !toggleBtn || !toggleIcon) return;
+
+    const setVisible = (visible) => {
+        passwordInput.type = visible ? 'text' : 'password';
+        toggleBtn.setAttribute('aria-pressed', visible ? 'true' : 'false');
+        toggleBtn.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+        toggleIcon.className = visible ? 'bi bi-eye-slash' : 'bi bi-eye';
+    };
+
+    toggleBtn.addEventListener('click', () => {
+        setVisible(passwordInput.type === 'password');
+    });
+
+    loginForm?.addEventListener('submit', () => {
+        if (passwordInput.type === 'text') {
+            setVisible(false);
+        }
+    });
+});
+</script>
 </body>
 </html>
