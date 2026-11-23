@@ -1,6 +1,6 @@
 # Pendientes de teracrom
 
-> Pendientes · actualizado 18/11/2026 · Lo que solo el cliente puede resolver. Todos los renglones.
+> Pendientes · actualizado 23/11/2026 · Lo que solo el cliente puede resolver. Todos los renglones.
 
 ---
 
@@ -9,8 +9,8 @@
 | Estado | Cantidad |
 |---|---|
 | ✅ Resuelto | 0 |
-| ⚠️ Parcial | 0 |
-| ❌ Sin resolver | 8 |
+| ⚠️ Parcial | 1 |
+| ❌ Sin resolver | 7 |
 
 Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
 
@@ -21,7 +21,7 @@ Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADO
 | Prioridad | Pregunta | Explicación | Respuesta / Recomendación | Estado |
 |---|---|---|---|---|
 | 🔴 Alta | **TE-01** · ¿Cómo se registra "por qué sale" una persona? | El pedido lo menciona, pero el sistema solo guarda entrada, comida y salida | Opciones: catálogo de motivos que captura un supervisor en la web, o teclas de estado configuradas en la terminal. Recomendación: catálogo en la web, porque no depende del firmware | ❌ Sin resolver |
-| 🟡 Media | **TE-05** · ¿Quiénes usarán el sistema y qué puede hacer cada uno? | Necesario para SE-01 y SE-02 | Propuesta: administración (todo) y consulta (dashboard y kardex) | ❌ Sin resolver |
+| 🟡 Media | **TE-05** · ¿Quiénes usarán el sistema y qué puede hacer cada uno? | Necesario para SE-01 y SE-02 | Propuesta: administración (todo) y consulta (dashboard y kardex) | ⚠️ Parcial 23/11/2026 |
 | 🟢 Baja | **TE-07** · ¿Hay turnos nocturnos que cruzan la medianoche? | Define si hace falta SE-11 | Si los hay, se corrige el cálculo antes de producción | ❌ Sin resolver |
 | 🟢 Baja | **TE-08** · ¿Cuánto tiempo se conservan las checadas? | Define la retención de OP-08 | Recomendación: conservar al menos el periodo que pida el área legal o de nómina | ❌ Sin resolver |
 

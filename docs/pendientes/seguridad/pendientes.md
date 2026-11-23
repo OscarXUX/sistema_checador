@@ -1,6 +1,6 @@
 # Pendientes de seguridad
 
-> Pendientes · actualizado 22/11/2026 · Hallazgos de seguridad de la auditoría del 17/11/2026. Todos los renglones.
+> Pendientes · actualizado 23/11/2026 · Hallazgos de seguridad de la auditoría del 17/11/2026. Todos los renglones.
 
 ---
 
@@ -8,9 +8,9 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ Resuelto | 12 |
+| ✅ Resuelto | 13 |
 | ⚠️ Parcial | 1 |
-| ❌ Sin resolver | 2 |
+| ❌ Sin resolver | 1 |
 
 Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
 
@@ -21,7 +21,7 @@ Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADO
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
 | 🔴 Alta | **SE-01** · No hay inicio de sesión | Todas las rutas de `routes/web.php` están abiertas a cualquiera en la red | Login de Laravel sin registro público, límite de intentos y todas las rutas con `auth` | ✅ Resuelto 18/11/2026 |
-| 🔴 Alta | **SE-02** · No hay roles ni permisos | `EmployeeFormRequest::authorize()` regresa `true`; con login (SE-01) toda cuenta puede hacer todo. Depende de TE-05 | Roles de administración y consulta con Policies; prueba de permisos por ruta | ❌ Sin resolver |
+| 🔴 Alta | **SE-02** · No hay roles ni permisos | `EmployeeFormRequest::authorize()` regresa `true`; con login (SE-01) toda cuenta puede hacer todo. Depende de TE-05 | Roles de administración y consulta con Policies; prueba de permisos por ruta | ✅ Resuelto 23/11/2026 |
 
 ---
 

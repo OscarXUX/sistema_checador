@@ -1,6 +1,6 @@
 # Sistema checador: control de entradas y salidas con terminal Hikvision
 
-> Referencia · actualizado 22/11/2026 · Para quien se integra al proyecto.
+> Referencia · actualizado 23/11/2026 · Para quien se integra al proyecto.
 
 ---
 
@@ -78,7 +78,9 @@ tests/                                          84 pruebas (Feature y Unit)
 | `employees` | Empleados con su número en el reloj (`hikvision_employee_no`), RFC, CURP, NSS, departamento, puesto | RFC, CURP y NSS **cifrados** con `APP_KEY`; `rfc_hash` y `curp_hash` permiten buscarlos completos | `fingerprint_enrolled` y `device_synced_at` reflejan el estado en la terminal |
 | `attendance_logs` | Cada checada tal como llegó del reloj, con `event_type` y `raw_payload` (JSON) | Único `(employee_id, punched_at)`; no se puede editar desde Eloquent. La base impide borrar a un empleado que tenga checadas (`restrictOnDelete`) |
 | `daily_summaries` | Resumen por empleado y día: entrada, comida, salida, minutos trabajados, retardo, horas extra, estado | Se recalcula al llegar cada checada nueva |
-| `users` | Cuentas del sistema | `is_active` para desactivar sin borrar; se crean por consola (`usuarios:crear`) |
+| `users` | Cuentas del sistema | `is_active` para desactivar sin borrar; `profile_id`; se crean en Administración → Usuarios o por consola (`usuarios:crear --perfil=`) |
+| `profiles`, `profile_permission` | Perfiles de usuario y sus permisos | El perfil con `is_admin` tiene todo; no confundir con el puesto del empleado |
+| `permissions`, `user_permissions` | Catálogo de permisos y excepciones por persona (`is_denied`) | Las claves vienen de `App\Support\Permissions` (`permisos:sincronizar`) |
 | `audit_logs` | Bitácora: quién, qué, cuándo y desde dónde | Antes y después de los campos que cambiaron; RFC, CURP y NSS como `[protegido]`; no se modifica desde la aplicación |
 | `sessions`, `cache`, `jobs` | Tablas base de Laravel | `sessions` permite cerrar las sesiones de una cuenta |
 
@@ -90,12 +92,13 @@ tests/                                          84 pruebas (Feature y Unit)
 
 | Módulo | Qué hace | Pantallas / rutas | Permisos |
 |---|---|---|---|
-| Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | Sesión iniciada (sin roles todavía) |
-| Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | Sesión iniciada (sin roles todavía) |
-| Empleados y huellas | Listado paginado de 50 con búsqueda y orden por columna en el servidor; RFC, CURP y NSS enmascarados (completos solo al editar); alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Sesión iniciada (sin roles todavía) |
-| Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con carga bajo demanda del JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data`, `GET /reports/kardex/logs/{id}/payload` | Sesión iniciada (sin roles todavía) |
-| Turnos | Alta y edición de turnos | `/shifts` | Sesión iniciada (sin roles todavía) |
-| Sesión | Inicio y cierre de sesión | `GET/POST /login`, `POST /logout` | Abierta solo `/login` |
+| Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | `dashboard.consultar` |
+| Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | `terminal.sincronizar`; el estado solo pide sesión |
+| Empleados y huellas | Listado paginado de 50 con búsqueda y orden por columna en el servidor; RFC, CURP y NSS enmascarados (completos solo al editar); alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | `empleados.*`, `terminal.usuarios`, `terminal.huellas` |
+| Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con carga bajo demanda del JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data`, `GET /reports/kardex/logs/{id}/payload` | `kardex.consultar`, `kardex.exportar` |
+| Turnos | Alta y edición de turnos | `/shifts` | `turnos.consultar`, `turnos.administrar` |
+| Sesión | Inicio y cierre de sesión; `/inicio` manda a la primera pantalla permitida | `GET/POST /login`, `POST /logout`, `GET /inicio` | Abierta solo `/login` |
+| Administración | Usuarios (perfil, estado, excepciones dar/negar), perfiles con sus permisos y catálogo de permisos | `/administracion/usuarios`, `/perfiles`, `/permisos` | Perfil administrador (`administrar`) |
 | Sincronización automática | Cada minuto descarga solo lo nuevo desde el último corte (con 10 min de traslape); comparte candado con el botón "Sincronizar" | `php artisan hikvision:sync` (scheduler) | — |
 
 ---
@@ -113,7 +116,7 @@ tests/                                          84 pruebas (Feature y Unit)
 | Kardex con filtros y exportación a Excel | ✅ Implementado |
 | Alta de empleados en la terminal y captura remota de huella | ✅ Implementado, sin probar con el aparato |
 | Mostrar **por qué** sale una persona | ❌ No existe; falta definirlo (TE-01) |
-| Roles y permisos | ❌ No existe (SE-02) |
+| Perfiles y permisos con estructura de tickets | ✅ Implementado (SE-02) |
 | Monitor que se actualice solo | ❌ Solo se actualiza con el botón "Refrescar"; lo automático es el estado de la terminal (cada 30 s) |
 | Turnos que cruzan la medianoche | ✅ Implementado en `WorkShift` y `AttendanceCalculatorService` (SE-11); pendiente confirmar con cliente si aplica (TE-07) |
 
@@ -139,6 +142,7 @@ tests/                                          84 pruebas (Feature y Unit)
 | 18/11/2026 | Empleados paginados de 50 en el servidor | Danny | El padrón completo ya no viaja en cada carga (OP-07) |
 | 18/11/2026 | RFC, CURP y NSS cifrados y enmascarados, también en el kardex | Danny | Minimizar la exposición de datos personales (SE-05) |
 | 18/11/2026 | CSP con nonce y cabeceras de seguridad en todas las respuestas | Danny | Guía 4.10 (SE-08) |
+| 23/11/2026 | Perfiles y permisos con la estructura del sistema de tickets; "perfil" para usuarios y "puesto" para empleados | Oscar y Danny | Pedido de Oscar; P3 de la propuesta (SE-02) |
 
 ---
 
@@ -156,6 +160,7 @@ tests/                                          84 pruebas (Feature y Unit)
 | `HIKVISION_PASSWORD` vacía | Sin la contraseña del aparato, la conexión falla por autenticación |
 | Seeder vacío | Hay que crear al menos un turno antes de registrar empleados |
 | Marca de agua de Wijmo | Tapa la esquina superior derecha (estado de la terminal) hasta que haya licencia |
+| Una ruta nueva | Debe llevar `->middleware('can:clave')`; si la clave no existe, agregarla en `App\Support\Permissions::LIST` y correr `php artisan permisos:sincronizar`. `RouteProtectionTest` falla si falta |
 | El checkbox "Activo" | En la edición, si no se manda `is_active`, el empleado queda inactivo (comportamiento del checkbox) |
 
 ---
@@ -176,7 +181,7 @@ tests/                                          84 pruebas (Feature y Unit)
 | Fase | Qué | Criterio de terminado |
 |---|---|---|
 | 1 | Definir con el cliente el "por qué sale", roles y aviso de privacidad (TE-01, TE-02, TE-05) | Respuestas registradas en `docs/pendientes/teracrom/` |
-| 2 | Roles (SE-02); login, bitácora, bajas lógicas y huella ya resueltos (SE-01, SE-09, SE-03, SE-04) | Ninguna ruta abierta sin sesión; pruebas de permisos por ruta |
+| 2 | ✅ Perfiles y permisos (SE-02, 23/11/2026); login, bitácora, bajas lógicas y huella ya resueltos (SE-01, SE-09, SE-03, SE-04) | Ninguna ruta sin sesión ni sin permiso; pruebas de permisos por ruta |
 | 3 | Probar con la terminal real (la sincronización ya está optimizada: OP-01, OP-02) | Checadas reales visibles en el dashboard y medición con el aparato |
 | 4 | Motivo de salida (según TE-01) | Dashboard muestra quién, a qué hora y por qué |
 | 5 | Preparar producción (SE-06, SE-08, OP-09) | Lista 8.3 de la guía de seguridad cumplida |

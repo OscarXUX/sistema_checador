@@ -56,10 +56,12 @@
                     <span class="font-mono-tabular text-secondary">{{ parse_url(config('services.hikvision.url'), PHP_URL_HOST) ?: '192.168.0.69' }}</span>
                     <span class="fw-semibold text-warning" data-device-label>Verificando...</span>
                 </div>
+                @can('terminal.sincronizar')
                 <button type="button" class="btn btn-sm btn-outline-info d-inline-flex align-items-center gap-1" data-sync-now-btn aria-label="Sincronizar ahora" title="Sincronizar ahora">
                     <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
                     <span class="d-none d-sm-inline">Sincronizar</span>
                 </button>
+                @endcan
                 @auth
                     <form method="POST" action="{{ route('logout') }}" class="d-flex align-items-center gap-2 ms-1">
                         @csrf

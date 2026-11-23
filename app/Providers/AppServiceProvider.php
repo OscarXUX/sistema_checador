@@ -2,8 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\User;
+use App\Support\Permissions;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -23,6 +26,20 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiting();
+        $this->configurePermissions();
+    }
+
+    /**
+     * Un Gate por clave de App\Support\Permissions, igual que en el sistema de tickets (auditoría SE-02).
+     * 'administrar' es solo para perfiles de administrador (usuarios, perfiles y catálogo de permisos).
+     */
+    private function configurePermissions(): void
+    {
+        Gate::define('administrar', fn (User $user): bool => $user->isAdmin());
+
+        foreach (Permissions::keys() as $key) {
+            Gate::define($key, fn (User $user): bool => $user->hasPermission($key));
+        }
     }
 
     /**

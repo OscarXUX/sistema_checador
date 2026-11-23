@@ -125,12 +125,14 @@
             <button id="btn-collapse-groups" type="button" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-arrows-collapse me-1" aria-hidden="true"></i>Colapsar
             </button>
+            @can('kardex.exportar')
             <button id="btn-export-xlsx" type="button" class="btn btn-success btn-sm">
                 <i class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>Exportar Excel (.xlsx)
             </button>
             <button id="btn-export-csv" type="button" class="btn btn-outline-info btn-sm">
                 <i class="bi bi-filetype-csv me-1" aria-hidden="true"></i>Exportar CSV
             </button>
+            @endcan
         </div>
     </div>
 
@@ -265,7 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Exportación directa a Excel (.xlsx) usando Wijmo FlexGridXlsxConverter
-    document.getElementById('btn-export-xlsx').addEventListener('click', () => {
+    document.getElementById('btn-export-xlsx')?.addEventListener('click', () => {
         const fileName = `Kardex_Fiscal_${initial.filters.start_date}_a_${initial.filters.end_date}.xlsx`;
         wjGridXlsx.FlexGridXlsxConverter.saveAsync(
             kardexGrid,
@@ -280,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Exportación directa a CSV (UTF-8 con BOM para Excel México/LatAm)
-    document.getElementById('btn-export-csv').addEventListener('click', () => {
+    document.getElementById('btn-export-csv')?.addEventListener('click', () => {
         const rows = kardexView.items;
         const headers = [
             'ID Reloj', 'Empleado', 'RFC', 'CURP', 'NSS', 'Departamento',

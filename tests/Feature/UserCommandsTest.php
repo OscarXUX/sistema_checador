@@ -24,7 +24,7 @@ class UserCommandsTest extends TestCase
             ->expectsQuestion('Correo', 'Danny@Example.com')
             ->expectsQuestion('Contraseña (mínimo 15 caracteres)', self::PASSWORD)
             ->expectsQuestion('Confirma la contraseña', self::PASSWORD)
-            ->expectsOutput('Cuenta creada: danny@example.com')
+            ->expectsOutput('Cuenta creada: danny@example.com (perfil Administrador)')
             ->assertSuccessful();
 
         $user = User::where('email', 'danny@example.com')->firstOrFail();

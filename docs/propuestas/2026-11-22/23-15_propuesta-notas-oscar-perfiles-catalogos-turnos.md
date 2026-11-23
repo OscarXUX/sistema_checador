@@ -211,3 +211,16 @@ Orden sugerido: O1 → O2 → O3. O1 no choca con nada de lo que hace Danny; O2 
 | Código nuevo | Nomenclatura de tickets (`txt`, `cb`, `grid`, `btn`, `md`, `lst`, `data`) en ids y variables nuevas (P4) |
 | Documentación | Un parche por tarea en `docs/parches/AAAA-MM-DD/HH-MM_slug.md` y actualizar `docs/pendientes/` |
 | Pruebas | `php artisan test` antes de subir; en local **no** usar `php artisan optimize` (ver `docs/parches/2026-11-22/20-40_candado-pruebas-config-en-cache.md`) |
+
+---
+
+## 8. Respuestas (agregado 23/11/2026)
+
+| # | Respuesta | Qué se hizo |
+|---|---|---|
+| P3 | Oscar: "la misma estructura que el sistema de tickets" | ✅ Resuelto: "Perfiles" para usuarios del sistema y "Puestos" para empleados. Detalle en `docs/parches/2026-11-23/09-10_perfiles-y-permisos.md` |
+| P4 | Se aplica la opción A | Las pantallas de Administración ya usan la nomenclatura de tickets |
+
+Para las tareas de Oscar (sección 7.4): ya existen `kardex.exportar`, `turnos.programar` y `terminal.usuarios`, y las rutas nuevas **deben** llevar su `can:` desde el inicio (lo exige `RouteProtectionTest`).
+
+Siguen abiertas: P1, P2, P5, P6, P7, P8, P9.

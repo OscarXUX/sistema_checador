@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Profile;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -30,7 +31,19 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
             'is_active' => true,
+            // Por omisión, el perfil Administrador que crea la migración (las pruebas pueden cambiarlo)
+            'profile_id' => fn () => Profile::where('is_admin', true)->value('id'),
         ];
+    }
+
+    /**
+     * Usuario con el perfil indicado por nombre (por ejemplo "Consulta").
+     */
+    public function withProfile(string $name): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'profile_id' => Profile::where('name', $name)->value('id'),
+        ]);
     }
 
     /**

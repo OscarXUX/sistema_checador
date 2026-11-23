@@ -1,6 +1,6 @@
 # Seguridad: sin resolver
 
-> Pendientes · actualizado 22/11/2026 · Solo lo abierto (sin resolver y parciales).
+> Pendientes · actualizado 23/11/2026 · Solo lo abierto (sin resolver y parciales).
 
 ---
 
@@ -10,7 +10,7 @@
 |---|---|
 | ✅ Resuelto | 0 |
 | ⚠️ Parcial | 1 |
-| ❌ Sin resolver | 2 |
+| ❌ Sin resolver | 1 |
 
 Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
 
@@ -18,9 +18,7 @@ Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADO
 
 ## 2. Acceso
 
-| Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
-|---|---|---|---|---|
-| 🔴 Alta | **SE-02** · No hay roles ni permisos | `EmployeeFormRequest::authorize()` regresa `true`; con login (SE-01) toda cuenta puede hacer todo. Depende de TE-05 | Roles de administración y consulta con Policies; prueba de permisos por ruta | ❌ Sin resolver |
+No hay.
 
 ---
 

@@ -17,5 +17,15 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        // Mensaje en español cuando falta un permiso en peticiones de la pantalla (fetch)
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No tienes permiso para hacer esta acción.',
+                ], 403);
+            }
+
+            return null;
+        });
     })->create();

@@ -11,9 +11,11 @@
             <h2 id="shifts-catalog-heading" class="h6 fw-semibold mb-0">Catálogo de Turnos</h2>
             <small class="text-secondary">Los cálculos de retardo, comida y horas extra se basan en estas reglas</small>
         </div>
+        @can('turnos.administrar')
         <button id="btn-new-shift" type="button" class="btn btn-primary btn-sm align-self-start align-self-sm-auto">
             <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nuevo Turno
         </button>
+        @endcan
     </div>
 
     <div tabindex="0" role="region" aria-labelledby="shifts-catalog-heading" class="shifts-table-wrapper">
@@ -41,11 +43,15 @@
                         <td data-label="Tope Semanal" class="font-mono-tabular">{{ $shift->max_weekly_hours }} hrs</td>
                         <td data-label="Empleados"><span class="badge text-bg-secondary">{{ $shift->employees_count }}</span></td>
                         <td data-label="Acción" class="text-end">
+                            @can('turnos.administrar')
                             <button type="button"
                                     class="btn btn-outline-light btn-sm btn-edit-shift"
                                     data-shift='@json($shift)'>
                                 <i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar
                             </button>
+                            @else
+                            <span class="small text-secondary">Solo consulta</span>
+                            @endcan
                         </td>
                     </tr>
                 @endforeach
@@ -118,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('shift-close-x').addEventListener('click', () => dialog.close());
     document.getElementById('shift-close-btn').addEventListener('click', () => dialog.close());
 
-    document.getElementById('btn-new-shift').addEventListener('click', () => {
+    document.getElementById('btn-new-shift')?.addEventListener('click', () => {
         form.action = storeUrl;
         methodInput.value = 'POST';
         document.getElementById('shift-dialog-title').textContent = 'Nuevo Turno Laboral';

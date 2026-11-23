@@ -5,7 +5,7 @@
 @endphp
 
 <div class="p-3 border-bottom border-secondary-subtle d-flex align-items-center justify-content-between gap-2">
-    <a href="{{ route('dashboard') }}" class="d-flex align-items-center gap-2 text-decoration-none text-light">
+    <a href="{{ route('home') }}" class="d-flex align-items-center gap-2 text-decoration-none text-light">
         <span class="brand-badge" aria-hidden="true">
             <i class="bi bi-fingerprint"></i>
         </span>
@@ -26,6 +26,7 @@
         Operación y Auditoría
     </div>
     <ul class="nav flex-column gap-1">
+        @can('dashboard.consultar')
         <li class="nav-item">
             <a href="{{ route('dashboard') }}"
                class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
@@ -33,6 +34,8 @@
                 <span>Dashboard Ejecutivo</span>
             </a>
         </li>
+        @endcan
+        @can('empleados.consultar')
         <li class="nav-item">
             <a href="{{ route('employees.index') }}"
                class="nav-link {{ request()->routeIs('employees.*') ? 'active' : '' }}">
@@ -40,6 +43,8 @@
                 <span>Empleados y Huellas</span>
             </a>
         </li>
+        @endcan
+        @can('kardex.consultar')
         <li class="nav-item">
             <a href="{{ route('reports.kardex') }}"
                class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}">
@@ -47,6 +52,8 @@
                 <span>Kardex Fiscal</span>
             </a>
         </li>
+        @endcan
+        @can('turnos.consultar')
         <li class="nav-item">
             <a href="{{ route('shifts.index') }}"
                class="nav-link {{ request()->routeIs('shifts.*') ? 'active' : '' }}">
@@ -54,7 +61,37 @@
                 <span>Turnos y Tolerancias</span>
             </a>
         </li>
+        @endcan
     </ul>
+
+    @can('administrar')
+    <div class="text-uppercase text-secondary fw-semibold mb-2 mt-4 px-2" style="font-size: 0.7rem; letter-spacing: 0.08em;">
+        Administración
+    </div>
+    <ul class="nav flex-column gap-1">
+        <li class="nav-item">
+            <a href="{{ route('admin.users') }}"
+               class="nav-link {{ request()->routeIs('admin.users*') ? 'active' : '' }}">
+                <i class="bi bi-person-gear" aria-hidden="true"></i>
+                <span>Usuarios</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ route('admin.profiles') }}"
+               class="nav-link {{ request()->routeIs('admin.profiles*') ? 'active' : '' }}">
+                <i class="bi bi-person-badge" aria-hidden="true"></i>
+                <span>Perfiles</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ route('admin.permissions') }}"
+               class="nav-link {{ request()->routeIs('admin.permissions*') ? 'active' : '' }}">
+                <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                <span>Permisos</span>
+            </a>
+        </li>
+    </ul>
+    @endcan
 </nav>
 
 <div class="p-3 border-top border-secondary-subtle">
@@ -70,10 +107,12 @@
             {{ $deviceSerial }} · {{ $deviceIp }}
         </div>
         <div class="d-grid gap-2">
+            @can('terminal.sincronizar')
             <button type="button" class="btn btn-primary btn-sm d-flex align-items-center justify-content-center gap-2" data-sync-now-btn>
                 <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
                 <span>Sincronizar Ahora</span>
             </button>
+            @endcan
             <button type="button" class="btn btn-outline-secondary btn-sm" data-refresh-device-status>
                 <i class="bi bi-wifi me-1" aria-hidden="true"></i>Probar Conectividad
             </button>

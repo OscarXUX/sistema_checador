@@ -14,6 +14,16 @@ abstract class EmployeeFormRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        // Al editar sin permiso de datos personales, RFC, CURP y NSS no se validan ni se guardan
+        if ($this->isMethod('put') && ! $this->user()?->can('empleados.datos_personales')) {
+            $this->request->remove('rfc');
+            $this->request->remove('curp');
+            $this->request->remove('nss');
+            $this->json()->remove('rfc');
+            $this->json()->remove('curp');
+            $this->json()->remove('nss');
+        }
+
         $this->merge([
             'hikvision_employee_no' => trim((string) $this->input('hikvision_employee_no')),
             'rfc' => $this->filled('rfc') ? strtoupper(trim((string) $this->input('rfc'))) : null,

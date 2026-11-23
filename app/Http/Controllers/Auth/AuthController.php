@@ -28,7 +28,7 @@ class AuthController extends Controller
 
         $audit->record('auth.login', $request->user(), 'Inicio de sesión');
 
-        return redirect()->intended(route('dashboard'));
+        return redirect()->intended(route($request->user()->homeRouteName()));
     }
 
     public function destroy(Request $request, AuditLogger $audit): RedirectResponse
@@ -42,5 +42,19 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect()->route('login');
+    }
+
+    /**
+     * Inicio de cada quien: manda a la primera pantalla que puede ver. Si no tiene ninguna,
+     * se le explica en lugar de mostrar un 403.
+     */
+    public function home(Request $request): View|RedirectResponse
+    {
+        $home = $request->user()->homeRouteName();
+        if ($home !== 'home') {
+            return redirect()->route($home);
+        }
+
+        return view('auth.no-permissions');
     }
 }

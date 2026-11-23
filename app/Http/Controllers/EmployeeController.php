@@ -91,18 +91,23 @@ class EmployeeController extends Controller
      * Datos completos de un empleado para el formulario de edición. Queda en la bitácora
      * quién vio RFC, CURP y NSS (auditoría SE-05, guía 4.21).
      */
-    public function show(Employee $employee): JsonResponse
+    public function show(Request $request, Employee $employee): JsonResponse
     {
         $employee->load('workShift');
 
-        $this->audit->record(
-            'employee.personal_data_viewed',
-            $employee,
-            "Consulta de RFC, CURP y NSS del empleado #{$employee->hikvision_employee_no}"
-        );
+        // RFC, CURP y NSS completos solo con su permiso (SE-02); sin él se ven enmascarados y no se editan
+        $canSeePersonalIds = $request->user()->can('empleados.datos_personales');
+
+        if ($canSeePersonalIds) {
+            $this->audit->record(
+                'employee.personal_data_viewed',
+                $employee,
+                "Consulta de RFC, CURP y NSS del empleado #{$employee->hikvision_employee_no}"
+            );
+        }
 
         return response()->json([
-            'employee' => $this->formatEmployeeRow($employee, true),
+            'employee' => $this->formatEmployeeRow($employee, $canSeePersonalIds),
         ]);
     }
 
@@ -135,7 +140,14 @@ class EmployeeController extends Controller
     public function update(UpdateEmployeeRequest $request, Employee $employee): JsonResponse|RedirectResponse
     {
         $before = $employee->only(self::AUDITED_FIELDS);
-        $employee->update($request->validated());
+
+        $validated = $request->validated();
+        if (! $request->user()->can('empleados.datos_personales')) {
+            // Sin permiso, RFC, CURP y NSS no se cambian aunque lleguen en la petición
+            unset($validated['rfc'], $validated['curp'], $validated['nss']);
+        }
+
+        $employee->update($validated);
         $employee->load('workShift');
 
         [$old, $new] = $this->audit->diff($before, $employee->only(self::AUDITED_FIELDS));

@@ -1,6 +1,6 @@
 # Seguridad: resuelto
 
-> Pendientes · actualizado 22/11/2026 · Resueltos y parciales, con cómo se resolvieron.
+> Pendientes · actualizado 23/11/2026 · Resueltos y parciales, con cómo se resolvieron.
 
 ---
 
@@ -8,7 +8,7 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ Resuelto | 12 |
+| ✅ Resuelto | 13 |
 | ⚠️ Parcial | 1 |
 | ❌ Sin resolver | 0 |
 
@@ -21,6 +21,7 @@ Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADO
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
 | 🔴 Alta | **SE-01** · No hay inicio de sesión | Todas las rutas de `routes/web.php` están abiertas a cualquiera en la red | Login de Laravel sin registro público, límite de intentos y todas las rutas con `auth` | ✅ Resuelto 18/11/2026 |
+| 🔴 Alta | **SE-02** · No hay roles ni permisos | `EmployeeFormRequest::authorize()` regresa `true`; con login (SE-01) toda cuenta puede hacer todo. Depende de TE-05 | Roles de administración y consulta con Policies; prueba de permisos por ruta | ✅ Resuelto 23/11/2026 |
 
 ### 2.1 SE-01 · Cómo se resolvió
 
@@ -33,6 +34,18 @@ Login propio sin registro público: todas las rutas piden sesión salvo `/login`
 | Cuentas | `usuarios:crear`, `usuarios:restablecer`, `usuarios:estado`; columna `users.is_active` |
 | Pruebas | `AuthTest`, `RouteProtectionTest`, `UserCommandsTest` |
 | Detalle | `docs/parches/2026-11-18/16-20_inicio-de-sesion-y-cuentas.md` |
+
+### 2.2 SE-02 · Cómo se resolvió
+
+Perfiles y permisos con la estructura del sistema de tickets: catálogo de permisos en código y base, perfiles con su lista, excepciones por persona (dar o negar) y un perfil administrador con todo. Cada ruta declara su permiso con `can:` y las pantallas ocultan lo que no se puede usar.
+
+| Qué | Cómo quedó |
+|---|---|
+| Base | Migración `2026_11_23_000001_create_profiles_and_permissions_tables.php` (perfiles Administrador y Consulta) |
+| Código | `App\Support\Permissions`, `User::hasPermission()`, Gates en `AppServiceProvider`, `permisos:sincronizar` |
+| Pantallas | Administración → Usuarios, Perfiles y Permisos (`/administracion/...`) |
+| Pruebas | `ProfilesAndPermissionsTest` (15); `RouteProtectionTest` exige `can:` en cada ruta |
+| Detalle | `docs/parches/2026-11-23/09-10_perfiles-y-permisos.md` |
 
 ---
 
@@ -86,7 +99,7 @@ Tabla `audit_logs` con quién, qué, cuándo, desde dónde y antes/después; reg
 |---|---|
 | Servicio | `App\Services\AuditLogger` |
 | Modelo | `AuditLog`, no se modifica ni se borra desde la aplicación |
-| Consulta | En DBeaver por ahora; la pantalla espera a los roles (SE-02) |
+| Consulta | En DBeaver por ahora; la pantalla puede ir en Administración (perfiles listos desde SE-02) |
 | Pruebas | `AuditLogTest`, `test_login_logout_and_failures_are_audited` |
 | Detalle | `docs/parches/2026-11-18/16-25_bitacora-de-acciones.md` |
 

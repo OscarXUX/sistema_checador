@@ -130,10 +130,16 @@ Revisa también el parche más reciente en `docs/parches/`: su sección "Pasos m
 
 | Comando | Qué hace |
 |---|---|
-| `php artisan usuarios:crear` | Crea una cuenta |
+| `php artisan usuarios:crear` | Crea una cuenta con perfil Administrador |
+| `php artisan usuarios:crear --perfil=Consulta` | Crea una cuenta con otro perfil |
+| `php artisan permisos:sincronizar` | Carga en la base los permisos nuevos del código |
 | `php artisan usuarios:restablecer correo@ejemplo.com` | Cambia la contraseña y cierra las sesiones abiertas de esa cuenta |
 | `php artisan usuarios:estado correo@ejemplo.com inactivo` | Desactiva la cuenta sin borrarla y cierra sus sesiones |
 | `php artisan usuarios:estado correo@ejemplo.com activo` | La vuelve a activar |
+
+---
+
+Después de la primera cuenta, lo más cómodo es crear las demás en **Administración → Usuarios** (menú lateral, solo administradores), donde también se eligen perfiles y permisos.
 
 ---
 

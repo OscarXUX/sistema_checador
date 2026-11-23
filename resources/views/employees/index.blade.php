@@ -35,10 +35,12 @@
             </span>
         </div>
 
+        @can('empleados.agregar')
         <button id="btn-new-employee" type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 flex-shrink-0">
             <i class="bi bi-person-plus-fill" aria-hidden="true"></i>
             <span>Nuevo Empleado</span>
         </button>
+        @endcan
     </div>
 
     <div class="grid-region" tabindex="0" role="region" aria-label="Tabla de empleados y acciones biométricas">
@@ -298,6 +300,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const { core: wjCore, grid: wjGrid } = window.AppUI.wijmo;
     const { apiFetch, showToast, escapeHtml } = window.AppUI;
 
+    // Permisos del usuario para mostrar u ocultar acciones (el servidor los vuelve a revisar en cada ruta)
+    const dataPermisos = {{ \Illuminate\Support\Js::from([
+        'agregar' => auth()->user()->can('empleados.agregar'),
+        'actualizar' => auth()->user()->can('empleados.actualizar'),
+        'baja' => auth()->user()->can('empleados.baja'),
+        'terminal' => auth()->user()->can('terminal.usuarios'),
+        'huellas' => auth()->user()->can('terminal.huellas'),
+    ]) }};
+
     const routes = {
         store: '{{ route("employees.store") }}',
         updateBase: '{{ url("/employees") }}',
@@ -403,21 +414,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `<span class="badge text-bg-dark border border-warning text-warning">Sin Huella</span>`;
             e.cell.innerHTML = `<div class="d-flex flex-wrap gap-1">${syncHtml}${fpHtml}</div>`;
         } else if (col.binding === 'id') {
-            e.cell.innerHTML = `
-                <div class="btn-group btn-group-sm" role="group" aria-label="Acciones de empleado">
-                    <button type="button" class="btn btn-outline-info" data-action="sync" data-id="${row.id}" title="Sincronizar a Hikvision">
+            const lstBotones = [];
+            if (dataPermisos.terminal) {
+                lstBotones.push(`<button type="button" class="btn btn-outline-info" data-action="sync" data-id="${row.id}" title="Sincronizar a Hikvision">
                         <i class="bi bi-hdd-network me-1" aria-hidden="true"></i>Sincronizar
-                    </button>
-                    <button type="button" class="btn btn-outline-warning" data-action="fingerprint" data-id="${row.id}" title="Capturar Huella Remota">
+                    </button>`);
+            }
+            if (dataPermisos.huellas) {
+                lstBotones.push(`<button type="button" class="btn btn-outline-warning" data-action="fingerprint" data-id="${row.id}" title="Capturar Huella Remota">
                         <i class="bi bi-fingerprint me-1" aria-hidden="true"></i>Huella
-                    </button>
-                    <button type="button" class="btn btn-outline-light" data-action="edit" data-id="${row.id}" title="Editar empleado">
+                    </button>`);
+            }
+            if (dataPermisos.actualizar) {
+                lstBotones.push(`<button type="button" class="btn btn-outline-light" data-action="edit" data-id="${row.id}" title="Editar empleado">
                         <i class="bi bi-pencil" aria-hidden="true"></i>
-                    </button>
-                    <button type="button" class="btn btn-outline-danger" data-action="delete" data-id="${row.id}" title="Dar de baja">
+                    </button>`);
+            }
+            if (dataPermisos.baja) {
+                lstBotones.push(`<button type="button" class="btn btn-outline-danger" data-action="delete" data-id="${row.id}" title="Dar de baja">
                         <i class="bi bi-trash" aria-hidden="true"></i>
-                    </button>
-                </div>`;
+                    </button>`);
+            }
+            e.cell.innerHTML = lstBotones.length
+                ? `<div class="btn-group btn-group-sm" role="group" aria-label="Acciones de empleado">${lstBotones.join('')}</div>`
+                : '<span class="small text-secondary">Solo consulta</span>';
         }
     });
 
@@ -442,6 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function openCreateModal() {
         clearFormErrors();
         empForm.reset();
+        setPersonalIdsLocked(false);
         document.getElementById('emp-id').value = '';
         document.getElementById('emp-active').checked = true;
         document.getElementById('employee-dialog-title').textContent = 'Nuevo Empleado';
@@ -466,6 +487,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('emp-rfc').value = emp.rfc || '';
         document.getElementById('emp-curp').value = emp.curp || '';
         document.getElementById('emp-nss').value = emp.nss || '';
+        // Sin permiso de datos personales llegan enmascarados: se muestran bloqueados y no se envían
+        setPersonalIdsLocked(Boolean(emp.personal_ids_masked));
         document.getElementById('emp-department').value = emp.department || '';
         document.getElementById('emp-position').value = emp.position || '';
         document.getElementById('emp-shift').value = String(emp.work_shift_id || '');
@@ -475,7 +498,15 @@ document.addEventListener('DOMContentLoaded', () => {
         formDialog.showModal();
     }
 
-    document.getElementById('btn-new-employee').addEventListener('click', openCreateModal);
+    function setPersonalIdsLocked(locked) {
+        ['emp-rfc', 'emp-curp', 'emp-nss'].forEach((id) => {
+            const field = document.getElementById(id);
+            field.disabled = locked;
+            field.title = locked ? 'Necesitas el permiso "Ver y editar RFC, CURP y NSS" para cambiar este dato.' : '';
+        });
+    }
+
+    document.getElementById('btn-new-employee')?.addEventListener('click', openCreateModal);
 
     // Validación por campo tras interacción (blur) y limpieza en input
     empForm.querySelectorAll('input, select').forEach((field) => {
@@ -507,23 +538,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const isEdit = empId !== '';
         const url = isEdit ? `${routes.updateBase}/${empId}` : routes.store;
 
-        const payload = {
+        const dataPayload = {
             hikvision_employee_no: document.getElementById('emp-no').value,
             full_name: document.getElementById('emp-name').value,
-            rfc: document.getElementById('emp-rfc').value || null,
-            curp: document.getElementById('emp-curp').value || null,
-            nss: document.getElementById('emp-nss').value || null,
             department: document.getElementById('emp-department').value,
             position: document.getElementById('emp-position').value,
             work_shift_id: Number(document.getElementById('emp-shift').value),
             is_active: document.getElementById('emp-active').checked,
         };
+        if (!document.getElementById('emp-rfc').disabled) {
+            dataPayload.rfc = document.getElementById('emp-rfc').value || null;
+            dataPayload.curp = document.getElementById('emp-curp').value || null;
+            dataPayload.nss = document.getElementById('emp-nss').value || null;
+        }
 
         submitBtn.disabled = true;
         try {
             const res = await apiFetch(url, {
                 method: isEdit ? 'PUT' : 'POST',
-                body: payload,
+                body: dataPayload,
             });
             await reloadEmployees();
             formDialog.close();
