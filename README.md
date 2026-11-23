@@ -154,6 +154,7 @@ Revisa también el parche más reciente en `docs/parches/`: su sección "Pasos m
 
 | Síntoma | Causa | Solución |
 |---|---|---|
+| `php artisan test` falla con 419 o dice "Pruebas detenidas para no borrar tu base de datos real" | La configuración quedó en caché (`php artisan optimize` o `config:cache`) | `php artisan optimize:clear` y volver a correr las pruebas. En local no uses `optimize` |
 | Error 500 "Vite manifest not found" | No se han compilado los assets | `npm run build` o tener `npm run dev` abierto |
 | En el puerto 5173 sale una página de Laravel + Vite | Es el servidor de Vite, no la aplicación | Abre la URL de `php artisan serve` (puerto 8000) |
 | `Access denied for user` al migrar | Usuario o contraseña del `.env` distintos a los de DBeaver | Copia los datos de la conexión (DBeaver → clic derecho → Editar conexión) |

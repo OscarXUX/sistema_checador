@@ -30,7 +30,8 @@ docs/
 │   │   ├── 17-35_rfc-curp-nss-cifrados-y-enmascarados.md
 │   │   └── 17-36_cabeceras-de-seguridad.md
 │   └── 2026-11-22/
-│       └── 20-00_turnos-nocturnos-kardex-json-y-despliegue.md
+│       ├── 20-00_turnos-nocturnos-kardex-json-y-despliegue.md
+│       └── 20-40_candado-pruebas-config-en-cache.md
 ├── despliegue/
 │   └── 2026-11-22/
 │       └── 20-00_GUIA_DESPLIEGUE_PRODUCCION.md
