@@ -505,3 +505,95 @@ dialog.mobile-drawer::backdrop {
         box-shadow: 0 0 0 16px rgba(56, 189, 248, 0);
     }
 }
+
+/* Pestañas de una sola fila con desplazamiento horizontal e indicador de borde inferior (O2) */
+.app-tablist {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-block-end: 1px solid var(--border-subtle);
+}
+
+.app-tablist::-webkit-scrollbar {
+    display: none;
+}
+
+.app-tab {
+    position: relative;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    background: transparent;
+    border: 0;
+    color: var(--text-muted);
+    padding: 0.7rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 0.5rem 0.5rem 0 0;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.app-tab:hover {
+    color: var(--text-primary);
+    background-color: rgba(56, 189, 248, 0.06);
+}
+
+.app-tab:focus-visible {
+    outline: 2px solid var(--accent-cyan);
+    outline-offset: -2px;
+}
+
+.app-tab[aria-selected="true"] {
+    color: #fff;
+}
+
+.app-tab[aria-selected="true"]::after {
+    content: "";
+    position: absolute;
+    inset: auto 0.5rem 0;
+    border-block-end: 3px solid var(--accent-cyan);
+}
+
+/* El padding vive en el contenedor interno para evitar franjas visibles con hidden="until-found" */
+.tabpanel-inner {
+    padding-block-start: 1.25rem;
+}
+
+/* Tabla de vista previa de 14 días con primera columna fija */
+.schedule-preview-scroll {
+    overflow: auto;
+    max-inline-size: 100%;
+    max-block-size: min(65dvh, 560px);
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.65rem;
+}
+
+.schedule-preview-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.8rem;
+}
+
+.schedule-preview-table thead th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background-color: #172033;
+    white-space: nowrap;
+}
+
+.schedule-preview-table th.sticky-col,
+.schedule-preview-table td.sticky-col {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 1;
+    background-color: #131b2b;
+    min-inline-size: 180px;
+    border-inline-end: 1px solid var(--border-subtle);
+}
+
+.schedule-preview-table thead th.sticky-col {
+    z-index: 3;
+    background-color: #172033;
+}

@@ -1,6 +1,6 @@
 # Documentación del sistema checador
 
-> Índice · actualizado 22/11/2026 · Cómo está organizada la carpeta.
+> Índice · actualizado 23/11/2026 · Cómo está organizada la carpeta.
 
 ---
 
@@ -29,10 +29,12 @@ docs/
 │   │   ├── 17-30_orden-de-empleados-en-servidor.md
 │   │   ├── 17-35_rfc-curp-nss-cifrados-y-enmascarados.md
 │   │   └── 17-36_cabeceras-de-seguridad.md
-│   └── 2026-11-22/
-│       ├── 20-00_turnos-nocturnos-kardex-json-y-despliegue.md
-│       ├── 20-40_candado-pruebas-config-en-cache.md
-│       └── 21-50_horarios-comida-recalculo-y-responsividad.md
+│   ├── 2026-11-22/
+│   │   ├── 20-00_turnos-nocturnos-kardex-json-y-despliegue.md
+│   │   ├── 20-40_candado-pruebas-config-en-cache.md
+│   │   └── 21-50_horarios-comida-recalculo-y-responsividad.md
+│   └── 2026-11-23/
+│       └── 09-22_o1-o2-o3-excel-rotaciones-medios.md
 ├── despliegue/
 │   └── 2026-11-22/
 │       └── 20-00_GUIA_DESPLIEGUE_PRODUCCION.md

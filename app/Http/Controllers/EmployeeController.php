@@ -6,6 +6,7 @@ use App\Exceptions\HikvisionConnectionException;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
 use App\Models\Employee;
+use App\Models\MarkingMethod;
 use App\Models\WorkShift;
 use App\Services\AuditLogger;
 use App\Services\HikvisionIsapiService;
@@ -15,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use InvalidArgumentException;
 
 class EmployeeController extends Controller
 {
@@ -30,6 +32,7 @@ class EmployeeController extends Controller
             'workShifts' => $workShifts,
             'departments' => $departments,
             'employeesPage' => $this->paginateEmployees(1, self::DEFAULT_PER_PAGE, ''),
+            'markingMethods' => MarkingMethod::orderBy('id')->get()->keyBy('code'),
         ]);
     }
 
@@ -83,9 +86,7 @@ class EmployeeController extends Controller
         'department', 'position', 'work_shift_id', 'is_active',
     ];
 
-    public function __construct(private readonly AuditLogger $audit)
-    {
-    }
+    public function __construct(private readonly AuditLogger $audit) {}
 
     /**
      * Datos completos de un empleado para el formulario de edición. Queda en la bitácora
@@ -203,6 +204,8 @@ class EmployeeController extends Controller
             if ($removedFromDevice) {
                 $changes['device_synced_at'] = null;
                 $changes['fingerprint_enrolled'] = false;
+                $changes['card_enrolled'] = false;
+                $changes['pin_configured'] = false;
             }
             $employee->forceFill($changes)->save();
 
@@ -259,6 +262,8 @@ class EmployeeController extends Controller
             $employee->forceFill([
                 'device_synced_at' => null,
                 'fingerprint_enrolled' => false,
+                'card_enrolled' => false,
+                'pin_configured' => false,
             ])->save();
             $employee->load('workShift');
 
@@ -280,6 +285,13 @@ class EmployeeController extends Controller
         Employee $employee,
         HikvisionIsapiService $isapi
     ): JsonResponse {
+        if (! MarkingMethod::isMethodEnabled(MarkingMethod::CODE_FINGERPRINT)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La captura de huella dactilar está deshabilitada en el catálogo de Medios de marcaje.',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'finger_no' => ['nullable', 'integer', 'min:1', 'max:10'],
         ]);
@@ -306,6 +318,104 @@ class EmployeeController extends Controller
                 'message' => $e->getMessage(),
             ], 502);
         }
+    }
+
+    public function enrollCard(
+        Request $request,
+        Employee $employee,
+        HikvisionIsapiService $isapi
+    ): JsonResponse {
+        if (! MarkingMethod::isMethodEnabled(MarkingMethod::CODE_CARD)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El medio "Tarjeta RFID" está deshabilitado en el catálogo de Medios de marcaje.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'card_no' => ['required', 'string', 'max:32', 'regex:/^[A-Za-z0-9_-]+$/'],
+        ]);
+
+        try {
+            $result = $isapi->enrollCardToDevice($employee, $validated['card_no']);
+            $employee->refresh()->load('workShift');
+
+            $this->audit->record(
+                'device.card_enrolled',
+                $employee,
+                "Tarjeta RFID asignada en terminal al empleado #{$employee->hikvision_employee_no}",
+                [],
+                ['card_no' => $result['card_no'], 'card_enrolled' => true]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => $result['message'],
+                'employee' => $this->formatEmployeeRow($employee),
+            ]);
+        } catch (HikvisionConnectionException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 502);
+        }
+    }
+
+    public function enrollPin(
+        Request $request,
+        Employee $employee,
+        HikvisionIsapiService $isapi
+    ): JsonResponse {
+        if (! MarkingMethod::isMethodEnabled(MarkingMethod::CODE_PIN)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El medio "PIN / Contraseña" está deshabilitado en el catálogo de Medios de marcaje.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'pin' => ['required', 'string', 'regex:/^\d{4,8}$/'],
+        ]);
+
+        try {
+            $result = $isapi->enrollPinToDevice($employee, $validated['pin']);
+            $employee->refresh()->load('workShift');
+
+            // El valor del PIN nunca se guarda ni en audit_logs ni en empleados (O3).
+            $this->audit->record(
+                'device.pin_enrolled',
+                $employee,
+                "PIN actualizado en la terminal para el empleado #{$employee->hikvision_employee_no} (no almacenado en BD)",
+                [],
+                ['pin_configured' => true]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => $result['message'],
+                'employee' => $this->formatEmployeeRow($employee),
+                'pin_configured' => true,
+            ]);
+        } catch (InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (HikvisionConnectionException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 502);
+        }
+    }
+
+    public function enrollFace(Employee $employee): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'privacy_notice' => 'TE-02',
+            'message' => 'El enrolamiento de rostro es un dato biométrico y está en espera del aviso de privacidad (TE-02).',
+        ], 422);
     }
 
     /**
@@ -403,6 +513,9 @@ class EmployeeController extends Controller
             'is_active' => $employee->is_active,
             'status_label' => $employee->is_active ? 'Activo' : 'Inactivo',
             'fingerprint_enrolled' => $employee->fingerprint_enrolled,
+            'card_no' => $employee->card_no,
+            'card_enrolled' => (bool) $employee->card_enrolled,
+            'pin_configured' => (bool) $employee->pin_configured,
             'device_synced_at' => $employee->device_synced_at?->format('d/m/Y H:i'),
         ];
     }

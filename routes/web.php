@@ -4,7 +4,9 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\MarkingMethodController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ShiftScheduleController;
 use App\Http\Controllers\WorkShiftController;
 use Illuminate\Support\Facades\Route;
 
@@ -40,6 +42,9 @@ Route::middleware('auth')->group(function (): void {
             Route::post('/{employee}/sync-device', [EmployeeController::class, 'syncToDevice'])->name('sync-device');
             Route::delete('/{employee}/device', [EmployeeController::class, 'deleteFromDevice'])->name('delete-device');
             Route::post('/{employee}/capture-fingerprint', [EmployeeController::class, 'captureFingerprint'])->name('capture-fingerprint');
+            Route::post('/{employee}/enroll-card', [EmployeeController::class, 'enrollCard'])->name('enroll-card');
+            Route::post('/{employee}/enroll-pin', [EmployeeController::class, 'enrollPin'])->name('enroll-pin');
+            Route::post('/{employee}/enroll-face', [EmployeeController::class, 'enrollFace'])->name('enroll-face');
         });
     });
 
@@ -47,13 +52,35 @@ Route::middleware('auth')->group(function (): void {
     Route::prefix('reports')->name('reports.')->middleware('throttle:reports')->group(function (): void {
         Route::get('/kardex', [ReportController::class, 'kardex'])->name('kardex');
         Route::get('/kardex/data', [ReportController::class, 'kardexData'])->name('kardex.data');
+        Route::get('/kardex/export/xlsx', [ReportController::class, 'exportXlsx'])->name('kardex.export.xlsx');
         Route::get('/kardex/logs/{attendanceLog}/payload', [ReportController::class, 'logPayload'])->name('kardex.payload');
     });
 
-    // Turnos Laborales y Reglas Fiscales
+    // Turnos Laborales, Rotaciones y Excepciones
     Route::prefix('shifts')->name('shifts.')->group(function (): void {
         Route::get('/', [WorkShiftController::class, 'index'])->name('index');
         Route::post('/', [WorkShiftController::class, 'store'])->name('store');
-        Route::put('/{shift}', [WorkShiftController::class, 'update'])->name('update');
+        Route::put('/{shift}', [WorkShiftController::class, 'update'])->name('update')->whereNumber('shift');
+
+        Route::post('/rotations', [ShiftScheduleController::class, 'storeRotation'])->name('rotations.store');
+        Route::put('/rotations/{rotation}', [ShiftScheduleController::class, 'updateRotation'])->name('rotations.update');
+        Route::delete('/rotations/{rotation}', [ShiftScheduleController::class, 'destroyRotation'])->name('rotations.destroy');
+
+        Route::post('/groups', [ShiftScheduleController::class, 'storeGroup'])->name('groups.store');
+        Route::put('/groups/{group}', [ShiftScheduleController::class, 'updateGroup'])->name('groups.update');
+        Route::delete('/groups/{group}', [ShiftScheduleController::class, 'destroyGroup'])->name('groups.destroy');
+
+        Route::post('/assignments', [ShiftScheduleController::class, 'storeAssignment'])->name('assignments.store');
+        Route::delete('/assignments/{assignment}', [ShiftScheduleController::class, 'destroyAssignment'])->name('assignments.destroy');
+
+        Route::post('/exceptions', [ShiftScheduleController::class, 'storeException'])->name('exceptions.store');
+        Route::delete('/exceptions/{exception}', [ShiftScheduleController::class, 'destroyException'])->name('exceptions.destroy');
+    });
+
+    // Medios de Marcaje e Inspección ISAPI (O3)
+    Route::prefix('marking-methods')->name('marking-methods.')->group(function (): void {
+        Route::get('/', [MarkingMethodController::class, 'index'])->name('index');
+        Route::post('/detect', [MarkingMethodController::class, 'detect'])->middleware('throttle:device')->name('detect');
+        Route::patch('/{markingMethod}', [MarkingMethodController::class, 'update'])->name('update');
     });
 });

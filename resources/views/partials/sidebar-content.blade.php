@@ -54,6 +54,13 @@
                 <span>Turnos y Tolerancias</span>
             </a>
         </li>
+        <li class="nav-item">
+            <a href="{{ route('marking-methods.index') }}"
+               class="nav-link {{ request()->routeIs('marking-methods.*') ? 'active' : '' }}">
+                <i class="bi bi-credit-card-2-front" aria-hidden="true"></i>
+                <span>Medios de Marcaje</span>
+            </a>
+        </li>
     </ul>
 </nav>
 

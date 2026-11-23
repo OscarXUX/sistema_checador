@@ -5,11 +5,19 @@ namespace App\Http\Controllers;
 use App\Models\AttendanceLog;
 use App\Models\DailySummary;
 use App\Models\Employee;
+use App\Services\AuditLogger;
+use App\Services\KardexExcelExportService;
+use App\Services\ShiftScheduleResolver;
 use App\Support\PersonalData;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use InvalidArgumentException;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
@@ -41,6 +49,88 @@ class ReportController extends Controller
             'kardex_rows' => $this->queryKardexRows($filters),
             'audit_logs' => $this->queryAuditLogs($filters),
         ]);
+    }
+
+    /**
+     * Exporta el Kardex en Excel (.xlsx) desde el servidor con una pestaña por mes (máximo 12 meses).
+     */
+    public function exportXlsx(
+        Request $request,
+        KardexExcelExportService $exporter,
+        AuditLogger $audit,
+    ): StreamedResponse|Response {
+        $startRaw = (string) $request->query('start_date', '');
+        $endRaw = (string) $request->query('end_date', '');
+
+        if ($startRaw === '' || $endRaw === '') {
+            return $this->unprocessableExport($request, 'Debes indicar fecha de inicio y fecha de fin para exportar.', 'start_date');
+        }
+
+        try {
+            $start = CarbonImmutable::parse($startRaw)->startOfDay();
+            $end = CarbonImmutable::parse($endRaw)->startOfDay();
+        } catch (\Throwable) {
+            return $this->unprocessableExport($request, 'El formato de fechas para exportar no es válido.', 'start_date');
+        }
+
+        if ($start->greaterThan($end)) {
+            return $this->unprocessableExport($request, 'La fecha de fin debe ser igual o posterior a la fecha de inicio.', 'end_date');
+        }
+
+        $department = trim((string) $request->query('department', ''));
+        $employeeId = $request->filled('employee_id') ? (int) $request->query('employee_id') : null;
+
+        try {
+            $result = $exporter->buildSpreadsheet(
+                $start,
+                $end,
+                $department !== '' ? $department : null,
+                $employeeId
+            );
+        } catch (InvalidArgumentException $e) {
+            return $this->unprocessableExport($request, $e->getMessage(), 'end_date');
+        }
+
+        $months = $result['months'];
+        $monthsCount = count($months);
+        $spreadsheet = $result['spreadsheet'];
+        $filename = sprintf('Kardex_Fiscal_%s_a_%s.xlsx', $start->toDateString(), $end->toDateString());
+
+        $audit->record(
+            'kardex.exported_xlsx',
+            null,
+            sprintf('Exportación Excel del kardex (%s a %s, %d hojas)', $start->toDateString(), $end->toDateString(), $monthsCount),
+            [],
+            [
+                'start_date' => $start->toDateString(),
+                'end_date' => $end->toDateString(),
+                'months' => $monthsCount,
+                'rows' => $result['row_count'],
+                'department' => $department !== '' ? $department : null,
+                'employee_id' => $employeeId,
+            ]
+        );
+
+        return response()->streamDownload(function () use ($spreadsheet): void {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    private function unprocessableExport(Request $request, string $message, string $field): Response
+    {
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => $message,
+                'errors' => [$field => [$message]],
+            ], 422);
+        }
+
+        return response($message, 422);
     }
 
     /**
@@ -104,9 +194,24 @@ class ReportController extends Controller
             ->orderBy('employee_id')
             ->orderBy('work_date');
 
-        return $query->get()->map(function (DailySummary $summary): array {
+        $summaries = $query->get();
+
+        if ($summaries->isEmpty()) {
+            return [];
+        }
+
+        $resolver = app(ShiftScheduleResolver::class);
+        $employees = $summaries->pluck('employee')->filter()->unique('id')->values();
+        $minDate = $summaries->min('work_date');
+        $maxDate = $summaries->max('work_date');
+        $scheduleContext = $resolver->loadBatchContext($employees, $minDate, $maxDate);
+
+        return $summaries->map(function (DailySummary $summary) use ($resolver, $scheduleContext): array {
             $emp = $summary->employee;
-            $shift = $emp?->workShift;
+            $resolved = $emp !== null
+                ? $resolver->resolveDetailFromContext($emp, CarbonImmutable::instance($summary->work_date)->startOfDay(), $scheduleContext)
+                : ['shift' => null];
+            $shift = $resolved['shift'] ?? $emp?->workShift;
             $ordinaryMinutes = max(0, $summary->worked_minutes - $summary->overtime_minutes);
 
             return [

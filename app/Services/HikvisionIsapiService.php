@@ -58,6 +58,217 @@ class HikvisionIsapiService
     }
 
     /**
+     * Consulta por ISAPI qué medios de verificación soporta la terminal (huella, rostro, tarjeta, PIN).
+     *
+     * @return array<string, mixed>
+     */
+    public function detectVerificationCapabilities(): array
+    {
+        $checkedAt = now()->toIso8601String();
+
+        try {
+            $accessCap = $this->fetchCapabilityDocument('/ISAPI/AccessControl/capabilities?format=json', '/ISAPI/AccessControl/capabilities');
+        } catch (ConnectionException $e) {
+            Log::warning('Hikvision ISAPI capability detection failed (offline/timeout)', [
+                'url' => $this->baseUrl,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'online' => false,
+                'device_ip' => $this->getDeviceIp(),
+                'checked_at' => $checkedAt,
+                'methods' => [
+                    'fingerprint' => ['supported' => null, 'source' => null],
+                    'face' => ['supported' => null, 'source' => null],
+                    'card' => ['supported' => null, 'source' => null],
+                    'pin' => ['supported' => null, 'source' => null],
+                ],
+                'verify_modes_reported' => [],
+                'message' => 'Terminal fuera de línea o sin respuesta en '.$this->getDeviceIp().'. No fue posible detectar capacidades.',
+            ];
+        }
+
+        if ($accessCap['status'] === 401) {
+            return [
+                'online' => false,
+                'device_ip' => $this->getDeviceIp(),
+                'checked_at' => $checkedAt,
+                'methods' => [
+                    'fingerprint' => ['supported' => null, 'source' => null],
+                    'face' => ['supported' => null, 'source' => null],
+                    'card' => ['supported' => null, 'source' => null],
+                    'pin' => ['supported' => null, 'source' => null],
+                ],
+                'verify_modes_reported' => [],
+                'message' => 'Error de autenticación Digest Auth al consultar capacidades de la terminal.',
+            ];
+        }
+
+        $fpCap = $this->safeFetchCapabilityDocument('/ISAPI/AccessControl/FingerPrint/capabilities?format=json', '/ISAPI/AccessControl/FingerPrint/capabilities');
+        $cardCap = $this->safeFetchCapabilityDocument('/ISAPI/AccessControl/CardInfo/capabilities?format=json', '/ISAPI/AccessControl/CardInfo/capabilities');
+        $userCap = $this->safeFetchCapabilityDocument('/ISAPI/AccessControl/UserInfo/capabilities?format=json', '/ISAPI/AccessControl/UserInfo/capabilities');
+        $faceCap = $this->safeFetchCapabilityDocument('/ISAPI/Intelligent/FDLib/capabilities?format=json', '/ISAPI/Intelligent/FDLib/capabilities');
+
+        $verifyModes = $this->extractVerifyModeValues([
+            $accessCap['body'],
+            $fpCap['body'],
+            $cardCap['body'],
+            $userCap['body'],
+            $faceCap['body'],
+        ]);
+
+        $fingerprintSupported = $this->resolveCapabilityFlag(
+            [$accessCap, $fpCap],
+            ['isSupportFingerPrint', 'supportFingerPrint', 'FingerPrintCfg', 'FingerPrint', 'CaptureFingerPrint'],
+            $verifyModes,
+            ['finger', 'fp']
+        );
+
+        $faceSupported = $this->resolveCapabilityFlag(
+            [$accessCap, $faceCap],
+            ['isSupportFace', 'supportFace', 'isSupportFDLib', 'FDLib', 'FaceData', 'isSupportFaceRecognition'],
+            $verifyModes,
+            ['face']
+        );
+
+        $cardSupported = $this->resolveCapabilityFlag(
+            [$accessCap, $cardCap],
+            ['isSupportCard', 'supportCard', 'CardInfo', 'cardNo'],
+            $verifyModes,
+            ['card']
+        );
+
+        $pinSupported = $this->resolveCapabilityFlag(
+            [$accessCap, $userCap],
+            ['isSupportVerifyPIN', 'isSupportPassword', 'password', 'pin', 'verifyPIN'],
+            $verifyModes,
+            ['pw', 'pin', 'password']
+        );
+
+        return [
+            'online' => true,
+            'device_ip' => $this->getDeviceIp(),
+            'checked_at' => $checkedAt,
+            'methods' => [
+                'fingerprint' => ['supported' => $fingerprintSupported, 'endpoint' => '/ISAPI/AccessControl/FingerPrint/capabilities'],
+                'face' => ['supported' => $faceSupported, 'endpoint' => '/ISAPI/Intelligent/FDLib/capabilities'],
+                'card' => ['supported' => $cardSupported, 'endpoint' => '/ISAPI/AccessControl/CardInfo/capabilities'],
+                'pin' => ['supported' => $pinSupported, 'endpoint' => '/ISAPI/AccessControl/UserInfo/capabilities'],
+            ],
+            'verify_modes_reported' => $verifyModes,
+            'message' => 'Capacidades de verificación detectadas correctamente vía ISAPI.',
+        ];
+    }
+
+    /**
+     * Registra o actualiza una tarjeta RFID asociada al empleado en la terminal Hikvision.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws HikvisionConnectionException
+     */
+    public function enrollCardToDevice(Employee $employee, string $cardNo): array
+    {
+        $cleanCardNo = trim($cardNo);
+        $this->syncUserToDevice($employee);
+
+        $endpoint = '/ISAPI/AccessControl/CardInfo/Record?format=json';
+        $payload = [
+            'CardInfo' => [
+                'employeeNo' => (string) $employee->hikvision_employee_no,
+                'cardNo' => $cleanCardNo,
+                'cardType' => 'normalCard',
+            ],
+        ];
+
+        $response = $this->sendRequest('post', $endpoint, $payload);
+        $body = $this->parseResponseBody($response);
+
+        $subCode = strtolower((string) ($body['subStatusCode'] ?? ''));
+        if (! $response->successful() && (str_contains($subCode, 'exist') || str_contains($subCode, 'already') || str_contains($subCode, 'duplicate'))) {
+            $endpoint = '/ISAPI/AccessControl/CardInfo/Modify?format=json';
+            $response = $this->sendRequest('put', $endpoint, $payload);
+            $body = $this->parseResponseBody($response);
+        }
+
+        $this->assertIsapiSuccess($response, $body, $endpoint, 'No se pudo asociar la tarjeta RFID en la terminal.');
+
+        $employee->forceFill([
+            'card_no' => $cleanCardNo,
+            'card_enrolled' => true,
+            'device_synced_at' => now(),
+        ])->save();
+
+        return [
+            'success' => true,
+            'employee_no' => $employee->hikvision_employee_no,
+            'card_no' => $cleanCardNo,
+            'endpoint' => $endpoint,
+            'message' => "Tarjeta {$cleanCardNo} asignada en la terminal al empleado {$employee->hikvision_employee_no}.",
+        ];
+    }
+
+    /**
+     * Configura el PIN numérico del empleado directamente en la terminal Hikvision sin almacenarlo en la base.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws HikvisionConnectionException
+     */
+    public function enrollPinToDevice(Employee $employee, string $pin): array
+    {
+        $cleanPin = trim($pin);
+        if (preg_match('/^\d{4,8}$/', $cleanPin) !== 1) {
+            throw new \InvalidArgumentException('El PIN debe tener entre 4 y 8 dígitos numéricos.');
+        }
+
+        $this->syncUserToDevice($employee);
+
+        $endpoint = '/ISAPI/AccessControl/UserInfo/Modify?format=json';
+        $payload = [
+            'UserInfo' => [
+                'employeeNo' => (string) $employee->hikvision_employee_no,
+                'name' => mb_substr(trim($employee->full_name), 0, 32),
+                'userType' => 'normal',
+                'password' => $cleanPin,
+                'Valid' => [
+                    'enable' => (bool) $employee->is_active,
+                    'beginTime' => '2020-01-01T00:00:00',
+                    'endTime' => '2035-12-31T23:59:59',
+                ],
+                'doorRight' => '1',
+                'RightPlan' => [
+                    [
+                        'doorNo' => 1,
+                        'planTemplateNo' => '1',
+                    ],
+                ],
+                'localUIRight' => false,
+                'gender' => 'unknown',
+            ],
+        ];
+
+        $response = $this->sendRequest('put', $endpoint, $payload);
+        $body = $this->parseResponseBody($response);
+        $this->assertIsapiSuccess($response, $body, $endpoint, 'No se pudo configurar el PIN en la terminal.');
+
+        // Nunca se guarda el PIN en BD; solo queda la bandera de que se envió al reloj.
+        $employee->forceFill([
+            'pin_configured' => true,
+            'device_synced_at' => now(),
+        ])->save();
+
+        return [
+            'success' => true,
+            'employee_no' => $employee->hikvision_employee_no,
+            'pin_configured' => true,
+            'endpoint' => $endpoint,
+            'message' => "PIN actualizado en la terminal para el empleado {$employee->hikvision_employee_no} (no almacenado en la base).",
+        ];
+    }
+
+    /**
      * Valida conectividad, credenciales Digest Auth e información general del reloj.
      *
      * @return array<string, mixed>
@@ -629,6 +840,11 @@ XML;
         'picdata',
         'password',
         'pwd',
+        'pin',
+        'cardpasswd',
+        'cardpassword',
+        'userpassword',
+        'verifypin',
     ];
 
     private const MAX_RAW_LOG_LENGTH = 500;
@@ -735,37 +951,225 @@ XML;
     }
 
     /**
+     * Normaliza el medio de marcaje combinando currentVerifyMode y el código minor de AcsEvent.
+     *
+     * Cuando la terminal opera con reglas compuestas (ej. cardOrFp, faceOrFpOrCardOrPw),
+     * currentVerifyMode indica la regla habilitada y minor identifica el método real usado.
+     *
      * @param  array<string, mixed>  $item
      */
-    private function mapVerificationMode(array $item): string
+    public function mapVerificationMode(array $item): string
     {
-        $mode = strtolower((string) ($item['currentVerifyMode'] ?? ''));
+        $rawMode = strtolower(trim((string) ($item['currentVerifyMode'] ?? '')));
+        $minor = isset($item['minor']) && is_numeric($item['minor']) ? (int) $item['minor'] : null;
 
-        if ($mode !== '') {
-            if (str_contains($mode, 'finger')) {
+        $isCompoundRule = $rawMode !== ''
+            && (str_contains($rawMode, 'or') || str_contains($rawMode, 'and') || str_contains($rawMode, '+'));
+
+        if ($rawMode !== '' && ! $isCompoundRule) {
+            if (str_contains($rawMode, 'finger') || $rawMode === 'fp') {
                 return 'fingerprint';
             }
-            if (str_contains($mode, 'face')) {
+            if (str_contains($rawMode, 'face')) {
                 return 'face';
             }
-            if (str_contains($mode, 'card')) {
+            if (str_contains($rawMode, 'card')) {
                 return 'card';
             }
-            if (str_contains($mode, 'pw') || str_contains($mode, 'pin') || str_contains($mode, 'password')) {
+            if ($rawMode === 'pw' || $rawMode === 'pin' || str_contains($rawMode, 'password') || str_contains($rawMode, 'pin')) {
+                return 'pin';
+            }
+        }
+
+        if ($minor !== null) {
+            $byMinor = match ($minor) {
+                1, 2, 3, 4, 5, 6, 7, 9 => 'card',
+                10, 21 => 'pin',
+                38, 39, 104, 105 => 'fingerprint',
+                75 => 'face',
+                default => null,
+            };
+
+            if ($byMinor !== null) {
+                return $byMinor;
+            }
+        }
+
+        if ($rawMode !== '') {
+            if (str_contains($rawMode, 'finger')) {
+                return 'fingerprint';
+            }
+            if (str_contains($rawMode, 'face')) {
+                return 'face';
+            }
+            if (str_contains($rawMode, 'card')) {
+                return 'card';
+            }
+            if (str_contains($rawMode, 'pw') || str_contains($rawMode, 'pin') || str_contains($rawMode, 'password')) {
                 return 'pin';
             }
 
-            return $mode;
+            return mb_substr($rawMode, 0, 32);
         }
 
-        $minor = (int) ($item['minor'] ?? 0);
+        return 'fingerprint';
+    }
 
-        return match ($minor) {
-            1, 9 => 'card',
-            10 => 'pin',
-            75 => 'face',
-            default => 'fingerprint',
+    /**
+     * @return array{ok: bool, status: int, body: array<string, mixed>}
+     *
+     * @throws ConnectionException
+     */
+    private function fetchCapabilityDocument(string $jsonPath, string $xmlPath): array
+    {
+        $response = $this->client(min($this->timeout, 5))
+            ->acceptJson()
+            ->get($this->endpoint($jsonPath));
+
+        if ($response->status() === 400 || $response->status() === 404) {
+            $response = $this->client(min($this->timeout, 5))
+                ->get($this->endpoint($xmlPath));
+        }
+
+        $body = $response->successful() ? $this->parseResponseBody($response) : [];
+        $statusCode = isset($body['statusCode'])
+            ? (int) $body['statusCode']
+            : (isset($body['ResponseStatus']['statusCode']) ? (int) $body['ResponseStatus']['statusCode'] : null);
+        $isIsapiOk = $response->successful() && ($statusCode === null || $statusCode === 1);
+
+        return [
+            'ok' => $isIsapiOk,
+            'status' => $response->status(),
+            'body' => $isIsapiOk ? $body : [],
+        ];
+    }
+
+    /**
+     * @return array{ok: bool, status: int, body: array<string, mixed>}
+     */
+    private function safeFetchCapabilityDocument(string $jsonPath, string $xmlPath): array
+    {
+        try {
+            return $this->fetchCapabilityDocument($jsonPath, $xmlPath);
+        } catch (ConnectionException) {
+            return ['ok' => false, 'status' => 0, 'body' => []];
+        }
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $bodies
+     * @return list<string>
+     */
+    private function extractVerifyModeValues(array $bodies): array
+    {
+        $found = [];
+
+        $walker = function (array $node) use (&$walker, &$found): void {
+            foreach ($node as $key => $value) {
+                $keyLower = strtolower((string) $key);
+                if (in_array($keyLower, ['verifymode', 'currentverifymode', 'supportverifymode', 'opt', 'enum'], true)) {
+                    if (is_string($value)) {
+                        foreach (preg_split('/[\s,|]+/', $value) ?: [] as $part) {
+                            $part = trim($part);
+                            if ($part !== '') {
+                                $found[$part] = true;
+                            }
+                        }
+                    } elseif (is_array($value)) {
+                        array_walk_recursive($value, function ($leaf) use (&$found): void {
+                            if (is_string($leaf) || is_numeric($leaf)) {
+                                foreach (preg_split('/[\s,|]+/', (string) $leaf) ?: [] as $part) {
+                                    $part = trim($part);
+                                    if ($part !== '') {
+                                        $found[$part] = true;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                } elseif (is_array($value)) {
+                    $walker($value);
+                }
+            }
         };
+
+        foreach ($bodies as $body) {
+            if (is_array($body) && $body !== []) {
+                $walker($body);
+            }
+        }
+
+        return array_values(array_keys($found));
+    }
+
+    /**
+     * @param  array<int, array{ok: bool, status: int, body: array<string, mixed>}>  $documents
+     * @param  list<string>  $keys
+     * @param  list<string>  $verifyModes
+     * @param  list<string>  $modeNeedles
+     */
+    private function resolveCapabilityFlag(
+        array $documents,
+        array $keys,
+        array $verifyModes,
+        array $modeNeedles,
+    ): bool {
+        $lowerKeys = array_map('strtolower', $keys);
+        $explicitValue = null;
+
+        $inspect = function (array $node) use (&$inspect, $lowerKeys, &$explicitValue): void {
+            foreach ($node as $k => $v) {
+                if (in_array(strtolower((string) $k), $lowerKeys, true)) {
+                    if (is_bool($v)) {
+                        $explicitValue = $v;
+
+                        return;
+                    }
+                    if (is_string($v) && in_array(strtolower($v), ['true', 'false', '0', '1'], true)) {
+                        $parsed = filter_var($v, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                        if ($parsed !== null) {
+                            $explicitValue = $parsed;
+
+                            return;
+                        }
+                    }
+                    if (is_array($v) && $v !== []) {
+                        $explicitValue = true;
+                    }
+                }
+                if (is_array($v)) {
+                    $inspect($v);
+                    if ($explicitValue === false) {
+                        return;
+                    }
+                }
+            }
+        };
+
+        foreach ($documents as $doc) {
+            if ($doc['ok'] && is_array($doc['body'])) {
+                $inspect($doc['body']);
+                if ($explicitValue === false) {
+                    return false;
+                }
+            }
+        }
+
+        if ($explicitValue === true) {
+            return true;
+        }
+
+        foreach ($verifyModes as $mode) {
+            $modeLower = strtolower($mode);
+            foreach ($modeNeedles as $needle) {
+                if (str_contains($modeLower, $needle)) {
+                    return true;
+                }
+            }
+        }
+
+        // Si el endpoint específico de esa capacidad respondió 200 OK sin marca explícita negativa, lo soporta
+        return isset($documents[1]) && $documents[1]['ok'] === true;
     }
 
     /**
