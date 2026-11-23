@@ -152,12 +152,24 @@
                 <div class="col-12 col-sm-8">
                     <label for="emp-shift" class="form-label small fw-medium">Turno Fiscal Asignado <span class="text-danger">*</span></label>
                     <select id="emp-shift" name="work_shift_id" class="form-select" required>
-                        @foreach($workShifts as $shift)
-                            <option value="{{ $shift->id }}">
-                                {{ $shift->name }} ({{ $shift->schedule_label }} · {{ $shift->meal_duration_minutes }}m comida)
-                            </option>
-                        @endforeach
+                        @if($workShifts->isEmpty())
+                            <option value="" selected disabled>Sin turnos registrados — crea un turno primero</option>
+                        @else
+                            <option value="" disabled>Selecciona un turno...</option>
+                            @foreach($workShifts as $shift)
+                                <option value="{{ $shift->id }}">
+                                    {{ $shift->name }} ({{ $shift->schedule_label }} · {{ $shift->meal_duration_minutes }}m comida)
+                                </option>
+                            @endforeach
+                        @endif
                     </select>
+                    @if($workShifts->isEmpty())
+                        <div class="form-text text-warning d-flex align-items-center gap-1 mt-1">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span>Debes registrar al menos un turno antes de dar de alta empleados.</span>
+                            <a href="{{ route('shifts.index') }}" class="link-info text-decoration-underline">Crear turno ahora</a>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="col-12 col-sm-4 d-flex align-items-end">

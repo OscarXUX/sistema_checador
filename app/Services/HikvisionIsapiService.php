@@ -237,39 +237,65 @@ class HikvisionIsapiService
      *
      * @throws HikvisionConnectionException
      */
-    public function triggerRemoteFingerprintCapture(string $employeeNo, int $fingerNo = 1): array
+    public function triggerRemoteFingerprintCapture(Employee|string $employee, int $fingerNo = 1): array
     {
+        $employeeModel = $employee instanceof Employee
+            ? $employee
+            : Employee::where('hikvision_employee_no', $employee)->first();
+        $employeeNo = $employeeModel?->hikvision_employee_no ?? (string) $employee;
+
+        if ($employeeModel !== null) {
+            $this->syncUserToDevice($employeeModel);
+        }
+
         $endpoint = '/ISAPI/AccessControl/CaptureFingerPrint';
         $fingerIndex = max(1, min(10, $fingerNo));
 
-        $xmlPayload = sprintf(
-            '<?xml version="1.0" encoding="UTF-8"?>'
-            .'<CaptureFingerPrint version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema">'
-            .'<CaptureFingerPrintCond><fingerNo>%d</fingerNo></CaptureFingerPrintCond>'
-            .'</CaptureFingerPrint>',
-            $fingerIndex
-        );
+        $xmlWithReader = <<<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<CaptureFingerPrintCond xmlns="http://www.isapi.org/ver20/XMLSchema" version="2.0">
+    <cardReaderNo>1</cardReaderNo>
+    <fingerNo>{$fingerIndex}</fingerNo>
+</CaptureFingerPrintCond>
+XML;
 
-        try {
-            $response = $this->client(max($this->timeout, 25))
-                ->withBody($xmlPayload, 'application/xml')
-                ->post($this->endpoint($endpoint));
-        } catch (ConnectionException $e) {
-            throw new HikvisionConnectionException(
-                'Tiempo de espera agotado al activar el lector biométrico en '.$this->getDeviceIp().'.',
-                null,
-                $endpoint,
-                $e
-            );
+        $response = $this->sendXmlCaptureRequest($endpoint, $xmlWithReader);
+        $body = $this->parseResponseBody($response);
+
+        if ($this->isBadXmlContentResponse($response, $body)) {
+            Log::error('Hikvision ISAPI CaptureFingerPrint devolvió 0x50000001 con <cardReaderNo>; reintentando sin <cardReaderNo>', [
+                'endpoint' => $endpoint,
+                'employee_no' => $employeeNo,
+                'finger_no' => $fingerIndex,
+                'http_status' => $response->status(),
+                'raw_body' => $response->body(),
+            ]);
+
+            $xmlWithoutReader = <<<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<CaptureFingerPrintCond xmlns="http://www.isapi.org/ver20/XMLSchema" version="2.0">
+    <fingerNo>{$fingerIndex}</fingerNo>
+</CaptureFingerPrintCond>
+XML;
+
+            $response = $this->sendXmlCaptureRequest($endpoint, $xmlWithoutReader);
+            $body = $this->parseResponseBody($response);
         }
 
-        $body = $this->parseResponseBody($response);
         $this->assertIsapiSuccess($response, $body, $endpoint, 'No se pudo capturar la huella desde el lector óptico.');
 
-        $fingerData = $this->extractNestedValue($body, ['fingerData', 'fingerPrintData.fingerData', 'CaptureFingerPrint.fingerPrintData.fingerData', 'FingerPrintData.fingerData']);
+        $fingerData = $this->extractNestedValue($body, [
+            'fingerData',
+            'fingerPrintData.fingerData',
+            'CaptureFingerPrint.fingerData',
+            'CaptureFingerPrint.fingerPrintData.fingerData',
+            'FingerPrintData.fingerData',
+        ]);
 
-        if (is_string($fingerData) && $fingerData !== '') {
-            $this->bindCapturedFingerprint($employeeNo, $fingerIndex, $fingerData);
+        $cleanFingerData = is_string($fingerData) ? trim($fingerData) : '';
+
+        if ($cleanFingerData !== '') {
+            $this->bindCapturedFingerprint($employeeNo, $fingerIndex, $cleanFingerData);
         }
 
         Employee::where('hikvision_employee_no', $employeeNo)->update([
@@ -281,10 +307,45 @@ class HikvisionIsapiService
             'success' => true,
             'employee_no' => $employeeNo,
             'finger_no' => $fingerIndex,
-            'template_captured' => is_string($fingerData) && $fingerData !== '',
+            'template_captured' => $cleanFingerData !== '',
             'device_response' => $body,
             'message' => "Huella #{$fingerIndex} capturada y asociada al empleado {$employeeNo}.",
         ];
+    }
+
+    /**
+     * @throws HikvisionConnectionException
+     */
+    private function sendXmlCaptureRequest(string $endpoint, string $xmlPayload): Response
+    {
+        try {
+            return $this->client(max($this->timeout, 35))
+                ->withHeaders(['Content-Type' => 'application/xml'])
+                ->withBody($xmlPayload, 'application/xml')
+                ->post($this->endpoint($endpoint));
+        } catch (ConnectionException $e) {
+            throw new HikvisionConnectionException(
+                'Tiempo de espera agotado al activar el lector biométrico en '.$this->getDeviceIp().'.',
+                null,
+                $endpoint,
+                $e
+            );
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     */
+    private function isBadXmlContentResponse(Response $response, array $body): bool
+    {
+        $subStatusCode = strtolower((string) ($body['subStatusCode'] ?? ''));
+        $errorCode = (string) ($body['errorCode'] ?? '');
+        $rawLower = strtolower($response->body());
+
+        return $subStatusCode === 'badxmlcontent'
+            || $errorCode === '1342177281'
+            || str_contains($rawLower, '0x50000001')
+            || str_contains($rawLower, 'badxmlcontent');
     }
 
     /**
@@ -369,7 +430,7 @@ class HikvisionIsapiService
                 'employeeNo' => $employeeNo,
                 'enableCardReader' => [1],
                 'fingerPrintID' => $fingerNo,
-                'fingerType' => 'normalFinger',
+                'fingerType' => 'normalFP',
                 'fingerData' => $fingerData,
             ],
         ];
@@ -382,7 +443,7 @@ class HikvisionIsapiService
                 'FingerPrintData' => [
                     'employeeNo' => $employeeNo,
                     'fingerPrintID' => $fingerNo,
-                    'fingerType' => 'normalFinger',
+                    'fingerType' => 'normalFP',
                     'fingerData' => $fingerData,
                 ],
             ];

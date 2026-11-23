@@ -169,7 +169,7 @@ class EmployeeController extends Controller
         $fingerNo = (int) ($validated['finger_no'] ?? 1);
 
         try {
-            $result = $isapi->triggerRemoteFingerprintCapture($employee->hikvision_employee_no, $fingerNo);
+            $result = $isapi->triggerRemoteFingerprintCapture($employee, $fingerNo);
             $employee->refresh()->load('workShift');
 
             return response()->json([

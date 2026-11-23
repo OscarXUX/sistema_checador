@@ -132,16 +132,15 @@ class HikvisionIsapiServiceTest extends TestCase
         $employee = $this->createEmployee('3001');
 
         Http::fake([
-            'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => Http::response([
-                'CaptureFingerPrint' => [
-                    'fingerPrintData' => [
-                        'fingerPrintID' => 2,
-                        'fingerData' => 'BASE64_FINGERPRINT_TEMPLATE',
-                    ],
-                ],
+            'http://192.168.0.69/ISAPI/AccessControl/UserInfo/Record?format=json' => Http::response([
                 'statusCode' => 1,
                 'statusString' => 'OK',
             ], 200),
+            'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => Http::response(
+                '<?xml version="1.0" encoding="UTF-8"?><CaptureFingerPrint version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><fingerNo>2</fingerNo><fingerData>BASE64_FINGERPRINT_TEMPLATE</fingerData></CaptureFingerPrint>',
+                200,
+                ['Content-Type' => 'application/xml']
+            ),
             'http://192.168.0.69/ISAPI/AccessControl/FingerPrint/SetUp?format=json' => Http::response([
                 'statusCode' => 1,
                 'statusString' => 'OK',
@@ -149,11 +148,103 @@ class HikvisionIsapiServiceTest extends TestCase
         ]);
 
         $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
-        $result = $service->triggerRemoteFingerprintCapture('3001', 2);
+        $result = $service->triggerRemoteFingerprintCapture($employee, 2);
 
         $this->assertTrue($result['success']);
         $this->assertTrue($result['template_captured']);
         $this->assertTrue($employee->fresh()->fingerprint_enrolled);
+
+        Http::assertSent(function (Request $request): bool {
+            return str_contains($request->url(), '/ISAPI/AccessControl/UserInfo/Record?format=json')
+                && ($request->data()['UserInfo']['employeeNo'] ?? null) === '3001';
+        });
+
+        Http::assertSent(function (Request $request): bool {
+            if (! str_contains($request->url(), '/ISAPI/AccessControl/CaptureFingerPrint')) {
+                return false;
+            }
+
+            $body = $request->body();
+
+            return str_contains($request->header('Content-Type')[0] ?? '', 'application/xml')
+                && str_contains($body, '<CaptureFingerPrintCond xmlns="http://www.isapi.org/ver20/XMLSchema" version="2.0">')
+                && str_contains($body, '<cardReaderNo>1</cardReaderNo>')
+                && str_contains($body, '<fingerNo>2</fingerNo>');
+        });
+
+        Http::assertSent(function (Request $request): bool {
+            if (! str_contains($request->url(), '/ISAPI/AccessControl/FingerPrint/SetUp?format=json')) {
+                return false;
+            }
+
+            $cfg = $request->data()['FingerPrintCfg'] ?? [];
+
+            return ($cfg['employeeNo'] ?? null) === '3001'
+                && ($cfg['enableCardReader'] ?? null) === [1]
+                && ($cfg['fingerPrintID'] ?? null) === 2
+                && ($cfg['fingerType'] ?? null) === 'normalFP'
+                && ($cfg['fingerData'] ?? null) === 'BASE64_FINGERPRINT_TEMPLATE';
+        });
+    }
+
+    public function test_trigger_remote_fingerprint_capture_retries_without_card_reader_on_0x50000001(): void
+    {
+        Log::spy();
+        $employee = $this->createEmployee('3002');
+        $captureAttempt = 0;
+
+        Http::fake([
+            'http://192.168.0.69/ISAPI/AccessControl/UserInfo/Record?format=json' => Http::response([
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+            'http://192.168.0.69/ISAPI/AccessControl/CaptureFingerPrint' => function (Request $request) use (&$captureAttempt) {
+                $captureAttempt++;
+
+                if ($captureAttempt === 1) {
+                    return Http::response(
+                        '<?xml version="1.0" encoding="UTF-8"?><ResponseStatus version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><statusCode>4</statusCode><statusString>Invalid XML Content</statusString><subStatusCode>badXmlContent</subStatusCode><errorCode>0x50000001</errorCode></ResponseStatus>',
+                        400,
+                        ['Content-Type' => 'application/xml']
+                    );
+                }
+
+                return Http::response(
+                    '<?xml version="1.0" encoding="UTF-8"?><CaptureFingerPrint version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><fingerNo>3</fingerNo><fingerData>RETRY_TEMPLATE_DATA</fingerData></CaptureFingerPrint>',
+                    200,
+                    ['Content-Type' => 'application/xml']
+                );
+            },
+            'http://192.168.0.69/ISAPI/AccessControl/FingerPrint/SetUp?format=json' => Http::response([
+                'statusCode' => 1,
+                'statusString' => 'OK',
+            ], 200),
+        ]);
+
+        $service = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
+        $result = $service->triggerRemoteFingerprintCapture($employee, 3);
+
+        $this->assertTrue($result['success']);
+        $this->assertTrue($result['template_captured']);
+        $this->assertSame(2, $captureAttempt);
+
+        Log::shouldHaveReceived('error')
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                return str_contains($message, '0x50000001')
+                    && str_contains((string) ($context['raw_body'] ?? ''), 'badXmlContent');
+            });
+
+        Http::assertSent(function (Request $request): bool {
+            if (! str_contains($request->url(), '/ISAPI/AccessControl/CaptureFingerPrint')) {
+                return false;
+            }
+
+            $body = $request->body();
+
+            return ! str_contains($body, '<cardReaderNo>')
+                && str_contains($body, '<fingerNo>3</fingerNo>');
+        });
     }
 
     public function test_fetch_attendance_events_paginates_all_pages(): void
