@@ -86,7 +86,7 @@
                            class="form-control font-mono-tabular"
                            required
                            maxlength="32"
-                           pattern="[A-Za-z0-9_-]+"
+                           pattern="[A-Za-z0-9_\-]+"
                            autocorrect="off"
                            autocapitalize="none"
                            spellcheck="false"
@@ -200,6 +200,40 @@
                         <label class="form-check-label small" for="emp-active">Empleado Activo</label>
                     </div>
                 </div>
+
+                {{-- Nota 16: tipo de sangre (dato de salud, solo con permiso) y foto --}}
+                @can('empleados.datos_salud')
+                <div class="col-12 col-sm-4">
+                    <label for="cb-tipo-sangre" class="form-label small fw-medium">Tipo de sangre</label>
+                    <select id="cb-tipo-sangre" name="blood_type" class="form-select">
+                        <option value="">Sin registrar</option>
+                        @foreach(\App\Models\Employee::BLOOD_TYPES as $strTipo)
+                            <option value="{{ $strTipo }}">{{ $strTipo }}</option>
+                        @endforeach
+                    </select>
+                    <div class="form-text small">Dato de salud: se guarda cifrado y cada consulta queda en la bitácora.</div>
+                </div>
+                @else
+                <div class="col-12 col-sm-4">
+                    <span class="form-label small fw-medium d-block">Tipo de sangre</span>
+                    <span id="lbl-tipo-sangre" class="small text-secondary">Necesitas el permiso "Ver y editar tipo de sangre".</span>
+                </div>
+                @endcan
+
+                <div class="col-12 col-sm-8">
+                    <span class="form-label small fw-medium d-block">Foto</span>
+                    <div id="lbl-foto-nueva" class="small text-secondary">Guarda el empleado para agregar su foto.</div>
+                    <div id="tab-foto" class="d-none d-flex align-items-center gap-3">
+                        <img id="pic-foto" src="" alt="Foto del empleado" width="72" height="72" class="rounded border border-secondary-subtle d-none" style="object-fit: cover;">
+                        <span id="lbl-sin-foto" class="small text-secondary">Sin foto</span>
+                        <div class="d-flex flex-wrap gap-2">
+                            <label for="txt-foto" class="btn btn-outline-info btn-sm mb-0"><i class="bi bi-camera me-1" aria-hidden="true"></i>Subir foto</label>
+                            <input id="txt-foto" type="file" accept="image/jpeg,image/png,image/webp" class="visually-hidden">
+                            <button id="btn-quitar-foto" type="button" class="btn btn-outline-danger btn-sm d-none">Quitar foto</button>
+                        </div>
+                    </div>
+                    <div class="form-text small">JPG, PNG o WebP de hasta 4 MB. Se reduce a 600 px y se le quitan los metadatos.</div>
+                </div>
             </div>
 
             <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end gap-2">
@@ -289,7 +323,7 @@
                                class="form-control form-control-sm font-mono-tabular"
                                required
                                maxlength="32"
-                               pattern="[A-Za-z0-9_-]+"
+                               pattern="[A-Za-z0-9_\-]+"
                                placeholder="Ej. 0019283746">
                     </div>
                     <div class="col-12 col-sm-4">
@@ -498,7 +532,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = s.rows[e.row]?.dataItem;
         if (!row) return;
 
-        if (col.binding === 'status_label') {
+        if (col.binding === 'full_name') {
+            // Miniatura de la foto (nota 16); la ruta revisa el permiso
+            const strFoto = row.photo_url
+                ? `<img src="${escapeHtml(row.photo_url)}" alt="" width="28" height="28" loading="lazy" class="rounded-circle me-2 border border-secondary-subtle" style="object-fit: cover;">`
+                : '<span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-secondary bg-opacity-25 text-secondary me-2" style="width: 28px; height: 28px;" aria-hidden="true"><i class="bi bi-person"></i></span>';
+            e.cell.innerHTML = `<span class="d-inline-flex align-items-center">${strFoto}${escapeHtml(row.full_name)}</span>`;
+        } else if (col.binding === 'status_label') {
             const cls = row.is_active ? 'text-bg-success' : 'text-bg-secondary';
             e.cell.innerHTML = `<span class="badge ${cls}">${escapeHtml(row.status_label)}</span>`;
         } else if (col.binding === 'device_synced_at') {
@@ -566,9 +606,52 @@ document.addEventListener('DOMContentLoaded', () => {
         empForm.querySelectorAll('[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
     }
 
+    // Foto del empleado (nota 16): se sube aparte, solo cuando el empleado ya existe
+    function renderPhoto(emp) {
+        const picFoto = document.getElementById('pic-foto');
+        document.getElementById('lbl-foto-nueva').classList.toggle('d-none', Boolean(emp));
+        document.getElementById('tab-foto').classList.toggle('d-none', !emp);
+        const strUrl = emp?.photo_url || '';
+        picFoto.classList.toggle('d-none', !strUrl);
+        picFoto.src = strUrl;
+        document.getElementById('lbl-sin-foto').classList.toggle('d-none', Boolean(strUrl));
+        document.getElementById('btn-quitar-foto').classList.toggle('d-none', !strUrl);
+    }
+
+    document.getElementById('txt-foto').addEventListener('change', async (event) => {
+        const fileFoto = event.target.files[0];
+        const empId = document.getElementById('emp-id').value;
+        if (!fileFoto || !empId) return;
+        const dataForm = new FormData();
+        dataForm.append('photo', fileFoto);
+        try {
+            const res = await apiFetch(`${routes.updateBase}/${empId}/photo`, { method: 'POST', body: dataForm });
+            renderPhoto({ photo_url: res.photo_url });
+            showToast(res.message, 'success');
+            await reloadEmployees();
+        } catch (err) {
+            showToast(err.payload?.errors ? Object.values(err.payload.errors).flat().join(' · ') : (err.message || 'No se pudo subir la foto.'), 'danger');
+        } finally {
+            event.target.value = '';
+        }
+    });
+
+    document.getElementById('btn-quitar-foto').addEventListener('click', async () => {
+        const empId = document.getElementById('emp-id').value;
+        try {
+            const res = await apiFetch(`${routes.updateBase}/${empId}/photo`, { method: 'DELETE' });
+            renderPhoto({ photo_url: null });
+            showToast(res.message, 'success');
+            await reloadEmployees();
+        } catch (err) {
+            showToast(err.message || 'No se pudo quitar la foto.', 'danger');
+        }
+    });
+
     function openCreateModal() {
         clearFormErrors();
         empForm.reset();
+        renderPhoto(null);
         setPersonalIdsLocked(false);
         document.getElementById('emp-id').value = '';
         document.getElementById('emp-active').checked = true;
@@ -596,6 +679,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('emp-nss').value = emp.nss || '';
         // Sin permiso de datos personales llegan enmascarados: se muestran bloqueados y no se envían
         setPersonalIdsLocked(Boolean(emp.personal_ids_masked));
+        const cbTipoSangre = document.getElementById('cb-tipo-sangre');
+        if (cbTipoSangre) cbTipoSangre.value = emp.blood_type || '';
+        const lblTipoSangre = document.getElementById('lbl-tipo-sangre');
+        if (lblTipoSangre) lblTipoSangre.textContent = emp.has_blood_type ? 'Registrado (protegido)' : 'Sin registrar';
+        renderPhoto(emp);
         document.getElementById('emp-department').value = emp.department || '';
         document.getElementById('emp-position').value = emp.position || '';
         document.getElementById('emp-shift').value = String(emp.work_shift_id || '');
@@ -653,6 +741,10 @@ document.addEventListener('DOMContentLoaded', () => {
             work_shift_id: Number(document.getElementById('emp-shift').value),
             is_active: document.getElementById('emp-active').checked,
         };
+        const cbTipoSangre = document.getElementById('cb-tipo-sangre');
+        if (cbTipoSangre) {
+            dataPayload.blood_type = cbTipoSangre.value || null;
+        }
         if (!document.getElementById('emp-rfc').disabled) {
             dataPayload.rfc = document.getElementById('emp-rfc').value || null;
             dataPayload.curp = document.getElementById('emp-curp').value || null;

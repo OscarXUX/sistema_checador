@@ -19,10 +19,10 @@
 PHP necesita estas extensiones. Revísalas con `php -m`:
 
 ```text
-ctype, curl, dom, fileinfo, mbstring, openssl, pdo_mysql, pdo_sqlite, session, tokenizer, xml, zip
+ctype, curl, dom, fileinfo, gd, mbstring, openssl, pdo_mysql, pdo_sqlite, session, tokenizer, xml, zip
 ```
 
-Si falta alguna en XAMPP, abre `C:\xampp\php\php.ini`, quita el `;` de la línea `extension=nombre` y abre una terminal nueva. `pdo_sqlite` solo se usa en las pruebas.
+Si falta alguna en XAMPP, abre `C:\xampp\php\php.ini`, quita el `;` de la línea `extension=nombre` y abre una terminal nueva. `pdo_sqlite` solo se usa en las pruebas; `gd` sirve para procesar las fotos de los empleados.
 
 > Usa la misma versión mayor de Node que el resto del equipo. Si no, `npm install` modifica `package-lock.json` (agrega líneas `"peer": true`).
 

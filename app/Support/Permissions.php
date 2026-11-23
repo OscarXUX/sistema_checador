@@ -39,6 +39,7 @@ final class Permissions
         'empleados.actualizar' => ['empleados', 'Actualizar empleados', 'Editar datos, turno y estado de un empleado.'],
         'empleados.baja' => ['empleados', 'Dar de baja empleados', 'Dar de baja (o eliminar si no tiene checadas).'],
         'empleados.datos_personales' => ['empleados', 'Ver y editar RFC, CURP y NSS', 'Ver los datos completos al editar y cambiarlos. Cada consulta queda en la bitácora.'],
+        'empleados.datos_salud' => ['empleados', 'Ver y editar tipo de sangre', 'Dato de salud (sensible, LFPDPPP). Sin este permiso solo se ve si está registrado. Cada consulta queda en la bitácora.'],
         'terminal.sincronizar' => ['terminal', 'Sincronizar checadas', 'Descargar a mano las checadas de la terminal.'],
         'terminal.usuarios' => ['terminal', 'Usuarios en la terminal', 'Dar de alta o de baja a un empleado en el reloj y registrar su tarjeta o PIN.'],
         'terminal.huellas' => ['terminal', 'Capturar huellas y rostro', 'Activar el lector y registrar la huella o el rostro de un empleado (datos biométricos).'],

@@ -20,7 +20,7 @@ class AuditLogger
     /**
      * Campos que se registran como "[protegido]" en lugar de su valor.
      */
-    public const PROTECTED_FIELDS = ['rfc', 'curp', 'nss'];
+    public const PROTECTED_FIELDS = ['rfc', 'curp', 'nss', 'blood_type'];
 
     /**
      * Campos que nunca se registran.

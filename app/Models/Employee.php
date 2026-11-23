@@ -23,6 +23,7 @@ class Employee extends Model
         'rfc',
         'curp',
         'nss',
+        'blood_type',
         'department',
         'position',
         'work_shift_id',
@@ -47,6 +48,8 @@ class Employee extends Model
             'rfc' => 'encrypted',
             'curp' => 'encrypted',
             'nss' => 'encrypted',
+            // Dato de salud (sensible): cifrado y solo con el permiso empleados.datos_salud
+            'blood_type' => 'encrypted',
         ];
     }
 
@@ -55,7 +58,15 @@ class Employee extends Model
      *
      * @var list<string>
      */
-    protected $hidden = ['rfc_hash', 'curp_hash'];
+    protected $hidden = ['rfc_hash', 'curp_hash', 'photo_path', 'blood_type'];
+
+    /** Tipos de sangre que se aceptan (nota 16) */
+    public const BLOOD_TYPES = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
+
+    /** Disco y carpeta de las fotos: privados, se sirven con una ruta que revisa el permiso */
+    public const PHOTO_DISK = 'local';
+
+    public const PHOTO_DIR = 'employee-photos';
 
     protected static function booted(): void
     {
@@ -66,6 +77,13 @@ class Employee extends Model
             }
             if ($employee->isDirty('curp')) {
                 $employee->curp_hash = PersonalData::blindIndex($employee->curp);
+            }
+        });
+
+        // Si el empleado se elimina (sin historial), su foto también
+        static::deleted(function (Employee $employee): void {
+            if ($employee->photo_path !== null) {
+                \Illuminate\Support\Facades\Storage::disk(self::PHOTO_DISK)->delete($employee->photo_path);
             }
         });
     }

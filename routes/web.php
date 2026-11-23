@@ -9,6 +9,7 @@ use App\Http\Controllers\Catalog\TimeWindowController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\EmployeePhotoController;
 use App\Http\Controllers\MarkingMethodController;
 use App\Http\Controllers\PunchCorrectionController;
 use App\Http\Controllers\ReportController;
@@ -43,6 +44,10 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/', [EmployeeController::class, 'index'])->middleware('can:empleados.consultar')->name('index');
         Route::get('/list', [EmployeeController::class, 'list'])->middleware('can:empleados.consultar')->name('list');
         Route::post('/', [EmployeeController::class, 'store'])->middleware('can:empleados.agregar')->name('store');
+        // Foto (nota 16): privada, se entrega solo por esta ruta
+        Route::get('/{employee}/photo', [EmployeePhotoController::class, 'show'])->middleware('can:empleados.consultar')->name('photo');
+        Route::post('/{employee}/photo', [EmployeePhotoController::class, 'store'])->middleware('can:empleados.actualizar')->name('photo.store');
+        Route::delete('/{employee}/photo', [EmployeePhotoController::class, 'destroy'])->middleware('can:empleados.actualizar')->name('photo.destroy');
         Route::get('/{employee}', [EmployeeController::class, 'show'])->middleware('can:empleados.actualizar')->name('show');
         Route::put('/{employee}', [EmployeeController::class, 'update'])->middleware('can:empleados.actualizar')->name('update');
         Route::delete('/{employee}', [EmployeeController::class, 'destroy'])->middleware('can:empleados.baja')->name('destroy');

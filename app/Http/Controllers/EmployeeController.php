@@ -82,7 +82,7 @@ class EmployeeController extends Controller
     ];
 
     private const AUDITED_FIELDS = [
-        'hikvision_employee_no', 'full_name', 'rfc', 'curp', 'nss',
+        'hikvision_employee_no', 'full_name', 'rfc', 'curp', 'nss', 'blood_type',
         'department', 'position', 'work_shift_id', 'is_active',
     ];
 
@@ -107,14 +107,28 @@ class EmployeeController extends Controller
             );
         }
 
+        // Tipo de sangre (dato de salud) solo con su permiso; cada consulta queda en la bitácora
+        $canSeeHealth = $request->user()->can('empleados.datos_salud');
+        if ($canSeeHealth && $employee->blood_type !== null) {
+            $this->audit->record(
+                'employee.health_data_viewed',
+                $employee,
+                "Consulta del tipo de sangre del empleado #{$employee->hikvision_employee_no}"
+            );
+        }
+
         return response()->json([
-            'employee' => $this->formatEmployeeRow($employee, $canSeePersonalIds),
+            'employee' => $this->formatEmployeeRow($employee, $canSeePersonalIds, $canSeeHealth),
         ]);
     }
 
     public function store(StoreEmployeeRequest $request): JsonResponse|RedirectResponse
     {
-        $employee = Employee::create($request->validated());
+        $validated = $request->validated();
+        if (! $request->user()->can('empleados.datos_salud')) {
+            unset($validated['blood_type']);
+        }
+        $employee = Employee::create($validated);
         $employee->load('workShift');
 
         $this->audit->record(
@@ -146,6 +160,9 @@ class EmployeeController extends Controller
         if (! $request->user()->can('empleados.datos_personales')) {
             // Sin permiso, RFC, CURP y NSS no se cambian aunque lleguen en la petición
             unset($validated['rfc'], $validated['curp'], $validated['nss']);
+        }
+        if (! $request->user()->can('empleados.datos_salud')) {
+            unset($validated['blood_type']);
         }
 
         $employee->update($validated);
@@ -507,7 +524,7 @@ class EmployeeController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function formatEmployeeRow(Employee $employee, bool $withPersonalIds = false): array
+    private function formatEmployeeRow(Employee $employee, bool $withPersonalIds = false, bool $withHealth = false): array
     {
         return [
             'id' => $employee->id,
@@ -517,6 +534,13 @@ class EmployeeController extends Controller
             'curp' => $withPersonalIds ? $employee->curp : PersonalData::maskCurp($employee->curp),
             'nss' => $withPersonalIds ? $employee->nss : PersonalData::maskNss($employee->nss),
             'personal_ids_masked' => ! $withPersonalIds,
+            // Nota 16: el tipo de sangre solo sale con permiso; la tabla solo sabe si está registrado
+            'blood_type' => $withHealth ? $employee->blood_type : null,
+            'has_blood_type' => $employee->blood_type !== null,
+            'health_masked' => ! $withHealth,
+            'photo_url' => $employee->photo_path !== null
+                ? route('employees.photo', ['employee' => $employee->id, 'v' => substr(md5($employee->photo_path), 0, 8)])
+                : null,
             'department' => $employee->department,
             'position' => $employee->position,
             'work_shift_id' => $employee->work_shift_id,

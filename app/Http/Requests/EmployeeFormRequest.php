@@ -24,6 +24,14 @@ abstract class EmployeeFormRequest extends FormRequest
             $this->json()->remove('nss');
         }
 
+        // El tipo de sangre (dato de salud) solo se recibe con su permiso, al crear y al editar
+        if (! $this->user()?->can('empleados.datos_salud')) {
+            $this->request->remove('blood_type');
+            $this->json()->remove('blood_type');
+        } elseif ($this->has('blood_type')) {
+            $this->merge(['blood_type' => $this->filled('blood_type') ? strtoupper(trim((string) $this->input('blood_type'))) : null]);
+        }
+
         $this->merge([
             'hikvision_employee_no' => trim((string) $this->input('hikvision_employee_no')),
             'rfc' => $this->filled('rfc') ? strtoupper(trim((string) $this->input('rfc'))) : null,
@@ -57,6 +65,7 @@ abstract class EmployeeFormRequest extends FormRequest
             'rfc' => ['nullable', 'string', 'min:12', 'max:13', 'regex:/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/'],
             'curp' => ['nullable', 'string', 'size:18', 'regex:/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/'],
             'nss' => ['nullable', 'string', 'size:11', 'regex:/^\d{11}$/'],
+            'blood_type' => ['nullable', 'string', Rule::in(\App\Models\Employee::BLOOD_TYPES)],
             'department' => ['required', 'string', 'max:100'],
             'position' => ['required', 'string', 'max:100'],
             'work_shift_id' => ['required', 'integer', 'exists:work_shifts,id'],
@@ -78,6 +87,7 @@ abstract class EmployeeFormRequest extends FormRequest
             'position.required' => 'El puesto es obligatorio.',
             'work_shift_id.required' => 'Debe seleccionar un turno fiscal.',
             'rfc.min' => 'El RFC debe tener al menos 12 caracteres.',
+            'blood_type.in' => 'Elige un tipo de sangre de la lista.',
             'rfc.max' => 'El RFC no puede exceder 13 caracteres.',
             'rfc.regex' => 'El RFC no cumple con la estructura válida del SAT (12 o 13 caracteres).',
             'curp.size' => 'La CURP debe tener exactamente 18 caracteres.',

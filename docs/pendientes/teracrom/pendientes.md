@@ -31,7 +31,7 @@ Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADO
 
 | Prioridad | Pregunta | Explicación | Respuesta / Recomendación | Estado |
 |---|---|---|---|---|
-| 🔴 Alta | **TE-02** · ¿Quién redacta el aviso de privacidad y cómo se recaba el consentimiento para la huella? | La huella es un dato biométrico (sensible); RFC, CURP y NSS son datos personales (LFPDPPP 2025) | Aviso de privacidad antes de recabar datos y consentimiento expreso por escrito para la huella | ❌ Sin resolver |
+| 🔴 Alta | **TE-02** · ¿Quién redacta el aviso de privacidad y cómo se recaba el consentimiento para la huella? | La huella es un dato biométrico y el tipo de sangre un dato de salud (sensibles); RFC, CURP, NSS y foto son datos personales (LFPDPPP 2025) | Aviso de privacidad antes de recabar datos y consentimiento expreso por escrito para la huella | ❌ Sin resolver |
 | 🟡 Media | **TE-03** · ¿Hay licencia de Wijmo? | Hoy corre en modo evaluación con marca de agua sobre la cabecera | Si no hay licencia, cambiar a una librería libre antes de producción | ❌ Sin resolver |
 
 ---

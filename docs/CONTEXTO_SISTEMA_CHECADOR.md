@@ -81,7 +81,7 @@ tests/                                          95 pruebas (Feature y Unit)
 | `attendance_event_types` | Catálogo de tipos de evento (A tiempo, Retardo, Retardo mayor, Salida anticipada…) con rango de minutos | Los iniciales (`is_system`) no se borran |
 | `shift_rotations`, `shift_rotation_steps`, `employee_groups`, `shift_rotation_assignments`, `shift_exceptions` | Rotaciones por ciclo, grupos de empleados, asignaciones (empleado/grupo/depto) y excepciones por fechas | Prioridad: excepción > empleado > grupo > depto > base |
 | `marking_methods` | Catálogo de medios de marcaje (huella, rostro, tarjeta, PIN) y capacidades ISAPI | `face` bloqueado por aviso de privacidad `TE-02` |
-| `employees` | Empleados con `hikvision_employee_no`, RFC/CURP/NSS cifrados, `fingerprint_enrolled`, `card_no`, `card_enrolled`, `pin_configured`, `device_synced_at` | El PIN nunca se guarda en la base; `rfc_hash` y `curp_hash` permiten buscar completos |
+| `employees` | Empleados con `hikvision_employee_no`, RFC/CURP/NSS y tipo de sangre cifrados, `photo_path` (foto en `storage/app/private/employee-photos`), `fingerprint_enrolled`, `card_no`, `card_enrolled`, `pin_configured`, `device_synced_at` | El PIN nunca se guarda en la base; `rfc_hash` y `curp_hash` permiten buscar completos |
 | `attendance_logs` | Cada checada tal como llegó del reloj, con `event_type` y `raw_payload` (JSON) | Único `(employee_id, punched_at)`; no se puede editar desde Eloquent. La base impide borrar a un empleado que tenga checadas (`restrictOnDelete`) |
 | `daily_summaries` | Resumen por empleado y día: entrada, comida, salida, minutos trabajados, retardo, salida anticipada, comida excedida, horas extra, estado, tipos de evento e incidencias (JSON) | Se recalcula al llegar cada checada nueva |
 | `users` | Cuentas del sistema | `is_active` para desactivar sin borrar; `profile_id`; se crean en Administración → Usuarios o por consola (`usuarios:crear --perfil=`) |
@@ -127,6 +127,7 @@ tests/                                          95 pruebas (Feature y Unit)
 | Perfiles y permisos con estructura de tickets | ✅ Implementado (SE-02) |
 | Clasificación por hora, checadas repetidas o fuera de orden y tipos de evento | ✅ Implementado (paquete 3) |
 | Corrección manual de checadas con motivo e incidencias en el dashboard | ✅ Implementado (`kardex.corregir`) |
+| Foto y tipo de sangre del empleado | ✅ Implementado; el tipo de sangre con `empleados.datos_salud`. Falta el aviso de privacidad (TE-02) |
 | Monitor que se actualice solo | ❌ Solo se actualiza con el botón "Refrescar"; lo automático es el estado de la terminal (cada 30 s) |
 | Turnos que cruzan la medianoche | ✅ Implementado en `WorkShift` y `AttendanceCalculatorService` (SE-11); pendiente confirmar con cliente si aplica (TE-07) |
 
@@ -163,7 +164,7 @@ tests/                                          95 pruebas (Feature y Unit)
 | Detalle | Explicación |
 |---|---|
 | Las pruebas de páginas fallan sin assets compilados | Las vistas usan `@vite`; sin `public/build/manifest.json` responden 500. Correr `npm run build` (o tener `npm run dev` abierto) antes de `php artisan test`. Si se agrega una entrada nueva en `vite.config.js`, hay que volver a compilar |
-| `APP_KEY` | RFC, CURP y NSS están cifrados con ella: no se cambia sin volver a cifrar, y un respaldo de la base no sirve sin su `APP_KEY` |
+| `APP_KEY` | RFC, CURP, NSS y tipo de sangre están cifrados con ella: no se cambia sin volver a cifrar, y un respaldo de la base no sirve sin su `APP_KEY` |
 | Un `<script>` nuevo en una vista | Debe llevar `nonce="{{ Vite::cspNonce() }}"`; sin nonce la CSP lo bloquea |
 | Una página nueva con tablas o gráficas | Debe agregar `@push('styles') @vite(['resources/js/wijmo/grid.js', …]) @endpush`; si no, `window.AppUI.wijmo` estará vacío |
 | Checadas de alguien que aún no está registrado | La tarea incremental no las vuelve a pedir; se recuperan con el botón "Sincronizar" o `php artisan hikvision:sync --from=AAAA-MM-DD` |

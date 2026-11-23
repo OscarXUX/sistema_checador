@@ -38,7 +38,8 @@ docs/
 │       ├── 09-22_o1-o2-o3-excel-rotaciones-medios.md
 │       ├── 09-50_merge-permisos-con-o1-o2-o3.md
 │       ├── 10-25_ventanas-tipos-evento-y-validaciones.md
-│       └── 10-50_correccion-de-checadas-e-incidencias-en-dashboard.md
+│       ├── 10-50_correccion-de-checadas-e-incidencias-en-dashboard.md
+│       └── 10-58_foto-y-tipo-de-sangre.md
 ├── despliegue/
 │   └── 2026-11-22/
 │       └── 20-00_GUIA_DESPLIEGUE_PRODUCCION.md
