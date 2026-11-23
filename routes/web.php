@@ -7,7 +7,9 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EmployeeController;
+use App\Http\Controllers\MarkingMethodController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ShiftScheduleController;
 use App\Http\Controllers\WorkShiftController;
 use Illuminate\Support\Facades\Route;
 
@@ -45,6 +47,9 @@ Route::middleware('auth')->group(function (): void {
             Route::post('/{employee}/sync-device', [EmployeeController::class, 'syncToDevice'])->middleware('can:terminal.usuarios')->name('sync-device');
             Route::delete('/{employee}/device', [EmployeeController::class, 'deleteFromDevice'])->middleware('can:terminal.usuarios')->name('delete-device');
             Route::post('/{employee}/capture-fingerprint', [EmployeeController::class, 'captureFingerprint'])->middleware('can:terminal.huellas')->name('capture-fingerprint');
+            Route::post('/{employee}/enroll-card', [EmployeeController::class, 'enrollCard'])->middleware('can:terminal.usuarios')->name('enroll-card');
+            Route::post('/{employee}/enroll-pin', [EmployeeController::class, 'enrollPin'])->middleware('can:terminal.usuarios')->name('enroll-pin');
+            Route::post('/{employee}/enroll-face', [EmployeeController::class, 'enrollFace'])->middleware('can:terminal.huellas')->name('enroll-face');
         });
     });
 
@@ -52,10 +57,10 @@ Route::middleware('auth')->group(function (): void {
     Route::prefix('reports')->name('reports.')->middleware(['throttle:reports', 'can:kardex.consultar'])->group(function (): void {
         Route::get('/kardex', [ReportController::class, 'kardex'])->name('kardex');
         Route::get('/kardex/data', [ReportController::class, 'kardexData'])->name('kardex.data');
+        Route::get('/kardex/export/xlsx', [ReportController::class, 'exportXlsx'])->middleware('can:kardex.exportar')->name('kardex.export.xlsx');
         Route::get('/kardex/logs/{attendanceLog}/payload', [ReportController::class, 'logPayload'])->name('kardex.payload');
     });
 
-    // Turnos Laborales y Reglas Fiscales
     // Administración: usuarios, perfiles y catálogo de permisos (solo el perfil administrador)
     Route::prefix('administracion')->name('admin.')->middleware('can:administrar')->group(function (): void {
         Route::get('/usuarios', [AdminUserController::class, 'index'])->name('users');
@@ -74,9 +79,33 @@ Route::middleware('auth')->group(function (): void {
         Route::put('/permisos/{permission}', [AdminPermissionController::class, 'update'])->name('permissions.update');
     });
 
+    // Turnos Laborales, Rotaciones y Excepciones
     Route::prefix('shifts')->name('shifts.')->group(function (): void {
         Route::get('/', [WorkShiftController::class, 'index'])->middleware('can:turnos.consultar')->name('index');
         Route::post('/', [WorkShiftController::class, 'store'])->middleware('can:turnos.administrar')->name('store');
-        Route::put('/{shift}', [WorkShiftController::class, 'update'])->middleware('can:turnos.administrar')->name('update');
+        Route::put('/{shift}', [WorkShiftController::class, 'update'])->middleware('can:turnos.administrar')->name('update')->whereNumber('shift');
+
+        Route::middleware('can:turnos.programar')->group(function (): void {
+            Route::post('/rotations', [ShiftScheduleController::class, 'storeRotation'])->name('rotations.store');
+            Route::put('/rotations/{rotation}', [ShiftScheduleController::class, 'updateRotation'])->name('rotations.update');
+            Route::delete('/rotations/{rotation}', [ShiftScheduleController::class, 'destroyRotation'])->name('rotations.destroy');
+
+            Route::post('/groups', [ShiftScheduleController::class, 'storeGroup'])->name('groups.store');
+            Route::put('/groups/{group}', [ShiftScheduleController::class, 'updateGroup'])->name('groups.update');
+            Route::delete('/groups/{group}', [ShiftScheduleController::class, 'destroyGroup'])->name('groups.destroy');
+
+            Route::post('/assignments', [ShiftScheduleController::class, 'storeAssignment'])->name('assignments.store');
+            Route::delete('/assignments/{assignment}', [ShiftScheduleController::class, 'destroyAssignment'])->name('assignments.destroy');
+
+            Route::post('/exceptions', [ShiftScheduleController::class, 'storeException'])->name('exceptions.store');
+            Route::delete('/exceptions/{exception}', [ShiftScheduleController::class, 'destroyException'])->name('exceptions.destroy');
+        });
+    });
+
+    // Medios de Marcaje e Inspección ISAPI (O3)
+    Route::prefix('marking-methods')->name('marking-methods.')->group(function (): void {
+        Route::get('/', [MarkingMethodController::class, 'index'])->middleware('can:medios.consultar')->name('index');
+        Route::post('/detect', [MarkingMethodController::class, 'detect'])->middleware(['throttle:device', 'can:medios.administrar'])->name('detect');
+        Route::patch('/{markingMethod}', [MarkingMethodController::class, 'update'])->middleware('can:medios.administrar')->name('update');
     });
 });

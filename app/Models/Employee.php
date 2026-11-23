@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -27,6 +28,9 @@ class Employee extends Model
         'work_shift_id',
         'is_active',
         'fingerprint_enrolled',
+        'card_no',
+        'card_enrolled',
+        'pin_configured',
         'device_synced_at',
     ];
 
@@ -36,6 +40,8 @@ class Employee extends Model
             'work_shift_id' => 'integer',
             'is_active' => 'boolean',
             'fingerprint_enrolled' => 'boolean',
+            'card_enrolled' => 'boolean',
+            'pin_configured' => 'boolean',
             'device_synced_at' => 'datetime',
             // Cifrados en la base con APP_KEY (auditoría SE-05)
             'rfc' => 'encrypted',
@@ -69,6 +75,21 @@ class Employee extends Model
         return $this->belongsTo(WorkShift::class);
     }
 
+    public function groups(): BelongsToMany
+    {
+        return $this->belongsToMany(EmployeeGroup::class, 'employee_group_employee')->withTimestamps();
+    }
+
+    public function shiftExceptions(): HasMany
+    {
+        return $this->hasMany(ShiftException::class);
+    }
+
+    public function rotationAssignments(): HasMany
+    {
+        return $this->hasMany(ShiftRotationAssignment::class);
+    }
+
     public function attendanceLogs(): HasMany
     {
         return $this->hasMany(AttendanceLog::class);
@@ -93,4 +114,3 @@ class Employee extends Model
         return $query->where('department', $department);
     }
 }
-

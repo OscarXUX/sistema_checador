@@ -158,6 +158,70 @@
     </div>
 </section>
 
+<!-- Modal nativo <dialog>: Exportación mensual a Excel (.xlsx en servidor) -->
+<dialog id="export-xlsx-dialog" class="app-dialog" closedby="any" aria-labelledby="export-xlsx-title">
+    <div class="surface-card overflow-hidden">
+        <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
+            <h2 id="export-xlsx-title" class="h6 mb-0 fw-semibold">Exportar Kardex a Excel (.xlsx)</h2>
+            <button type="button" class="btn-close" id="export-xlsx-close-x" aria-label="Cerrar ventana"></button>
+        </div>
+
+        <form id="export-xlsx-form" novalidate>
+            <div class="p-3 p-md-4 row g-3 app-dialog-body">
+                <div id="export-xlsx-error" class="col-12 d-none">
+                    <div class="alert alert-danger py-2 small mb-0" role="alert" aria-live="polite"></div>
+                </div>
+
+                <div class="col-12">
+                    <div class="alert alert-info py-2 small mb-0">
+                        <i class="bi bi-file-earmark-excel me-1" aria-hidden="true"></i>
+                        Se genera un archivo <strong>.xlsx</strong> en el servidor con <strong>una hoja por mes</strong> (máximo 12 meses), encabezados fijos, autofiltro, totales por empleado y RFC/CURP/NSS enmascarados.
+                    </div>
+                </div>
+
+                <div class="col-12 col-sm-6">
+                    <label for="xlsx-start-date" class="form-label small fw-medium">Fecha Inicio <span class="text-danger">*</span></label>
+                    <input id="xlsx-start-date" name="start_date" type="date" class="form-control font-mono-tabular" required value="{{ $filters['start_date'] }}">
+                </div>
+
+                <div class="col-12 col-sm-6">
+                    <label for="xlsx-end-date" class="form-label small fw-medium">Fecha Fin <span class="text-danger">*</span></label>
+                    <input id="xlsx-end-date" name="end_date" type="date" class="form-control font-mono-tabular" required value="{{ $filters['end_date'] }}">
+                </div>
+
+                <div class="col-12 col-sm-6">
+                    <label for="xlsx-department" class="form-label small fw-medium">Departamento</label>
+                    <select id="xlsx-department" name="department" class="form-select">
+                        <option value="">Todos los departamentos</option>
+                        @foreach($departments as $dept)
+                            <option value="{{ $dept }}" @selected($filters['department'] === $dept)>{{ $dept }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div class="col-12 col-sm-6">
+                    <label for="xlsx-employee" class="form-label small fw-medium">Empleado</label>
+                    <select id="xlsx-employee" name="employee_id" class="form-select">
+                        <option value="">Todos los empleados</option>
+                        @foreach($employees as $emp)
+                            <option value="{{ $emp->id }}" @selected($filters['employee_id'] === $emp->id)>
+                                [{{ $emp->hikvision_employee_no }}] {{ $emp->full_name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="export-xlsx-close-btn">Cancelar</button>
+                <button type="submit" class="btn btn-success btn-sm" id="export-xlsx-submit-btn">
+                    <i class="bi bi-download me-1" aria-hidden="true"></i>Descargar Excel (.xlsx)
+                </button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
 <!-- Modal nativo <dialog>: Inspector JSON de carga cruda ISAPI -->
 <dialog id="payload-dialog" class="app-dialog" closedby="any" aria-labelledby="payload-dialog-title">
     <div class="surface-card overflow-hidden">
@@ -180,9 +244,10 @@
 <script id="kardex-initial-data" type="application/json">@json(['rows' => $kardexRows, 'logs' => $auditLogs, 'filters' => $filters])</script>
 <script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
-    const { core: wjCore, grid: wjGrid, filter: wjFilter, gridXlsx: wjGridXlsx } = window.AppUI.wijmo;
+    const { core: wjCore, grid: wjGrid, filter: wjFilter } = window.AppUI.wijmo;
     const { apiFetch, showToast, escapeHtml, csvEscape } = window.AppUI;
     const payloadBaseUrl = '{{ url("/reports/kardex/logs") }}';
+    const exportXlsxUrl = '{{ route("reports.kardex.export.xlsx") }}';
     const payloadCache = new Map();
 
     const initial = JSON.parse(document.getElementById('kardex-initial-data').textContent);
@@ -266,19 +331,112 @@ document.addEventListener('DOMContentLoaded', () => {
         kardexGrid.collapseGroupsToLevel(0);
     });
 
-    // Exportación directa a Excel (.xlsx) usando Wijmo FlexGridXlsxConverter
+    // Exportación Excel (.xlsx) generada en el servidor con PhpSpreadsheet (1 hoja por mes, hasta 12 meses)
+    const exportDialog = document.getElementById('export-xlsx-dialog');
+    const exportForm = document.getElementById('export-xlsx-form');
+    const exportErrorWrap = document.getElementById('export-xlsx-error');
+    const exportErrorAlert = exportErrorWrap.querySelector('.alert');
+    const exportSubmitBtn = document.getElementById('export-xlsx-submit-btn');
+
+    const closeExportDialog = () => exportDialog.close();
+    document.getElementById('export-xlsx-close-x').addEventListener('click', closeExportDialog);
+    document.getElementById('export-xlsx-close-btn').addEventListener('click', closeExportDialog);
+
+    function showExportError(msg) {
+        exportErrorWrap.classList.remove('d-none');
+        exportErrorAlert.textContent = msg;
+    }
+
+    function clearExportError() {
+        exportErrorWrap.classList.add('d-none');
+        exportErrorAlert.textContent = '';
+    }
+
+    function countInclusiveMonths(startStr, endStr) {
+        const [sy, sm] = startStr.split('-').map(Number);
+        const [ey, em] = endStr.split('-').map(Number);
+        if (!sy || !sm || !ey || !em) return 0;
+        return (ey - sy) * 12 + (em - sm) + 1;
+    }
+
     document.getElementById('btn-export-xlsx')?.addEventListener('click', () => {
-        const fileName = `Kardex_Fiscal_${initial.filters.start_date}_a_${initial.filters.end_date}.xlsx`;
-        wjGridXlsx.FlexGridXlsxConverter.saveAsync(
-            kardexGrid,
-            {
-                includeColumnHeaders: true,
-                includeCellStyles: false,
-            },
-            fileName,
-            () => showToast(`Archivo Excel "${fileName}" descargado correctamente.`, 'success'),
-            (reason) => showToast(`No se pudo exportar a Excel: ${reason}`, 'danger')
-        );
+        clearExportError();
+        document.getElementById('xlsx-start-date').value = document.getElementById('filter-start-date').value || initial.filters.start_date;
+        document.getElementById('xlsx-end-date').value = document.getElementById('filter-end-date').value || initial.filters.end_date;
+        document.getElementById('xlsx-department').value = document.getElementById('filter-department').value || '';
+        document.getElementById('xlsx-employee').value = document.getElementById('filter-employee').value || '';
+        exportDialog.showModal();
+    });
+
+    exportForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearExportError();
+
+        const startDate = document.getElementById('xlsx-start-date').value;
+        const endDate = document.getElementById('xlsx-end-date').value;
+        const department = document.getElementById('xlsx-department').value;
+        const employeeId = document.getElementById('xlsx-employee').value;
+
+        if (!startDate || !endDate) {
+            showExportError('Debes seleccionar fecha de inicio y fin.');
+            return;
+        }
+        if (startDate > endDate) {
+            showExportError('La fecha de fin debe ser igual o posterior a la fecha de inicio.');
+            return;
+        }
+        if (countInclusiveMonths(startDate, endDate) > 12) {
+            showExportError('El rango máximo para exportar a Excel es de 12 meses.');
+            return;
+        }
+
+        const params = new URLSearchParams({
+            start_date: startDate,
+            end_date: endDate,
+        });
+        if (department) params.set('department', department);
+        if (employeeId) params.set('employee_id', employeeId);
+
+        const originalHtml = exportSubmitBtn.innerHTML;
+        exportSubmitBtn.disabled = true;
+        exportSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Generando...';
+
+        try {
+            const response = await fetch(`${exportXlsxUrl}?${params}`, {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (response.status === 401 || response.status === 419) {
+                const loginUrl = document.body.dataset.loginUrl || '/login';
+                window.location.assign(`${loginUrl}?expirada=1`);
+                return;
+            }
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.message || `Error HTTP ${response.status} al exportar Excel.`);
+            }
+
+            const blob = await response.blob();
+            const fileName = `Kardex_Fiscal_${startDate}_a_${endDate}.xlsx`;
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            link.click();
+            URL.revokeObjectURL(url);
+            exportDialog.close();
+            showToast(`Archivo Excel "${fileName}" descargado correctamente.`, 'success');
+        } catch (err) {
+            showExportError(err.message || 'No se pudo generar el archivo Excel.');
+        } finally {
+            exportSubmitBtn.disabled = false;
+            exportSubmitBtn.innerHTML = originalHtml;
+        }
     });
 
     // Exportación directa a CSV (UTF-8 con BOM para Excel México/LatAm)

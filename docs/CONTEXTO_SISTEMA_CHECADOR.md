@@ -35,25 +35,27 @@
 
 ```text
 app/
-├── Console/Commands/                           hikvision:sync, attendance:recalculate y usuarios:crear, usuarios:restablecer, usuarios:estado
-├── Http/Controllers/                           Dashboard, Device, Employee, Report, WorkShift; Auth/AuthController (login)
+├── Console/Commands/                           hikvision:sync, hikvision:inspect-verify-modes, attendance:recalculate y usuarios:*
+├── Http/Controllers/                           Dashboard, Device, Employee, MarkingMethod, Report, ShiftSchedule, WorkShift; Auth/AuthController
 ├── Http/Requests/Auth/LoginRequest.php         Credenciales, límite de intentos y mensaje genérico
 ├── Http/Requests/                              Validación de empleados (RFC, CURP, NSS)
-├── Models/                                     Employee, WorkShift, AttendanceLog, DailySummary, User, AuditLog
+├── Models/                                     Employee, WorkShift, ShiftRotation, ShiftRotationStep, EmployeeGroup, ShiftRotationAssignment, ShiftException, MarkingMethod, AttendanceLog, DailySummary, User, AuditLog
 ├── Support/                                    PasswordPolicy (reglas de contraseña), UserSessions, PersonalData (enmascarado e índice ciego)
 ├── Http/Middleware/SecurityHeaders.php         Cabeceras de seguridad y CSP con nonce
 └── Services/
-    ├── HikvisionIsapiService.php               Cliente HTTP de la terminal
-    ├── AttendanceCalculatorService.php         Guarda checadas en lote y calcula el resumen diario
+    ├── HikvisionIsapiService.php               Cliente HTTP, detección de capacidades, alta de huella/tarjeta/PIN y sincronización ISAPI
+    ├── AttendanceCalculatorService.php         Guarda checadas en lote y calcula el resumen diario usando ShiftScheduleResolver
+    ├── ShiftScheduleResolver.php               Resuelve turno por fecha (excepción > empleado > grupo > departamento > base)
+    ├── KardexExcelExportService.php            Exporta Kardex mensual a .xlsx en el servidor (PhpSpreadsheet, hasta 12 meses)
     ├── AttendanceSyncCoordinator.php           Candado único y sincronización incremental
     └── AuditLogger.php                         Escribe la bitácora de acciones
-resources/views/                                dashboard, employees, reports/kardex, shifts
+resources/views/                                dashboard, employees, reports/kardex, shifts, marking-methods
 resources/js/app.js                             Lo común: avisos, peticiones con CSRF, estado de la terminal
-resources/js/wijmo/                             Wijmo por página: grid.js (tablas), chart.js (gráficas), kardex.js (filtros y Excel)
+resources/js/wijmo/                             Wijmo por página: grid.js (tablas), chart.js (gráficas), kardex.js (filtros)
 resources/js/csv.js                             Exportación CSV sin fórmulas
 routes/web.php                                  /login abierto; todo lo demás dentro de middleware auth
 routes/console.php                              hikvision:sync cada minuto
-tests/                                          84 pruebas (Feature y Unit)
+tests/                                          95 pruebas (Feature y Unit)
 ```
 
 ---
@@ -75,7 +77,9 @@ tests/                                          84 pruebas (Feature y Unit)
 | Tabla | Para qué | Notas |
 |---|---|---|
 | `work_shifts` | Turnos: entrada, salida, minutos de comida, tolerancia, horas por semana | Requerido para crear empleados |
-| `employees` | Empleados con su número en el reloj (`hikvision_employee_no`), RFC, CURP, NSS, departamento, puesto | RFC, CURP y NSS **cifrados** con `APP_KEY`; `rfc_hash` y `curp_hash` permiten buscarlos completos | `fingerprint_enrolled` y `device_synced_at` reflejan el estado en la terminal |
+| `shift_rotations`, `shift_rotation_steps`, `employee_groups`, `shift_rotation_assignments`, `shift_exceptions` | Rotaciones por ciclo, grupos de empleados, asignaciones (empleado/grupo/depto) y excepciones por fechas | Prioridad: excepción > empleado > grupo > depto > base |
+| `marking_methods` | Catálogo de medios de marcaje (huella, rostro, tarjeta, PIN) y capacidades ISAPI | `face` bloqueado por aviso de privacidad `TE-02` |
+| `employees` | Empleados con `hikvision_employee_no`, RFC/CURP/NSS cifrados, `fingerprint_enrolled`, `card_no`, `card_enrolled`, `pin_configured`, `device_synced_at` | El PIN nunca se guarda en la base; `rfc_hash` y `curp_hash` permiten buscar completos |
 | `attendance_logs` | Cada checada tal como llegó del reloj, con `event_type` y `raw_payload` (JSON) | Único `(employee_id, punched_at)`; no se puede editar desde Eloquent. La base impide borrar a un empleado que tenga checadas (`restrictOnDelete`) |
 | `daily_summaries` | Resumen por empleado y día: entrada, comida, salida, minutos trabajados, retardo, horas extra, estado | Se recalcula al llegar cada checada nueva |
 | `users` | Cuentas del sistema | `is_active` para desactivar sin borrar; `profile_id`; se crean en Administración → Usuarios o por consola (`usuarios:crear --perfil=`) |
@@ -94,9 +98,10 @@ tests/                                          84 pruebas (Feature y Unit)
 |---|---|---|---|
 | Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | `dashboard.consultar` |
 | Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | `terminal.sincronizar`; el estado solo pide sesión |
-| Empleados y huellas | Listado paginado de 50 con búsqueda y orden por columna en el servidor; RFC, CURP y NSS enmascarados (completos solo al editar); alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | `empleados.*`, `terminal.usuarios`, `terminal.huellas` |
-| Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con carga bajo demanda del JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data`, `GET /reports/kardex/logs/{id}/payload` | `kardex.consultar`, `kardex.exportar` |
-| Turnos | Alta y edición de turnos | `/shifts` | `turnos.consultar`, `turnos.administrar` |
+| Empleados y huellas | Listado paginado de 50 con búsqueda y orden por columna en el servidor; RFC, CURP y NSS enmascarados (completos solo al editar); alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj, capturar huella remota, tarjeta y PIN | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint`, `/employees/{id}/enroll-card`, `/employees/{id}/enroll-pin` | `empleados.*`, `terminal.usuarios`, `terminal.huellas` (huella y rostro) |
+| Kardex | Resumen diario por rango de fechas en pantalla (máximo 93 días), exportación mensual a Excel (.xlsx en servidor con PhpSpreadsheet hasta 12 meses), bitácora JSON bajo demanda | `GET /reports/kardex`, `GET /reports/kardex/data`, `GET /reports/kardex/export/xlsx`, `GET /reports/kardex/logs/{id}/payload` | `kardex.consultar`, `kardex.exportar` |
+| Turnos | Turnos base, rotaciones con pasos en orden, grupos, asignaciones, excepciones y vista previa de 14 días | `/shifts`, `/shifts/rotations`, `/shifts/groups`, `/shifts/assignments`, `/shifts/exceptions` | `turnos.consultar`, `turnos.administrar` (turnos base), `turnos.programar` (rotaciones, grupos, asignaciones, excepciones) |
+| Medios de marcaje | Detección de capacidades ISAPI, catálogo de empresa y alta remota de tarjeta RFID / PIN (rostro en espera de `TE-02`) | `/marking-methods`, `/marking-methods/detect` | `medios.consultar`, `medios.administrar` |
 | Sesión | Inicio y cierre de sesión; `/inicio` manda a la primera pantalla permitida | `GET/POST /login`, `POST /logout`, `GET /inicio` | Abierta solo `/login` |
 | Administración | Usuarios (perfil, estado, excepciones dar/negar), perfiles con sus permisos y catálogo de permisos | `/administracion/usuarios`, `/perfiles`, `/permisos` | Perfil administrador (`administrar`) |
 | Sincronización automática | Cada minuto descarga solo lo nuevo desde el último corte (con 10 min de traslape); comparte candado con el botón "Sincronizar" | `php artisan hikvision:sync` (scheduler) | — |

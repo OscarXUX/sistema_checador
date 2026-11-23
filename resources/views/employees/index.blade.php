@@ -259,6 +259,102 @@
     </div>
 </dialog>
 
+<!-- Modal nativo <dialog>: Alta de Tarjeta RFID, PIN y Aviso Facial (TE-02) -->
+<dialog id="credentials-dialog" class="app-dialog" closedby="any" aria-labelledby="cred-dialog-title">
+    <div class="surface-card overflow-hidden">
+        <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
+            <h2 id="cred-dialog-title" class="h6 mb-0 fw-semibold">Medios de Marcaje del Empleado</h2>
+            <button type="button" class="btn-close" data-close-dialog="credentials-dialog" aria-label="Cerrar ventana"></button>
+        </div>
+
+        <div class="p-3 p-md-4 app-dialog-body d-flex flex-column gap-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pb-2 border-bottom border-secondary-subtle">
+                <div>
+                    <div id="cred-employee-name" class="fw-semibold">-</div>
+                    <small id="cred-employee-no" class="font-mono-tabular text-secondary">ID Reloj: -</small>
+                </div>
+                <div class="d-flex flex-wrap gap-1" id="cred-status-badges"></div>
+            </div>
+
+            <!-- Alta de Tarjeta RFID -->
+            <form id="card-enroll-form" class="p-3 rounded border border-secondary-subtle bg-dark bg-opacity-50">
+                <h3 class="h6 fw-semibold mb-1"><i class="bi bi-credit-card-2-front me-1 text-info" aria-hidden="true"></i>Alta de Tarjeta RFID</h3>
+                <p class="small text-secondary mb-3">Registra el número de tarjeta en la terminal Hikvision (<code>CardInfo/Record</code>).</p>
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-sm-8">
+                        <label for="cred-card-no" class="form-label small fw-medium">Número de Tarjeta <span class="text-danger">*</span></label>
+                        <input id="cred-card-no"
+                               name="card_no"
+                               type="text"
+                               class="form-control form-control-sm font-mono-tabular"
+                               required
+                               maxlength="32"
+                               pattern="[A-Za-z0-9_-]+"
+                               placeholder="Ej. 0019283746">
+                    </div>
+                    <div class="col-12 col-sm-4">
+                        <button id="cred-card-submit"
+                                type="submit"
+                                class="btn btn-info btn-sm text-dark fw-semibold w-100"
+                                @disabled(!($markingMethods['card']->is_enabled ?? true))>
+                            Enviar Tarjeta
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Alta de PIN (nunca se guarda en la base) -->
+            <form id="pin-enroll-form" class="p-3 rounded border border-secondary-subtle bg-dark bg-opacity-50">
+                <h3 class="h6 fw-semibold mb-1"><i class="bi bi-key me-1 text-warning" aria-hidden="true"></i>Alta de PIN en Terminal</h3>
+                <p class="small text-secondary mb-2">
+                    El PIN se envía directo a la terminal vía ISAPI (<code>UserInfo/Modify</code>) y <strong>nunca se guarda en la base de datos</strong> ni en la bitácora.
+                </p>
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-sm-8">
+                        <label for="cred-pin" class="form-label small fw-medium">PIN numérico (4 a 8 dígitos) <span class="text-danger">*</span></label>
+                        <input id="cred-pin"
+                               name="pin"
+                               type="password"
+                               inputmode="numeric"
+                               autocomplete="new-password"
+                               class="form-control form-control-sm font-mono-tabular"
+                               required
+                               minlength="4"
+                               maxlength="8"
+                               pattern="\d{4,8}"
+                               placeholder="••••">
+                    </div>
+                    <div class="col-12 col-sm-4">
+                        <button id="cred-pin-submit"
+                                type="submit"
+                                class="btn btn-warning btn-sm text-dark fw-semibold w-100"
+                                @disabled(!($markingMethods['pin']->is_enabled ?? true))>
+                            Configurar PIN
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Reconocimiento Facial bloqueado por TE-02 -->
+            <div class="p-3 rounded border border-warning-subtle bg-dark bg-opacity-50">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-1">
+                    <h3 class="h6 fw-semibold mb-0"><i class="bi bi-person-bounding-box me-1 text-warning" aria-hidden="true"></i>Reconocimiento Facial</h3>
+                    <span class="badge text-bg-warning">TE-02</span>
+                </div>
+                <p class="small text-secondary mb-0">
+                    El rostro es un dato biométrico. Su enrolamiento permanece bloqueado en espera del aviso de privacidad <strong>TE-02</strong>.
+                </p>
+            </div>
+        </div>
+
+        <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="credentials-dialog" autofocus>
+                Cerrar
+            </button>
+        </div>
+    </div>
+</dialog>
+
 <!-- Modal nativo <dialog>: Confirmación de Baja / Eliminación -->
 <dialog id="delete-employee-dialog" class="app-dialog" closedby="any" aria-labelledby="delete-dialog-title">
     <div class="surface-card overflow-hidden">
@@ -390,8 +486,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { binding: 'department', header: 'Departamento', width: 130 },
             { binding: 'shift_name', header: 'Turno', width: 165 },
             { binding: 'status_label', header: 'Estado', width: 95 },
-            { binding: 'device_synced_at', header: 'Reloj / Huella', width: 170 },
-            { binding: 'id', header: 'Acciones Hikvision / CRUD', width: 320, allowSorting: false },
+            { binding: 'device_synced_at', header: 'Reloj / Medios', width: 225 },
+            { binding: 'id', header: 'Acciones Hikvision / CRUD', width: 375, allowSorting: false },
         ],
     });
     grid.rows.defaultSize = 48;
@@ -410,9 +506,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? `<span class="badge text-bg-dark border border-info text-info me-1" title="Última sincronización">${escapeHtml(row.device_synced_at)}</span>`
                 : `<span class="badge text-bg-dark border border-secondary text-secondary me-1">Pendiente</span>`;
             const fpHtml = row.fingerprint_enrolled
-                ? `<span class="badge text-bg-dark border border-success text-success"><i class="bi bi-fingerprint me-1"></i>Huella OK</span>`
+                ? `<span class="badge text-bg-dark border border-success text-success"><i class="bi bi-fingerprint me-1"></i>Huella</span>`
                 : `<span class="badge text-bg-dark border border-warning text-warning">Sin Huella</span>`;
-            e.cell.innerHTML = `<div class="d-flex flex-wrap gap-1">${syncHtml}${fpHtml}</div>`;
+            const cardHtml = row.card_enrolled
+                ? `<span class="badge text-bg-dark border border-info text-info" title="Tarjeta ${escapeHtml(row.card_no || '')}"><i class="bi bi-credit-card me-1"></i>Tarjeta</span>`
+                : '';
+            const pinHtml = row.pin_configured
+                ? `<span class="badge text-bg-dark border border-warning text-warning"><i class="bi bi-key me-1"></i>PIN</span>`
+                : '';
+            e.cell.innerHTML = `<div class="d-flex flex-wrap gap-1">${syncHtml}${fpHtml}${cardHtml}${pinHtml}</div>`;
         } else if (col.binding === 'id') {
             const lstBotones = [];
             if (dataPermisos.terminal) {
@@ -423,6 +525,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dataPermisos.huellas) {
                 lstBotones.push(`<button type="button" class="btn btn-outline-warning" data-action="fingerprint" data-id="${row.id}" title="Capturar Huella Remota">
                         <i class="bi bi-fingerprint me-1" aria-hidden="true"></i>Huella
+                    </button>`);
+            }
+            if (dataPermisos.terminal) {
+                lstBotones.push(`<button type="button" class="btn btn-outline-primary" data-action="credentials" data-id="${row.id}" title="Tarjeta RFID / PIN">
+                        <i class="bi bi-key me-1" aria-hidden="true"></i>Medios
                     </button>`);
             }
             if (dataPermisos.actualizar) {
@@ -572,6 +679,82 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Modal de Tarjeta RFID y PIN (O3)
+    const credDialog = document.getElementById('credentials-dialog');
+    const cardForm = document.getElementById('card-enroll-form');
+    const pinForm = document.getElementById('pin-enroll-form');
+    const cardSubmitBtn = document.getElementById('cred-card-submit');
+    const pinSubmitBtn = document.getElementById('cred-pin-submit');
+    let currentCredEmployee = null;
+
+    function renderCredBadges(emp) {
+        const container = document.getElementById('cred-status-badges');
+        container.innerHTML = '';
+        const items = [
+            emp.card_enrolled
+                ? `<span class="badge text-bg-dark border border-info text-info">Tarjeta: ${escapeHtml(emp.card_no || 'OK')}</span>`
+                : `<span class="badge text-bg-dark border border-secondary text-secondary">Sin Tarjeta</span>`,
+            emp.pin_configured
+                ? `<span class="badge text-bg-dark border border-warning text-warning">PIN Configurado</span>`
+                : `<span class="badge text-bg-dark border border-secondary text-secondary">Sin PIN</span>`,
+        ];
+        container.innerHTML = items.join('');
+    }
+
+    function openCredentialsModal(emp) {
+        currentCredEmployee = emp;
+        document.getElementById('cred-employee-name').textContent = emp.full_name;
+        document.getElementById('cred-employee-no').textContent = `ID Reloj Hikvision: ${emp.hikvision_employee_no}`;
+        document.getElementById('cred-card-no').value = emp.card_no || '';
+        document.getElementById('cred-pin').value = '';
+        renderCredBadges(emp);
+        credDialog.showModal();
+    }
+
+    cardForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentCredEmployee || !cardForm.reportValidity()) return;
+
+        cardSubmitBtn.disabled = true;
+        try {
+            const res = await apiFetch(`${routes.updateBase}/${currentCredEmployee.id}/enroll-card`, {
+                method: 'POST',
+                body: { card_no: document.getElementById('cred-card-no').value.trim() },
+            });
+            currentCredEmployee = res.employee;
+            renderCredBadges(currentCredEmployee);
+            await reloadEmployees();
+            showToast(res.message, 'success');
+        } catch (err) {
+            showToast(err.message || 'No se pudo asignar la tarjeta en la terminal.', 'danger');
+        } finally {
+            cardSubmitBtn.disabled = false;
+        }
+    });
+
+    pinForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentCredEmployee || !pinForm.reportValidity()) return;
+
+        const pinInput = document.getElementById('cred-pin');
+        pinSubmitBtn.disabled = true;
+        try {
+            const res = await apiFetch(`${routes.updateBase}/${currentCredEmployee.id}/enroll-pin`, {
+                method: 'POST',
+                body: { pin: pinInput.value.trim() },
+            });
+            pinInput.value = '';
+            currentCredEmployee = res.employee;
+            renderCredBadges(currentCredEmployee);
+            await reloadEmployees();
+            showToast(res.message, 'success');
+        } catch (err) {
+            showToast(err.message || 'No se pudo configurar el PIN en la terminal.', 'danger');
+        } finally {
+            pinSubmitBtn.disabled = false;
+        }
+    });
+
     // Modal de captura remota de huella
     const fpDialog = document.getElementById('fingerprint-dialog');
     const fpPulse = document.getElementById('fp-pulse-indicator');
@@ -693,6 +876,8 @@ document.addEventListener('DOMContentLoaded', () => {
             syncEmployeeToHikvision(emp, btn);
         } else if (action === 'fingerprint') {
             openFingerprintModal(emp);
+        } else if (action === 'credentials') {
+            openCredentialsModal(emp);
         } else if (action === 'delete') {
             openDeleteModal(emp);
         }

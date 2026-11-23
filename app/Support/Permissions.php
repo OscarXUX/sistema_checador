@@ -27,6 +27,7 @@ final class Permissions
         'terminal' => 'Terminal Hikvision',
         'turnos' => 'Turnos',
         'kardex' => 'Kardex',
+        'medios' => 'Medios de marcaje',
     ];
 
     /** clave => [módulo, descripción, detalles] (en el orden en que se muestran) */
@@ -38,13 +39,15 @@ final class Permissions
         'empleados.baja' => ['empleados', 'Dar de baja empleados', 'Dar de baja (o eliminar si no tiene checadas).'],
         'empleados.datos_personales' => ['empleados', 'Ver y editar RFC, CURP y NSS', 'Ver los datos completos al editar y cambiarlos. Cada consulta queda en la bitácora.'],
         'terminal.sincronizar' => ['terminal', 'Sincronizar checadas', 'Descargar a mano las checadas de la terminal.'],
-        'terminal.usuarios' => ['terminal', 'Usuarios en la terminal', 'Dar de alta o de baja a un empleado en el reloj.'],
-        'terminal.huellas' => ['terminal', 'Capturar huellas', 'Activar el lector y registrar la huella de un empleado.'],
+        'terminal.usuarios' => ['terminal', 'Usuarios en la terminal', 'Dar de alta o de baja a un empleado en el reloj y registrar su tarjeta o PIN.'],
+        'terminal.huellas' => ['terminal', 'Capturar huellas y rostro', 'Activar el lector y registrar la huella o el rostro de un empleado (datos biométricos).'],
         'turnos.consultar' => ['turnos', 'Consultar turnos', 'Ver los turnos y sus tolerancias.'],
         'turnos.administrar' => ['turnos', 'Administrar turnos', 'Crear y editar turnos (recalcula retardos y horas extra).'],
         'turnos.programar' => ['turnos', 'Programar turnos', 'Rotaciones, asignaciones por fecha y excepciones de turno (tarea O2 de Oscar).'],
         'kardex.consultar' => ['kardex', 'Consultar el kardex', 'Ver el resumen diario y la bitácora de checadas.'],
-        'kardex.exportar' => ['kardex', 'Exportar el kardex', 'Descargar el kardex en Excel o CSV.'],
+        'kardex.exportar' => ['kardex', 'Exportar el kardex', 'Descargar el kardex en Excel (una hoja por mes) o CSV.'],
+        'medios.consultar' => ['medios', 'Consultar medios de marcaje', 'Ver qué medios (huella, rostro, tarjeta, PIN) acepta la terminal.'],
+        'medios.administrar' => ['medios', 'Administrar medios de marcaje', 'Detectar los medios de la terminal y activar o desactivar cada uno.'],
     ];
 
     /** Permisos del perfil "Consulta" que crea la migración */

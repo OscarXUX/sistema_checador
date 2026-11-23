@@ -25,7 +25,17 @@ class AuditLogger
     /**
      * Campos que nunca se registran.
      */
-    public const EXCLUDED_FIELDS = ['password', 'remember_token', 'fingerData', 'created_at', 'updated_at'];
+    public const EXCLUDED_FIELDS = [
+        'password',
+        'remember_token',
+        'fingerData',
+        'pin',
+        'pin_confirmation',
+        'card_password',
+        'cardPasswd',
+        'created_at',
+        'updated_at',
+    ];
 
     /**
      * @param  array<string, mixed>  $oldValues

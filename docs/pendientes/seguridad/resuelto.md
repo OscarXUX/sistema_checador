@@ -41,7 +41,7 @@ Perfiles y permisos con la estructura del sistema de tickets: catálogo de permi
 
 | Qué | Cómo quedó |
 |---|---|
-| Base | Migración `2026_11_23_000001_create_profiles_and_permissions_tables.php` (perfiles Administrador y Consulta) |
+| Base | Migración `2026_11_23_000004_create_profiles_and_permissions_tables.php` (perfiles Administrador y Consulta) |
 | Código | `App\Support\Permissions`, `User::hasPermission()`, Gates en `AppServiceProvider`, `permisos:sincronizar` |
 | Pantallas | Administración → Usuarios, Perfiles y Permisos (`/administracion/...`) |
 | Pruebas | `ProfilesAndPermissionsTest` (15); `RouteProtectionTest` exige `can:` en cada ruta |

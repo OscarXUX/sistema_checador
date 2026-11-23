@@ -5,13 +5,16 @@ namespace App\Services;
 use App\Models\AttendanceLog;
 use App\Models\DailySummary;
 use App\Models\Employee;
+use App\Models\ShiftException;
+use App\Models\ShiftRotationAssignment;
 use App\Models\WorkShift;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\UniqueConstraintViolationException;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Motor de cálculo laboral y cumplimiento fiscal para checadas biométricas.
@@ -22,6 +25,13 @@ class AttendanceCalculatorService
      * Filas por sentencia INSERT al guardar checadas descargadas.
      */
     private const INSERT_CHUNK = 500;
+
+    public function __construct(private readonly ?ShiftScheduleResolver $shiftResolver = null) {}
+
+    private function resolver(): ShiftScheduleResolver
+    {
+        return $this->shiftResolver ?? app(ShiftScheduleResolver::class);
+    }
 
     /**
      * Descarga eventos desde el dispositivo ISAPI en un rango y los procesa en bitácora y kardex.
@@ -38,7 +48,7 @@ class AttendanceCalculatorService
     ): array {
         $events = $isapi->fetchAttendanceEvents($start, $end);
 
-        /** @var \Illuminate\Support\Collection<string, Employee> $knownEmployees */
+        /** @var Collection<string, Employee> $knownEmployees */
         $knownEmployees = Employee::with('workShift')->get()->keyBy('hikvision_employee_no');
 
         $unmatched = 0;
@@ -65,12 +75,24 @@ class AttendanceCalculatorService
         $now = now();
         $rows = [];
         $touchedDays = [];
+        $newCandidates = [];
 
         foreach ($candidates as $key => [$employee, $punchedAt, $event]) {
-            if (isset($existing[$key])) {
-                continue;
+            if (! isset($existing[$key])) {
+                $newCandidates[] = [$employee, $punchedAt, $event];
             }
+        }
 
+        $scheduleContext = null;
+        if ($newCandidates !== []) {
+            $touchedEmployees = collect(array_column($newCandidates, 0))->unique('id')->values();
+            $times = array_map(fn (array $c): Carbon => $c[1], $newCandidates);
+            $minDay = CarbonImmutable::instance(min($times))->subDay()->startOfDay();
+            $maxDay = CarbonImmutable::instance(max($times))->addDay()->startOfDay();
+            $scheduleContext = $this->resolver()->loadBatchContext($touchedEmployees, $minDay, $maxDay);
+        }
+
+        foreach ($newCandidates as [$employee, $punchedAt, $event]) {
             $rows[] = [
                 'employee_id' => $employee->id,
                 'device_ip' => (string) ($event['device_ip'] ?? $isapi->getDeviceIp()),
@@ -82,7 +104,7 @@ class AttendanceCalculatorService
                 'updated_at' => $now,
             ];
 
-            $workDay = $this->resolveWorkDateForEmployeePunch($employee, $punchedAt);
+            $workDay = $this->resolveWorkDateForEmployeePunch($employee, $punchedAt, $scheduleContext);
             $touchedDays[$employee->id.'|'.$workDay->toDateString()] = [$employee, $workDay];
         }
 
@@ -93,7 +115,7 @@ class AttendanceCalculatorService
         }
 
         foreach ($touchedDays as [$employee, $workDate]) {
-            $this->recalculateForEmployeeDate($employee, $workDate);
+            $this->recalculateForEmployeeDate($employee, $workDate, $scheduleContext);
         }
 
         $matched = count($events) - $unmatched;
@@ -200,13 +222,19 @@ class AttendanceCalculatorService
 
     /**
      * Recalcula el DailySummary de un empleado para una fecha de inicio de jornada específica.
+     *
+     * @param  array<string, mixed>|null  $scheduleContext
      */
-    public function recalculateForEmployeeDate(Employee $employee, CarbonInterface $workDate): DailySummary
-    {
+    public function recalculateForEmployeeDate(
+        Employee $employee,
+        CarbonInterface $workDate,
+        ?array $scheduleContext = null
+    ): DailySummary {
         $employee->loadMissing('workShift');
-        $shift = $employee->workShift;
-
         $date = CarbonImmutable::instance($workDate)->startOfDay();
+        $shift = $scheduleContext !== null
+            ? $this->resolver()->resolveDetailFromContext($employee, $date, $scheduleContext)['shift']
+            : $this->resolver()->resolveForEmployeeOnDate($employee, $date);
         [$windowStart, $windowEnd] = $shift !== null
             ? $shift->shiftWindowForDate($date)
             : [$date->startOfDay(), $date->endOfDay()];
@@ -286,15 +314,52 @@ class AttendanceCalculatorService
     }
 
     /**
-     * Recalcula todos los resúmenes diarios vinculados a un turno laboral (ej. tras editar tolerancia o entrada).
+     * Recalcula todos los resúmenes diarios vinculados a un turno laboral (directo, en rotaciones o excepciones).
      */
     public function recalculateAllForShift(WorkShift $shift): int
     {
-        $employees = Employee::with('workShift')
-            ->where('work_shift_id', $shift->id)
+        $directEmployeeIds = Employee::where('work_shift_id', $shift->id)->pluck('id');
+        $exceptionEmployeeIds = ShiftException::where('work_shift_id', $shift->id)->pluck('employee_id');
+
+        $rotationAssignments = ShiftRotationAssignment::query()
+            ->whereHas('rotation.steps', fn ($q) => $q->where('work_shift_id', $shift->id))
             ->get();
 
-        return $this->recalculateForEmployees($employees);
+        $rotationEmpIds = $rotationAssignments
+            ->where('target_type', ShiftRotationAssignment::TARGET_EMPLOYEE)
+            ->pluck('employee_id')
+            ->filter();
+        $rotationGroupIds = $rotationAssignments
+            ->where('target_type', ShiftRotationAssignment::TARGET_GROUP)
+            ->pluck('employee_group_id')
+            ->filter();
+        $rotationDepts = $rotationAssignments
+            ->where('target_type', ShiftRotationAssignment::TARGET_DEPARTMENT)
+            ->pluck('department')
+            ->filter();
+
+        $allEmployeeIds = collect()
+            ->merge($directEmployeeIds)
+            ->merge($exceptionEmployeeIds)
+            ->merge($rotationEmpIds);
+
+        $employees = Employee::with(['workShift', 'groups:id'])
+            ->where(function ($q) use ($allEmployeeIds, $rotationGroupIds, $rotationDepts): void {
+                if ($allEmployeeIds->isNotEmpty()) {
+                    $q->whereIn('id', $allEmployeeIds->unique()->values());
+                } else {
+                    $q->whereRaw('1 = 0');
+                }
+                if ($rotationGroupIds->isNotEmpty()) {
+                    $q->orWhereHas('groups', fn ($g) => $g->whereIn('employee_groups.id', $rotationGroupIds));
+                }
+                if ($rotationDepts->isNotEmpty()) {
+                    $q->orWhereIn('department', $rotationDepts);
+                }
+            })
+            ->get();
+
+        return $this->recalculateForScope($employees);
     }
 
     /**
@@ -302,50 +367,112 @@ class AttendanceCalculatorService
      */
     public function recalculateAll(): int
     {
-        $employees = Employee::with('workShift')->get();
-
-        return $this->recalculateForEmployees($employees);
+        return $this->recalculateForScope();
     }
 
     /**
-     * @param  Collection<int, Employee>  $employees
+     * Recalcula jornadas para un subconjunto de empleados y/o rango de fechas usando ShiftScheduleResolver.
+     *
+     * @param  Collection<int, Employee>|null  $employees
      */
-    private function recalculateForEmployees(Collection $employees): int
-    {
+    public function recalculateForScope(
+        ?Collection $employees = null,
+        ?CarbonInterface $from = null,
+        ?CarbonInterface $to = null,
+    ): int {
+        $employees ??= Employee::with(['workShift', 'groups:id'])->get();
+
         if ($employees->isEmpty()) {
             return 0;
         }
 
+        EloquentCollection::make($employees->all())->loadMissing(['workShift', 'groups:id']);
+
+        $fromDay = $from !== null ? CarbonImmutable::instance($from)->startOfDay() : null;
+        $toDay = $to !== null ? CarbonImmutable::instance($to)->startOfDay() : null;
+
+        if ($fromDay !== null && $toDay !== null && $fromDay->greaterThan($toDay)) {
+            [$fromDay, $toDay] = [$toDay, $fromDay];
+        }
+
         $byId = $employees->keyBy('id');
+
+        $logsQuery = AttendanceLog::whereIn('employee_id', $byId->keys())
+            ->orderBy('punched_at');
+
+        if ($fromDay !== null) {
+            $logsQuery->where('punched_at', '>=', $fromDay->subDay()->startOfDay());
+        }
+        if ($toDay !== null) {
+            $logsQuery->where('punched_at', '<=', $toDay->addDay()->endOfDay());
+        }
+
+        $logs = $logsQuery->get(['id', 'employee_id', 'punched_at']);
+
+        $summaryQuery = DailySummary::whereIn('employee_id', $byId->keys());
+        if ($fromDay !== null) {
+            $summaryQuery->where('work_date', '>=', $fromDay->toDateString());
+        }
+        if ($toDay !== null) {
+            $summaryQuery->where('work_date', '<=', $toDay->toDateString());
+        }
+        $summaries = $summaryQuery->get(['id', 'employee_id', 'work_date']);
+
+        if ($logs->isEmpty() && $summaries->isEmpty()) {
+            return 0;
+        }
+
+        $dateBounds = [];
+        if ($fromDay !== null) {
+            $dateBounds[] = $fromDay->subDay();
+        }
+        if ($toDay !== null) {
+            $dateBounds[] = $toDay->addDay();
+        }
+        foreach ($logs as $log) {
+            $dateBounds[] = CarbonImmutable::instance($log->punched_at)->startOfDay();
+        }
+        foreach ($summaries as $summary) {
+            if ($summary->work_date !== null) {
+                $dateBounds[] = CarbonImmutable::instance($summary->work_date)->startOfDay();
+            }
+        }
+
+        $minDate = collect($dateBounds)->min()->subDay();
+        $maxDate = collect($dateBounds)->max()->addDay();
+        $scheduleContext = $this->resolver()->loadBatchContext($employees, $minDate, $maxDate);
+
         $targets = [];
 
-        AttendanceLog::whereIn('employee_id', $byId->keys())
-            ->orderBy('punched_at')
-            ->get(['id', 'employee_id', 'punched_at'])
-            ->each(function (AttendanceLog $log) use ($byId, &$targets): void {
-                $employee = $byId->get($log->employee_id);
-                if ($employee === null) {
-                    return;
-                }
+        foreach ($logs as $log) {
+            $employee = $byId->get($log->employee_id);
+            if ($employee === null) {
+                continue;
+            }
 
-                $workDate = $this->resolveWorkDateForEmployeePunch($employee, $log->punched_at);
-                $targets[$employee->id.'|'.$workDate->toDateString()] = [$employee, $workDate];
-            });
+            $workDate = $this->resolveWorkDateForEmployeePunch($employee, $log->punched_at, $scheduleContext);
+            if ($fromDay !== null && $workDate->lessThan($fromDay)) {
+                continue;
+            }
+            if ($toDay !== null && $workDate->greaterThan($toDay)) {
+                continue;
+            }
 
-        DailySummary::whereIn('employee_id', $byId->keys())
-            ->get(['id', 'employee_id', 'work_date'])
-            ->each(function (DailySummary $summary) use ($byId, &$targets): void {
-                $employee = $byId->get($summary->employee_id);
-                if ($employee === null || $summary->work_date === null) {
-                    return;
-                }
+            $targets[$employee->id.'|'.$workDate->toDateString()] = [$employee, $workDate];
+        }
 
-                $workDate = CarbonImmutable::instance($summary->work_date)->startOfDay();
-                $targets[$employee->id.'|'.$workDate->toDateString()] ??= [$employee, $workDate];
-            });
+        foreach ($summaries as $summary) {
+            $employee = $byId->get($summary->employee_id);
+            if ($employee === null || $summary->work_date === null) {
+                continue;
+            }
+
+            $workDate = CarbonImmutable::instance($summary->work_date)->startOfDay();
+            $targets[$employee->id.'|'.$workDate->toDateString()] ??= [$employee, $workDate];
+        }
 
         foreach ($targets as [$employee, $workDate]) {
-            $this->recalculateForEmployeeDate($employee, $workDate);
+            $this->recalculateForEmployeeDate($employee, $workDate, $scheduleContext);
         }
 
         return count($targets);
@@ -446,6 +573,7 @@ class AttendanceCalculatorService
 
                     $targetSlot = $isLikelyExit ? 'check_out' : 'break_out';
                     $slots[$targetSlot] = $punchedAt;
+
                     continue;
                 }
 
@@ -465,15 +593,79 @@ class AttendanceCalculatorService
         return $slots;
     }
 
-    private function resolveWorkDateForEmployeePunch(Employee $employee, CarbonInterface $punchedAt): CarbonImmutable
-    {
-        $employee->loadMissing('workShift');
+    /**
+     * @param  array<string, mixed>|null  $scheduleContext
+     */
+    private function resolveWorkDateForEmployeePunch(
+        Employee $employee,
+        CarbonInterface $punchedAt,
+        ?array $scheduleContext = null
+    ): CarbonImmutable {
+        $instant = CarbonImmutable::instance($punchedAt);
+        $baseDay = $instant->startOfDay();
 
-        if ($employee->workShift !== null) {
-            return $employee->workShift->resolveWorkDateForPunch($punchedAt);
+        $resolveShift = function (CarbonImmutable $day) use ($employee, $scheduleContext): ?WorkShift {
+            if ($scheduleContext !== null) {
+                return $this->resolver()->resolveDetailFromContext($employee, $day, $scheduleContext)['shift'];
+            }
+
+            return $this->resolver()->resolveForEmployeeOnDate($employee, $day);
+        };
+
+        $todayShift = $resolveShift($baseDay);
+        $yesterday = $baseDay->subDay();
+        $yesterdayShift = $resolveShift($yesterday);
+
+        // Turno nocturno del día anterior: la salida de madrugada pertenece a la jornada de ayer
+        if ($yesterdayShift !== null && $yesterdayShift->crossesMidnight()) {
+            [$prevStart, $prevEnd] = $yesterdayShift->shiftWindowForDate($yesterday);
+
+            if ($todayShift !== null && ! $todayShift->crossesMidnight()) {
+                $prevExit = CarbonImmutable::parse($baseDay->toDateString().' '.$yesterdayShift->exit_time);
+                $todayEntry = CarbonImmutable::parse($baseDay->toDateString().' '.$todayShift->entry_time);
+                if ($todayEntry->greaterThan($prevExit)) {
+                    $midpoint = $prevExit->addSeconds(intdiv((int) $prevExit->diffInSeconds($todayEntry), 2));
+                    if ($midpoint->lessThan($prevEnd)) {
+                        $prevEnd = $midpoint;
+                    }
+                }
+            }
+
+            if ($instant->betweenIncluded($prevStart, $prevEnd)) {
+                return $yesterday;
+            }
         }
 
-        return CarbonImmutable::instance($punchedAt)->startOfDay();
+        // Turno nocturno del día actual (o turno que cruza hacia mañana)
+        if ($todayShift !== null && $todayShift->crossesMidnight()) {
+            [$curStart, $curEnd] = $todayShift->shiftWindowForDate($baseDay);
+            if ($instant->betweenIncluded($curStart, $curEnd)) {
+                return $baseDay;
+            }
+        }
+
+        // Turno nocturno que inicia mañana cuya ventana temprana comienza hoy por la tarde
+        $tomorrow = $baseDay->addDay();
+        $tomorrowShift = $resolveShift($tomorrow);
+        if ($tomorrowShift !== null && $tomorrowShift->crossesMidnight()) {
+            [$nextStart, $nextEnd] = $tomorrowShift->shiftWindowForDate($tomorrow);
+            if ($todayShift !== null && ! $todayShift->crossesMidnight()) {
+                $todayExit = CarbonImmutable::parse($baseDay->toDateString().' '.$todayShift->exit_time);
+                $nextEntry = CarbonImmutable::parse($tomorrow->toDateString().' '.$tomorrowShift->entry_time);
+                if ($nextEntry->greaterThan($todayExit)) {
+                    $midpoint = $todayExit->addSeconds(intdiv((int) $todayExit->diffInSeconds($nextEntry), 2));
+                    if ($midpoint->greaterThan($nextStart)) {
+                        $nextStart = $midpoint;
+                    }
+                }
+            }
+
+            if ($instant->betweenIncluded($nextStart, $nextEnd)) {
+                return $tomorrow;
+            }
+        }
+
+        return $baseDay;
     }
 
     private function determineDailyStatus(

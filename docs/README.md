@@ -34,7 +34,9 @@ docs/
 │   │   ├── 20-40_candado-pruebas-config-en-cache.md
 │   │   └── 21-50_horarios-comida-recalculo-y-responsividad.md
 │   └── 2026-11-23/
-│       └── 09-10_perfiles-y-permisos.md
+│       ├── 09-10_perfiles-y-permisos.md
+│       ├── 09-22_o1-o2-o3-excel-rotaciones-medios.md
+│       └── 09-50_merge-permisos-con-o1-o2-o3.md
 ├── despliegue/
 │   └── 2026-11-22/
 │       └── 20-00_GUIA_DESPLIEGUE_PRODUCCION.md
