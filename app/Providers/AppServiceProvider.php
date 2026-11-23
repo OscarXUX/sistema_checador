@@ -17,7 +17,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Una sola instancia por proceso: el catálogo de tipos de evento se lee una vez por sincronización
+        $this->app->singleton(\App\Services\EventTypeClassifier::class);
     }
 
     /**

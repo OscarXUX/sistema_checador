@@ -76,19 +76,20 @@ tests/                                          95 pruebas (Feature y Unit)
 
 | Tabla | Para qué | Notas |
 |---|---|---|
-| `work_shifts` | Turnos: entrada, salida, minutos de comida, tolerancia, horas por semana | Requerido para crear empleados |
+| `work_shifts` | Turnos: entrada, salida, minutos de comida, tolerancia, horas por semana, ventanas de entrada y salida, minutos para checada repetida | Requerido para crear empleados; ventanas vacías = por omisión |
+| `attendance_event_types` | Catálogo de tipos de evento (A tiempo, Retardo, Retardo mayor, Salida anticipada…) con rango de minutos | Los iniciales (`is_system`) no se borran |
 | `shift_rotations`, `shift_rotation_steps`, `employee_groups`, `shift_rotation_assignments`, `shift_exceptions` | Rotaciones por ciclo, grupos de empleados, asignaciones (empleado/grupo/depto) y excepciones por fechas | Prioridad: excepción > empleado > grupo > depto > base |
 | `marking_methods` | Catálogo de medios de marcaje (huella, rostro, tarjeta, PIN) y capacidades ISAPI | `face` bloqueado por aviso de privacidad `TE-02` |
 | `employees` | Empleados con `hikvision_employee_no`, RFC/CURP/NSS cifrados, `fingerprint_enrolled`, `card_no`, `card_enrolled`, `pin_configured`, `device_synced_at` | El PIN nunca se guarda en la base; `rfc_hash` y `curp_hash` permiten buscar completos |
 | `attendance_logs` | Cada checada tal como llegó del reloj, con `event_type` y `raw_payload` (JSON) | Único `(employee_id, punched_at)`; no se puede editar desde Eloquent. La base impide borrar a un empleado que tenga checadas (`restrictOnDelete`) |
-| `daily_summaries` | Resumen por empleado y día: entrada, comida, salida, minutos trabajados, retardo, horas extra, estado | Se recalcula al llegar cada checada nueva |
+| `daily_summaries` | Resumen por empleado y día: entrada, comida, salida, minutos trabajados, retardo, salida anticipada, comida excedida, horas extra, estado, tipos de evento e incidencias (JSON) | Se recalcula al llegar cada checada nueva |
 | `users` | Cuentas del sistema | `is_active` para desactivar sin borrar; `profile_id`; se crean en Administración → Usuarios o por consola (`usuarios:crear --perfil=`) |
 | `profiles`, `profile_permission` | Perfiles de usuario y sus permisos | El perfil con `is_admin` tiene todo; no confundir con el puesto del empleado |
 | `permissions`, `user_permissions` | Catálogo de permisos y excepciones por persona (`is_denied`) | Las claves vienen de `App\Support\Permissions` (`permisos:sincronizar`) |
 | `audit_logs` | Bitácora: quién, qué, cuándo y desde dónde | Antes y después de los campos que cambiaron; RFC, CURP y NSS como `[protegido]`; no se modifica desde la aplicación |
 | `sessions`, `cache`, `jobs` | Tablas base de Laravel | `sessions` permite cerrar las sesiones de una cuenta |
 
-`event_type` admite: `check_in` (Entrada), `break_out` (Salida a comida), `break_in` (Regreso de comida), `check_out` (Salida) y `unclassified`. Si el reloj no manda el tipo, se asigna por orden: 1.ª entrada, 2.ª salida a comida, 3.ª regreso, 4.ª salida.
+`event_type` admite: `check_in` (Entrada), `break_out` (Salida a comida), `break_in` (Regreso de comida), `check_out` (Salida) y `unclassified`. Para el resumen diario, las checadas se clasifican **por hora** con las ventanas del turno (`App\Services\PunchClassifier`): ventana de entrada, ventana de salida y comida en medio; las repetidas o fuera de orden quedan como incidencias. Sin turno se usa la tecla del reloj o el orden.
 
 ---
 
@@ -101,6 +102,7 @@ tests/                                          95 pruebas (Feature y Unit)
 | Empleados y huellas | Listado paginado de 50 con búsqueda y orden por columna en el servidor; RFC, CURP y NSS enmascarados (completos solo al editar); alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj, capturar huella remota, tarjeta y PIN | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint`, `/employees/{id}/enroll-card`, `/employees/{id}/enroll-pin` | `empleados.*`, `terminal.usuarios`, `terminal.huellas` (huella y rostro) |
 | Kardex | Resumen diario por rango de fechas en pantalla (máximo 93 días), exportación mensual a Excel (.xlsx en servidor con PhpSpreadsheet hasta 12 meses), bitácora JSON bajo demanda | `GET /reports/kardex`, `GET /reports/kardex/data`, `GET /reports/kardex/export/xlsx`, `GET /reports/kardex/logs/{id}/payload` | `kardex.consultar`, `kardex.exportar` |
 | Turnos | Turnos base, rotaciones con pasos en orden, grupos, asignaciones, excepciones y vista previa de 14 días | `/shifts`, `/shifts/rotations`, `/shifts/groups`, `/shifts/assignments`, `/shifts/exceptions` | `turnos.consultar`, `turnos.administrar` (turnos base), `turnos.programar` (rotaciones, grupos, asignaciones, excepciones) |
+| Catálogos | Ventanas de horario por turno y tipos de evento | `/catalogos/ventanas`, `/catalogos/tipos-evento` | `catalogos.consultar`, `catalogos.administrar` |
 | Medios de marcaje | Detección de capacidades ISAPI, catálogo de empresa y alta remota de tarjeta RFID / PIN (rostro en espera de `TE-02`) | `/marking-methods`, `/marking-methods/detect` | `medios.consultar`, `medios.administrar` |
 | Sesión | Inicio y cierre de sesión; `/inicio` manda a la primera pantalla permitida | `GET/POST /login`, `POST /logout`, `GET /inicio` | Abierta solo `/login` |
 | Administración | Usuarios (perfil, estado, excepciones dar/negar), perfiles con sus permisos y catálogo de permisos | `/administracion/usuarios`, `/perfiles`, `/permisos` | Perfil administrador (`administrar`) |
@@ -122,6 +124,7 @@ tests/                                          95 pruebas (Feature y Unit)
 | Alta de empleados en la terminal y captura remota de huella | ✅ Implementado, sin probar con el aparato |
 | Mostrar **por qué** sale una persona | ❌ No existe; falta definirlo (TE-01) |
 | Perfiles y permisos con estructura de tickets | ✅ Implementado (SE-02) |
+| Clasificación por hora, checadas repetidas o fuera de orden y tipos de evento | ✅ Implementado (paquete 3) |
 | Monitor que se actualice solo | ❌ Solo se actualiza con el botón "Refrescar"; lo automático es el estado de la terminal (cada 30 s) |
 | Turnos que cruzan la medianoche | ✅ Implementado en `WorkShift` y `AttendanceCalculatorService` (SE-11); pendiente confirmar con cliente si aplica (TE-07) |
 
@@ -148,6 +151,8 @@ tests/                                          95 pruebas (Feature y Unit)
 | 18/11/2026 | RFC, CURP y NSS cifrados y enmascarados, también en el kardex | Danny | Minimizar la exposición de datos personales (SE-05) |
 | 18/11/2026 | CSP con nonce y cabeceras de seguridad en todas las respuestas | Danny | Guía 4.10 (SE-08) |
 | 23/11/2026 | Perfiles y permisos con la estructura del sistema de tickets; "perfil" para usuarios y "puesto" para empleados | Oscar y Danny | Pedido de Oscar; P3 de la propuesta (SE-02) |
+| 23/11/2026 | Checadas clasificadas por ventanas de horario de cada turno; las que no cuentan quedan como incidencia sin tocar la bitácora | Oscar y Danny | Notas 3 y 6, P6 |
+| 23/11/2026 | Catálogo de tipos de evento definido por nosotros, medido en minutos | Oscar y Danny | Nota 4, P7 |
 
 ---
 

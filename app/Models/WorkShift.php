@@ -22,7 +22,17 @@ class WorkShift extends Model
         'meal_duration_minutes',
         'tolerance_minutes',
         'max_weekly_hours',
+        'entry_window_start',
+        'entry_window_end',
+        'exit_window_start',
+        'exit_window_end',
+        'repeat_threshold_minutes',
     ];
+
+    /** Ventanas por omisión (minutos antes y después de la hora del turno) cuando no se configuran (P6). */
+    public const DEFAULT_ENTRY_WINDOW = [60, 120];
+
+    public const DEFAULT_EXIT_WINDOW = [60, 180];
 
     protected function casts(): array
     {
@@ -30,6 +40,7 @@ class WorkShift extends Model
             'meal_duration_minutes' => 'integer',
             'tolerance_minutes' => 'integer',
             'max_weekly_hours' => 'integer',
+            'repeat_threshold_minutes' => 'integer',
         ];
     }
 
@@ -110,6 +121,86 @@ class WorkShift extends Model
         $grossMinutes = $entry->diffInMinutes($exit);
 
         return max(0, $grossMinutes - $this->meal_duration_minutes);
+    }
+
+    public function hasCustomWindows(): bool
+    {
+        return $this->entry_window_start !== null && $this->entry_window_end !== null
+            && $this->exit_window_start !== null && $this->exit_window_end !== null;
+    }
+
+    /**
+     * Horas (HH:MM) de las ventanas de entrada y salida: las configuradas o las de omisión.
+     *
+     * @return array{entrada: array{0: string, 1: string}, salida: array{0: string, 1: string}}
+     */
+    public function windowTimes(): array
+    {
+        if ($this->hasCustomWindows()) {
+            return [
+                'entrada' => [substr((string) $this->entry_window_start, 0, 5), substr((string) $this->entry_window_end, 0, 5)],
+                'salida' => [substr((string) $this->exit_window_start, 0, 5), substr((string) $this->exit_window_end, 0, 5)],
+            ];
+        }
+
+        $entry = CarbonImmutable::parse('2000-01-01 '.$this->entry_time);
+        $exit = CarbonImmutable::parse('2000-01-01 '.$this->exit_time);
+
+        return [
+            'entrada' => [$entry->subMinutes(self::DEFAULT_ENTRY_WINDOW[0])->format('H:i'), $entry->addMinutes(self::DEFAULT_ENTRY_WINDOW[1])->format('H:i')],
+            'salida' => [$exit->subMinutes(self::DEFAULT_EXIT_WINDOW[0])->format('H:i'), $exit->addMinutes(self::DEFAULT_EXIT_WINDOW[1])->format('H:i')],
+        ];
+    }
+
+    /**
+     * Ventanas de entrada y salida como fechas reales para la jornada que inicia en $workDate
+     * (anclada a la hora de entrada y a la de salida, también en turnos que cruzan la medianoche).
+     * Si se enciman, se parten a la mitad para que una checada nunca caiga en las dos.
+     *
+     * @return array{entrada: array{0: CarbonImmutable, 1: CarbonImmutable}, salida: array{0: CarbonImmutable, 1: CarbonImmutable}}
+     */
+    public function classificationWindows(CarbonInterface $workDate): array
+    {
+        $date = CarbonImmutable::instance($workDate)->startOfDay();
+        $scheduledEntry = CarbonImmutable::parse($date->toDateString().' '.$this->entry_time);
+        $scheduledExit = CarbonImmutable::parse(($this->crossesMidnight() ? $date->addDay() : $date)->toDateString().' '.$this->exit_time);
+        $times = $this->windowTimes();
+
+        $entry = self::anchorWindow($times['entrada'], $scheduledEntry);
+        $exit = self::anchorWindow($times['salida'], $scheduledExit);
+
+        if ($entry[1]->greaterThanOrEqualTo($exit[0])) {
+            $midpoint = $scheduledEntry->addSeconds(intdiv((int) $scheduledEntry->diffInSeconds($scheduledExit), 2));
+            $entry[1] = $midpoint;
+            $exit[0] = $midpoint->addSecond();
+        }
+
+        return ['entrada' => $entry, 'salida' => $exit];
+    }
+
+    /**
+     * Convierte un rango de horas en fechas alrededor de la hora del turno: el inicio queda a menos de
+     * 12 horas antes de $anchor y el fin después del inicio (si es menor, es del día siguiente).
+     *
+     * @param  array{0: string, 1: string}  $times
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    public static function anchorWindow(array $times, CarbonImmutable $anchor): array
+    {
+        $start = CarbonImmutable::parse($anchor->toDateString().' '.$times[0]);
+        if ($start->greaterThan($anchor)) {
+            $start = $start->subDay();
+        }
+        if ($anchor->diffInMinutes($start, true) >= 720) {
+            $start = $start->addDay();
+        }
+
+        $end = CarbonImmutable::parse($start->toDateString().' '.$times[1]);
+        if ($end->lessThanOrEqualTo($start)) {
+            $end = $end->addDay();
+        }
+
+        return [$start, $end->addSeconds(59)];
     }
 
     public function getScheduleLabelAttribute(): string

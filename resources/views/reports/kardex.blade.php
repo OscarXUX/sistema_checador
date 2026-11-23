@@ -277,6 +277,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { binding: 'overtime_hours', header: 'Extra (hrs)', width: 95, format: 'n2', aggregate: wjCore.Aggregate.Sum, cssClass: 'font-mono-tabular' },
             { binding: 'worked_hours', header: 'Total (hrs)', width: 100, format: 'n2', aggregate: wjCore.Aggregate.Sum, cssClass: 'font-mono-tabular' },
             { binding: 'status_label', header: 'Estatus Fiscal', width: 140 },
+            { binding: 'events_label', header: 'Eventos', width: 230 },
+            { binding: 'incidents_label', header: 'Incidencias', width: 120 },
         ],
     });
 
@@ -309,6 +311,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (col.binding === 'status_label') {
                 const cls = statusBadgeMap[item.status] || 'border-secondary text-secondary';
                 e.cell.innerHTML = `<span class="badge bg-dark border ${cls}">${escapeHtml(item.status_label)}</span>`;
+            } else if (col.binding === 'events_label') {
+                // Tipos de evento del catálogo (paquete 3); el color sale de una lista cerrada
+                const lstColores = ['success', 'warning', 'danger', 'info', 'secondary'];
+                e.cell.innerHTML = (item.events || []).map((ev) => {
+                    const color = lstColores.includes(ev.color) ? ev.color : 'secondary';
+                    return `<span class="badge bg-dark border border-${color} text-${color} me-1">${escapeHtml(ev.name)}</span>`;
+                }).join('');
+            } else if (col.binding === 'incidents_label') {
+                const lstIncidencias = item.incidents || [];
+                e.cell.innerHTML = lstIncidencias.length
+                    ? `<span class="badge text-bg-warning" title="${escapeHtml(item.incidents_label)}">${lstIncidencias.length} incidencia${lstIncidencias.length === 1 ? '' : 's'}</span>`
+                    : '';
             }
         }
     });
@@ -446,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'ID Reloj', 'Empleado', 'RFC', 'CURP', 'NSS', 'Departamento',
             'Turno', 'Fecha', 'Entrada', 'Salida Comida', 'Regreso Comida',
             'Salida', 'Comida (min)', 'Retardo (min)', 'Horas Ordinarias',
-            'Horas Extra', 'Horas Totales', 'Estatus Fiscal',
+            'Horas Extra', 'Horas Totales', 'Estatus Fiscal', 'Eventos', 'Incidencias',
         ];
 
         // csvEscape (resources/js/csv.js) neutraliza fórmulas: =, +, -, @ al inicio (SE-15)
@@ -472,6 +486,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 r.overtime_hours,
                 r.worked_hours,
                 r.status_label,
+                r.events_label,
+                r.incidents_label,
             ].map(csvEscape).join(','));
         });
 

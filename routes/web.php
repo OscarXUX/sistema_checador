@@ -4,6 +4,8 @@ use App\Http\Controllers\Admin\PermissionController as AdminPermissionController
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Catalog\EventTypeController;
+use App\Http\Controllers\Catalog\TimeWindowController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EmployeeController;
@@ -77,6 +79,17 @@ Route::middleware('auth')->group(function (): void {
 
         Route::get('/permisos', [AdminPermissionController::class, 'index'])->name('permissions');
         Route::put('/permisos/{permission}', [AdminPermissionController::class, 'update'])->name('permissions.update');
+    });
+
+    // Catálogos de reglas de asistencia (paquete 3: ventanas de horario y tipos de evento)
+    Route::prefix('catalogos')->name('catalogs.')->group(function (): void {
+        Route::get('/ventanas', [TimeWindowController::class, 'index'])->middleware('can:catalogos.consultar')->name('windows');
+        Route::put('/ventanas/{shift}', [TimeWindowController::class, 'update'])->middleware('can:catalogos.administrar')->name('windows.update');
+
+        Route::get('/tipos-evento', [EventTypeController::class, 'index'])->middleware('can:catalogos.consultar')->name('event-types');
+        Route::post('/tipos-evento', [EventTypeController::class, 'store'])->middleware('can:catalogos.administrar')->name('event-types.store');
+        Route::put('/tipos-evento/{eventType}', [EventTypeController::class, 'update'])->middleware('can:catalogos.administrar')->name('event-types.update');
+        Route::delete('/tipos-evento/{eventType}', [EventTypeController::class, 'destroy'])->middleware('can:catalogos.administrar')->name('event-types.destroy');
     });
 
     // Turnos Laborales, Rotaciones y Excepciones

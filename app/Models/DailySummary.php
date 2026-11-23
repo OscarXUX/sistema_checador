@@ -46,7 +46,13 @@ class DailySummary extends Model
         'meal_minutes',
         'late_minutes',
         'overtime_minutes',
+        'early_exit_minutes',
+        'meal_exceeded_minutes',
         'status',
+        'entry_event_type_id',
+        'exit_event_type_id',
+        'meal_event_type_id',
+        'incidents',
     ];
 
     protected function casts(): array
@@ -62,12 +68,47 @@ class DailySummary extends Model
             'meal_minutes' => 'integer',
             'late_minutes' => 'integer',
             'overtime_minutes' => 'integer',
+            'early_exit_minutes' => 'integer',
+            'meal_exceeded_minutes' => 'integer',
+            'entry_event_type_id' => 'integer',
+            'exit_event_type_id' => 'integer',
+            'meal_event_type_id' => 'integer',
+            'incidents' => 'array',
         ];
     }
 
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function entryEventType(): BelongsTo
+    {
+        return $this->belongsTo(AttendanceEventType::class, 'entry_event_type_id');
+    }
+
+    public function exitEventType(): BelongsTo
+    {
+        return $this->belongsTo(AttendanceEventType::class, 'exit_event_type_id');
+    }
+
+    public function mealEventType(): BelongsTo
+    {
+        return $this->belongsTo(AttendanceEventType::class, 'meal_event_type_id');
+    }
+
+    /**
+     * Incidencias de la jornada con su nombre en español (nota 3).
+     *
+     * @return list<array{code: string, label: string, at: string}>
+     */
+    public function incidentList(): array
+    {
+        return array_values(array_map(fn (array $incident): array => [
+            'code' => (string) $incident['code'],
+            'label' => \App\Services\PunchClassifier::INCIDENT_LABELS[$incident['code']] ?? (string) $incident['code'],
+            'at' => substr((string) ($incident['at'] ?? ''), 11, 8),
+        ], $this->incidents ?? []));
     }
 
     public static function statusLabel(string $status): string

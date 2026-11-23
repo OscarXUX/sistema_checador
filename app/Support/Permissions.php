@@ -28,6 +28,7 @@ final class Permissions
         'turnos' => 'Turnos',
         'kardex' => 'Kardex',
         'medios' => 'Medios de marcaje',
+        'catalogos' => 'Catálogos',
     ];
 
     /** clave => [módulo, descripción, detalles] (en el orden en que se muestran) */
@@ -48,6 +49,8 @@ final class Permissions
         'kardex.exportar' => ['kardex', 'Exportar el kardex', 'Descargar el kardex en Excel (una hoja por mes) o CSV.'],
         'medios.consultar' => ['medios', 'Consultar medios de marcaje', 'Ver qué medios (huella, rostro, tarjeta, PIN) acepta la terminal.'],
         'medios.administrar' => ['medios', 'Administrar medios de marcaje', 'Detectar los medios de la terminal y activar o desactivar cada uno.'],
+        'catalogos.consultar' => ['catalogos', 'Consultar catálogos', 'Ver las ventanas de horario por turno y los tipos de evento.'],
+        'catalogos.administrar' => ['catalogos', 'Administrar catálogos', 'Cambiar ventanas de horario y tipos de evento (recalcula los resúmenes).'],
     ];
 
     /** Permisos del perfil "Consulta" que crea la migración */

@@ -136,6 +136,7 @@ class User extends Authenticatable
             'reports.kardex' => 'kardex.consultar',
             'shifts.index' => 'turnos.consultar',
             'marking-methods.index' => 'medios.consultar',
+            'catalogs.windows' => 'catalogos.consultar',
         ];
 
         foreach ($dataPantallas as $route => $permission) {

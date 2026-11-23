@@ -247,7 +247,13 @@ class AttendanceCalculatorService
 
         $isActiveShiftWindow = CarbonImmutable::now()->betweenIncluded($windowStart, $windowEnd);
 
-        $slots = $this->resolveDailyPunchSlots($logs, $shift, $date, $isActiveShiftWindow);
+        // Con turno: clasificación por ventanas de horario e incidencias (paquete 3); sin turno, la de siempre
+        if ($shift !== null) {
+            $slots = app(PunchClassifier::class)->classify($logs, $shift, $date, $isActiveShiftWindow);
+        } else {
+            $slots = $this->resolveDailyPunchSlots($logs, null, $date, $isActiveShiftWindow);
+            $slots['incidents'] = [];
+        }
 
         $firstCheckIn = $slots['check_in'];
         $breakOut = $slots['break_out'];
@@ -281,6 +287,16 @@ class AttendanceCalculatorService
             }
         }
 
+        $earlyExitMinutes = 0;
+        if ($lastCheckOut !== null && $shift !== null) {
+            $scheduledExit = CarbonImmutable::parse(($shift->crossesMidnight() ? $date->addDay() : $date)->toDateString().' '.$shift->exit_time);
+            if ($lastCheckOut->lessThan($scheduledExit)) {
+                $earlyExitMinutes = (int) $lastCheckOut->diffInMinutes($scheduledExit);
+            }
+        }
+
+        $mealExceededMinutes = $breakIn !== null ? max(0, $mealMinutes - ($shift?->meal_duration_minutes ?? 60)) : 0;
+
         $status = $this->determineDailyStatus(
             logsCount: $logs->count(),
             isActiveShiftWindow: $isActiveShiftWindow,
@@ -302,7 +318,19 @@ class AttendanceCalculatorService
             'meal_minutes' => $mealMinutes,
             'late_minutes' => $lateMinutes,
             'overtime_minutes' => $overtimeMinutes,
+            'early_exit_minutes' => $earlyExitMinutes,
+            'meal_exceeded_minutes' => $mealExceededMinutes,
             'status' => $status,
+            'incidents' => $slots['incidents'] === [] ? null : $slots['incidents'],
+            // Tipos de evento del catálogo (nota 4): solo con turno, porque se miden contra su horario
+            ...app(EventTypeClassifier::class)->idsFor(
+                $firstCheckIn !== null && $shift !== null,
+                $lateMinutes,
+                $lastCheckOut !== null && $shift !== null,
+                $earlyExitMinutes,
+                $breakIn !== null,
+                $mealExceededMinutes,
+            ),
         ];
 
         // Comparación directa (sin whereDate) para usar el índice único (OP-03).

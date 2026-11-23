@@ -73,6 +73,28 @@
         @endcan
     </ul>
 
+    @can('catalogos.consultar')
+    <div class="text-uppercase text-secondary fw-semibold mb-2 mt-4 px-2" style="font-size: 0.7rem; letter-spacing: 0.08em;">
+        Catálogos
+    </div>
+    <ul class="nav flex-column gap-1">
+        <li class="nav-item">
+            <a href="{{ route('catalogs.windows') }}"
+               class="nav-link {{ request()->routeIs('catalogs.windows*') ? 'active' : '' }}">
+                <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+                <span>Ventanas de horario</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="{{ route('catalogs.event-types') }}"
+               class="nav-link {{ request()->routeIs('catalogs.event-types*') ? 'active' : '' }}">
+                <i class="bi bi-tags" aria-hidden="true"></i>
+                <span>Tipos de evento</span>
+            </a>
+        </li>
+    </ul>
+    @endcan
+
     @can('administrar')
     <div class="text-uppercase text-secondary fw-semibold mb-2 mt-4 px-2" style="font-size: 0.7rem; letter-spacing: 0.08em;">
         Administración

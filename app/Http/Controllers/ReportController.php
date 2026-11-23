@@ -181,7 +181,7 @@ class ReportController extends Controller
      */
     private function queryKardexRows(array $filters): array
     {
-        $query = DailySummary::with(['employee.workShift'])
+        $query = DailySummary::with(['employee.workShift', 'entryEventType', 'exitEventType', 'mealEventType'])
             ->whereBetween('work_date', [$filters['start_date'], $filters['end_date']])
             ->whereHas('employee', function ($q) use ($filters): void {
                 if ($filters['department'] !== '') {
@@ -246,6 +246,16 @@ class ReportController extends Controller
                 'overtime_hours' => round($summary->overtime_minutes / 60, 2),
                 'status' => $summary->status,
                 'status_label' => DailySummary::statusLabel($summary->status),
+                // Paquete 3: tipos de evento del catálogo e incidencias de la jornada
+                'early_exit_minutes' => $summary->early_exit_minutes,
+                'events' => collect([$summary->entryEventType, $summary->mealEventType, $summary->exitEventType])
+                    ->filter()
+                    ->map(fn ($type): array => ['name' => $type->name, 'color' => $type->color])
+                    ->values()
+                    ->all(),
+                'events_label' => collect([$summary->entryEventType, $summary->mealEventType, $summary->exitEventType])->filter()->pluck('name')->implode(', '),
+                'incidents' => $summary->incidentList(),
+                'incidents_label' => collect($summary->incidentList())->map(fn (array $i): string => "{$i['label']} ({$i['at']})")->implode('; '),
             ];
         })->values()->all();
     }
