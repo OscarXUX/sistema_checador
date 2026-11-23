@@ -150,3 +150,64 @@ Oscar pidió quedarse con algunas tareas. Propuesta para confirmar (P9):
 | 5 Excel por mes | Oscar | Independiente del resto |
 | 6 Medios de marcaje | Oscar | Tiene acceso a la terminal |
 | 7 Ficha de personal | Por definir | Después de P2 |
+
+---
+
+## 7. Detalle de las tareas de Oscar (agregado 23/11/2026)
+
+Oscar pidió el detalle exacto de lo que le toca. Su parche del 22/11 (`docs/parches/2026-11-22/21-50_horarios-comida-recalculo-y-responsividad.md`) ya resolvió la comida en 0 (nota 20) y la parte responsiva (nota 21), así que salen de la lista.
+
+Orden sugerido: O1 → O2 → O3. O1 no choca con nada de lo que hace Danny; O2 y O3 se coordinan con la sección 7.4.
+
+### 7.1 O1 · Exportación del kardex a Excel por mes (notas 7 y 9)
+
+| Qué | Detalle |
+|---|---|
+| Resultado | Botón "Exportar Excel" en Kardex que descarga un `.xlsx` con **una hoja por mes** del rango elegido, hasta 12 meses |
+| Dónde se genera | En el servidor, para no cargar un año de datos en el navegador. Opción A: PhpSpreadsheet (`composer require phpoffice/phpspreadsheet`); opción B: Wijmo armando el libro por meses en el navegador. Recomendación: A, porque no depende de la licencia de Wijmo (TE-03) |
+| Ruta | `GET /reports/kardex/export` con `start_date`, `end_date`, `department`, `employee_id`; dentro del grupo `auth`, con `throttle:reports` |
+| Rango | Máximo 12 meses (validar; si se pasa, error 422 con mensaje). La pantalla del kardex se queda en 93 días (P5) |
+| Hojas | Nombre "Nov 2026"; una fila por empleado y día; mismas columnas que el CSV actual; al final de cada empleado, fila de totales (horas ordinarias, extra, retardos) |
+| Formato (nota 9) | Encabezado en negritas con fondo, primera fila fija (`freezePane`), autofiltro, anchos de columna, horas con formato `0.00`, fechas `dd/mm/aaaa`, nombre del archivo `Kardex_AAAA-MM-DD_a_AAAA-MM-DD.xlsx` |
+| Datos personales | RFC, CURP y NSS enmascarados con `App\Support\PersonalData`; completos solo con el permiso `kardex.exportar_completo` cuando existan los perfiles |
+| Seguridad | Escribir nombres y departamentos como texto explícito (que nada se interprete como fórmula, igual que SE-15); registrar la exportación en la bitácora (`kardex.exported`, con el rango) |
+| Memoria | Consultar mes por mes (no todo el año de golpe) |
+| Pruebas | Rango de 3 meses = 3 hojas; rango de 13 meses rechazado; RFC enmascarado en el archivo; sin sesión = redirige al login; queda en la bitácora |
+
+### 7.2 O2 · Turnos rotativos y excepciones (notas 11 a 13)
+
+| Qué | Detalle |
+|---|---|
+| Resultado | Cada empleado puede tener un turno que cambia solo según una rotación, y excepciones por fechas |
+| Tablas nuevas | `shift_rotations` (nombre, días por ciclo, activo); `shift_rotation_steps` (rotación, posición, turno); `shift_assignments` (a quién: empleado, departamento o grupo; rotación o turno fijo; desde, hasta); `shift_exceptions` (empleado, turno, desde, hasta, motivo); `employee_groups` y su tabla de empleados |
+| Sentido (nota 12) | El orden lo dan los pasos: 1 → 2 → 3, 3 → 2 → 1 o 2 → 1 → 3. "Por días" = días por ciclo |
+| Regla para saber el turno de un día | Excepción del empleado > asignación al empleado > a su grupo > a su departamento > `employees.work_shift_id` (el de hoy, como respaldo). Con rotación: paso = días desde el inicio ÷ días por ciclo, módulo número de pasos |
+| Clase nueva | `App\Services\ShiftScheduleResolver::shiftFor(Employee, fecha)`: un solo lugar con la regla anterior |
+| Cálculo | `AttendanceCalculatorService` usa el resolver en lugar de `$employee->workShift` (incluye la ventana nocturna de SE-11). Al guardar rotaciones, asignaciones o excepciones, recalcular las fechas afectadas (su `attendance:recalculate`) |
+| Pantalla | En Turnos, pestañas: Turnos · Rotaciones · Asignaciones · Excepciones. Vista previa: turno de cada empleado los próximos 14 días |
+| Departamentos | Danny convierte departamentos en catálogo (nota 15). Mientras tanto, asignar por el texto actual y cambiar al id cuando exista el catálogo |
+| Bitácora | `shift.rotation_saved`, `shift.assignment_saved`, `shift.exception_saved` con antes y después |
+| Pruebas | Rotación 1 → 2 → 3 cada 7 días da el turno correcto en los días 0, 7, 14 y 21; la excepción gana a la rotación; sin asignación usa el turno del empleado; el resumen diario cambia al guardar una excepción |
+
+### 7.3 O3 · Medios de marcaje automáticos (nota 5)
+
+| Qué | Detalle |
+|---|---|
+| Resultado | El sistema detecta qué medios acepta la terminal conectada (huella, rostro, tarjeta, PIN) y permite dar de alta los que estén disponibles |
+| Detección | Consultar las capacidades por ISAPI (`/ISAPI/AccessControl/capabilities`, `/ISAPI/AccessControl/UserInfo/capabilities`, `/ISAPI/AccessControl/CardInfo/capabilities`, `/ISAPI/AccessControl/FingerPrintCfg/capabilities`, `/ISAPI/Intelligent/FDLib/capabilities`) y mostrarlas en el estado de la terminal |
+| Catálogo | "Medios de marcaje": cuáles se aceptan en la empresa (activar o desactivar). Lo hace Oscar completo para no repartirlo |
+| Alta por medio | Tarjeta: `CardInfo/Record` con el número de tarjeta. PIN: contraseña del usuario en el reloj. Rostro: **esperar a TE-02** (es biométrico, igual que la huella) |
+| Datos | El PIN nunca se guarda en la base. El número de tarjeta, enmascarado en pantalla. Sin `device_response` ni datos crudos en las respuestas (SE-04) |
+| Clasificación | Revisar `mapVerificationMode()` con los valores reales de `currentVerifyMode` del aparato (por ejemplo `cardOrFaceOrFp`, `fp`, `cardAndPw`) |
+| Pruebas | Con `Http::fake`: capacidades leídas; alta de tarjeta; el PIN no aparece en la base ni en la respuesta |
+
+### 7.4 Coordinación con Danny
+
+| Tema | Acuerdo |
+|---|---|
+| Permisos | Danny hace primero los perfiles (sección 3.1). Mientras, las rutas nuevas van solo con `auth`; cuando estén, se agregan `can:kardex.exportar`, `can:turnos.programar` y `can:terminal.usuarios` |
+| `AttendanceCalculatorService` | Lo tocan los dos. Danny cambia la clasificación (`resolveDailyPunchSlots()`, ventanas de horario de la nota 6); Oscar solo cambia de dónde sale el turno (resolver de O2). Hacer `git pull` antes de empezar y subir seguido |
+| Regla de 90 minutos | La heurística de Oscar ("2.ª checada = salida si cae 90 min antes de la salida") se reemplaza por las ventanas de horario configurables (nota 6). No hace falta tocarla en O2 |
+| Código nuevo | Nomenclatura de tickets (`txt`, `cb`, `grid`, `btn`, `md`, `lst`, `data`) en ids y variables nuevas (P4) |
+| Documentación | Un parche por tarea en `docs/parches/AAAA-MM-DD/HH-MM_slug.md` y actualizar `docs/pendientes/` |
+| Pruebas | `php artisan test` antes de subir; en local **no** usar `php artisan optimize` (ver `docs/parches/2026-11-22/20-40_candado-pruebas-config-en-cache.md`) |
