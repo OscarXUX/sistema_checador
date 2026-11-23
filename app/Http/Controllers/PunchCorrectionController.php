@@ -77,7 +77,7 @@ class PunchCorrectionController extends Controller
         ]);
 
         $previous = $attendanceLog->correction;
-        $old = $previous === null ? [] : ['tipo' => $previous->corrected_type, 'motivo' => $previous->reason];
+        $dataAntes = $previous === null ? [] : ['tipo' => $previous->corrected_type, 'motivo' => $previous->reason];
 
         $attendanceLog->correction()->updateOrCreate([], [
             'corrected_type' => $dataValidado['corrected_type'],
@@ -85,7 +85,7 @@ class PunchCorrectionController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
-        $this->audit->record('attendance.corrected', $attendanceLog, $this->describe($attendanceLog, 'Corrección de la checada'), $old, [
+        $this->audit->record('attendance.corrected', $attendanceLog, $this->describe($attendanceLog, 'Corrección de la checada'), $dataAntes, [
             'tipo' => $dataValidado['corrected_type'],
             'motivo' => trim($dataValidado['reason']),
         ]);

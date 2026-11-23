@@ -22,17 +22,17 @@ class EmployeeController extends Controller
 {
     public function index(): View
     {
-        $workShifts = WorkShift::orderBy('entry_time')->get();
-        $departments = Employee::select('department')
+        $lstTurnos = WorkShift::orderBy('entry_time')->get();
+        $lstDepartamentos = Employee::select('department')
             ->distinct()
             ->orderBy('department')
             ->pluck('department');
 
         return view('employees.index', [
-            'workShifts' => $workShifts,
-            'departments' => $departments,
-            'employeesPage' => $this->paginateEmployees(1, self::DEFAULT_PER_PAGE, ''),
-            'markingMethods' => MarkingMethod::orderBy('id')->get()->keyBy('code'),
+            'lstTurnos' => $lstTurnos,
+            'lstDepartamentos' => $lstDepartamentos,
+            'dataPaginaEmpleados' => $this->paginateEmployees(1, self::DEFAULT_PER_PAGE, ''),
+            'dataMediosMarcaje' => MarkingMethod::orderBy('id')->get()->keyBy('code'),
         ]);
     }
 
@@ -41,7 +41,7 @@ class EmployeeController extends Controller
      */
     public function list(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $dataValidado = $request->validate([
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
             'q' => ['nullable', 'string', 'max:100'],
@@ -50,11 +50,11 @@ class EmployeeController extends Controller
         ]);
 
         return response()->json($this->paginateEmployees(
-            (int) ($validated['page'] ?? 1),
-            (int) ($validated['per_page'] ?? self::DEFAULT_PER_PAGE),
-            trim((string) ($validated['q'] ?? '')),
-            $validated['sort'] ?? 'hikvision_employee_no',
-            $validated['direction'] ?? 'asc',
+            (int) ($dataValidado['page'] ?? 1),
+            (int) ($dataValidado['per_page'] ?? self::DEFAULT_PER_PAGE),
+            trim((string) ($dataValidado['q'] ?? '')),
+            $dataValidado['sort'] ?? 'hikvision_employee_no',
+            $dataValidado['direction'] ?? 'asc',
         ));
     }
 
@@ -124,11 +124,11 @@ class EmployeeController extends Controller
 
     public function store(StoreEmployeeRequest $request): JsonResponse|RedirectResponse
     {
-        $validated = $request->validated();
+        $dataValidado = $request->validated();
         if (! $request->user()->can('empleados.datos_salud')) {
-            unset($validated['blood_type']);
+            unset($dataValidado['blood_type']);
         }
-        $employee = Employee::create($validated);
+        $employee = Employee::create($dataValidado);
         $employee->load('workShift');
 
         $this->audit->record(
@@ -154,21 +154,21 @@ class EmployeeController extends Controller
 
     public function update(UpdateEmployeeRequest $request, Employee $employee): JsonResponse|RedirectResponse
     {
-        $before = $employee->only(self::AUDITED_FIELDS);
+        $dataAntes = $employee->only(self::AUDITED_FIELDS);
 
-        $validated = $request->validated();
+        $dataValidado = $request->validated();
         if (! $request->user()->can('empleados.datos_personales')) {
             // Sin permiso, RFC, CURP y NSS no se cambian aunque lleguen en la petición
-            unset($validated['rfc'], $validated['curp'], $validated['nss']);
+            unset($dataValidado['rfc'], $dataValidado['curp'], $dataValidado['nss']);
         }
         if (! $request->user()->can('empleados.datos_salud')) {
-            unset($validated['blood_type']);
+            unset($dataValidado['blood_type']);
         }
 
-        $employee->update($validated);
+        $employee->update($dataValidado);
         $employee->load('workShift');
 
-        [$old, $new] = $this->audit->diff($before, $employee->only(self::AUDITED_FIELDS));
+        [$old, $new] = $this->audit->diff($dataAntes, $employee->only(self::AUDITED_FIELDS));
         if ($new !== []) {
             $this->audit->record(
                 'employee.updated',
@@ -229,23 +229,23 @@ class EmployeeController extends Controller
             || $employee->dailySummaries()->exists();
 
         if ($hasHistory) {
-            $changes = ['is_active' => false];
+            $dataCambios = ['is_active' => false];
             if ($removedFromDevice) {
-                $changes['device_synced_at'] = null;
-                $changes['fingerprint_enrolled'] = false;
-                $changes['card_enrolled'] = false;
-                $changes['pin_configured'] = false;
+                $dataCambios['device_synced_at'] = null;
+                $dataCambios['fingerprint_enrolled'] = false;
+                $dataCambios['card_enrolled'] = false;
+                $dataCambios['pin_configured'] = false;
             }
-            $employee->forceFill($changes)->save();
+            $employee->forceFill($dataCambios)->save();
 
             $message = "Empleado {$employeeName} dado de baja (inactivo). Se conserva su historial de checadas.{$deviceNotice}";
             $this->audit->record('employee.deactivated', $employee, "Baja del empleado #{$employeeNo} {$employeeName}".($removedFromDevice ? ' (también en la terminal)' : ''), ['is_active' => true], ['is_active' => false]);
         } else {
-            $snapshot = $employee->only(self::AUDITED_FIELDS);
+            $dataEliminado = $employee->only(self::AUDITED_FIELDS);
             $employee->delete();
 
             $message = "Empleado {$employeeName} eliminado del sistema.{$deviceNotice}";
-            $this->audit->record('employee.deleted', $employee, "Eliminación del empleado #{$employeeNo} {$employeeName} (sin historial)".($removedFromDevice ? ' (también en la terminal)' : ''), $snapshot);
+            $this->audit->record('employee.deleted', $employee, "Eliminación del empleado #{$employeeNo} {$employeeName} (sin historial)".($removedFromDevice ? ' (también en la terminal)' : ''), $dataEliminado);
         }
 
         if ($request->expectsJson()) {
@@ -321,11 +321,11 @@ class EmployeeController extends Controller
             ], 422);
         }
 
-        $validated = $request->validate([
+        $dataValidado = $request->validate([
             'finger_no' => ['nullable', 'integer', 'min:1', 'max:10'],
         ]);
 
-        $fingerNo = (int) ($validated['finger_no'] ?? 1);
+        $fingerNo = (int) ($dataValidado['finger_no'] ?? 1);
 
         try {
             $result = $isapi->triggerRemoteFingerprintCapture($employee, $fingerNo);
@@ -361,12 +361,12 @@ class EmployeeController extends Controller
             ], 422);
         }
 
-        $validated = $request->validate([
+        $dataValidado = $request->validate([
             'card_no' => ['required', 'string', 'max:32', 'regex:/^[A-Za-z0-9_-]+$/'],
         ]);
 
         try {
-            $result = $isapi->enrollCardToDevice($employee, $validated['card_no']);
+            $result = $isapi->enrollCardToDevice($employee, $dataValidado['card_no']);
             $employee->refresh()->load('workShift');
 
             $this->audit->record(
@@ -402,12 +402,12 @@ class EmployeeController extends Controller
             ], 422);
         }
 
-        $validated = $request->validate([
+        $dataValidado = $request->validate([
             'pin' => ['required', 'string', 'regex:/^\d{4,8}$/'],
         ]);
 
         try {
-            $result = $isapi->enrollPinToDevice($employee, $validated['pin']);
+            $result = $isapi->enrollPinToDevice($employee, $dataValidado['pin']);
             $employee->refresh()->load('workShift');
 
             // El valor del PIN nunca se guarda ni en audit_logs ni en empleados (O3).

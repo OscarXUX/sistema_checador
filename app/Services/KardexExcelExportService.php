@@ -66,13 +66,13 @@ class KardexExcelExportService
             [$startMonth, $endMonth] = [$endMonth, $startMonth];
         }
 
-        $months = [];
+        $lstMeses = [];
         $cursor = $startMonth;
 
         while ($cursor->lessThanOrEqualTo($endMonth)) {
-            $months[] = $cursor->format('Y-m');
+            $lstMeses[] = $cursor->format('Y-m');
 
-            if (count($months) > self::MAX_MONTHS) {
+            if (count($lstMeses) > self::MAX_MONTHS) {
                 throw new InvalidArgumentException(
                     sprintf('El rango máximo para exportar a Excel es de %d meses.', self::MAX_MONTHS)
                 );
@@ -81,7 +81,7 @@ class KardexExcelExportService
             $cursor = $cursor->addMonthNoOverflow();
         }
 
-        return $months;
+        return $lstMeses;
     }
 
     /**
@@ -102,12 +102,12 @@ class KardexExcelExportService
             [$startDay, $endDay] = [$endDay, $startDay];
         }
 
-        $months = $this->resolveMonths($startDay, $endDay);
+        $lstMeses = $this->resolveMonths($startDay, $endDay);
         $resolver = app(ShiftScheduleResolver::class);
 
         $departmentFilter = trim((string) $department);
 
-        $summaries = DailySummary::with([
+        $lstResumenes = DailySummary::with([
             'employee.workShift',
             'employee.groups:id',
             'entryEventType',
@@ -127,12 +127,12 @@ class KardexExcelExportService
             ->orderBy('work_date')
             ->get();
 
-        $employees = $summaries->pluck('employee')->filter()->unique('id')->values();
-        $scheduleContext = $employees->isNotEmpty()
-            ? $resolver->loadBatchContext($employees, $startDay, $endDay)
+        $lstEmpleados = $lstResumenes->pluck('employee')->filter()->unique('id')->values();
+        $dataContextoTurnos = $lstEmpleados->isNotEmpty()
+            ? $resolver->loadBatchContext($lstEmpleados, $startDay, $endDay)
             : null;
 
-        $byMonth = $summaries->groupBy(fn (DailySummary $s): string => $s->work_date->format('Y-m'));
+        $dataPorMes = $lstResumenes->groupBy(fn (DailySummary $s): string => $s->work_date->format('Y-m'));
 
         $spreadsheet = new Spreadsheet;
         $spreadsheet->getProperties()
@@ -140,34 +140,34 @@ class KardexExcelExportService
             ->setTitle("Kardex Fiscal {$startDay->toDateString()} a {$endDay->toDateString()}")
             ->setSubject('Kardex Fiscal Mensual');
 
-        foreach ($months as $index => $monthKey) {
+        foreach ($lstMeses as $index => $monthKey) {
             $sheet = $index === 0
                 ? $spreadsheet->getActiveSheet()
                 : $spreadsheet->createSheet($index);
 
             $sheet->setTitle($monthKey);
-            $monthRows = $byMonth->get($monthKey, collect());
-            $this->populateMonthSheet($sheet, $monthRows, $resolver, $scheduleContext);
+            $lstFilasMes = $dataPorMes->get($monthKey, collect());
+            $this->populateMonthSheet($sheet, $lstFilasMes, $resolver, $dataContextoTurnos);
         }
 
         $spreadsheet->setActiveSheetIndex(0);
 
         return [
             'spreadsheet' => $spreadsheet,
-            'months' => $months,
-            'row_count' => $summaries->count(),
+            'months' => $lstMeses,
+            'row_count' => $lstResumenes->count(),
         ];
     }
 
     /**
-     * @param  Collection<int, DailySummary>  $summaries
-     * @param  array<string, mixed>|null  $scheduleContext
+     * @param  Collection<int, DailySummary>  $lstResumenes
+     * @param  array<string, mixed>|null  $dataContextoTurnos
      */
     private function populateMonthSheet(
         Worksheet $sheet,
-        Collection $summaries,
+        Collection $lstResumenes,
         ShiftScheduleResolver $resolver,
-        ?array $scheduleContext,
+        ?array $dataContextoTurnos,
     ): void {
         // Encabezados en negritas, texto explícito y anchos definidos
         foreach (self::COLUMNS as $col => [$label, $width]) {
@@ -196,15 +196,15 @@ class KardexExcelExportService
 
         $row = 2;
 
-        if ($summaries->isEmpty()) {
+        if ($lstResumenes->isEmpty()) {
             $sheet->setCellValueExplicit('A2', '-', DataType::TYPE_STRING);
             $sheet->setCellValueExplicit('B2', 'Sin registros en este mes', DataType::TYPE_STRING);
             $sheet->getStyle('B2')->getFont()->setItalic(true);
             $row = 3;
         } else {
-            $groupedByEmployee = $summaries->groupBy('employee_id');
+            $dataPorEmpleado = $lstResumenes->groupBy('employee_id');
 
-            foreach ($groupedByEmployee as $employeeSummaries) {
+            foreach ($dataPorEmpleado as $employeeSummaries) {
                 $first = $employeeSummaries->first();
                 $emp = $first?->employee;
                 $empName = $emp?->full_name ?? 'N/D';
@@ -223,8 +223,8 @@ class KardexExcelExportService
                 $daysCount = 0;
 
                 foreach ($employeeSummaries as $summary) {
-                    $resolvedShift = ($emp !== null && $scheduleContext !== null)
-                        ? $resolver->resolveDetailFromContext($emp, CarbonImmutable::instance($summary->work_date)->startOfDay(), $scheduleContext)['shift']
+                    $resolvedShift = ($emp !== null && $dataContextoTurnos !== null)
+                        ? $resolver->resolveDetailFromContext($emp, CarbonImmutable::instance($summary->work_date)->startOfDay(), $dataContextoTurnos)['shift']
                         : $emp?->workShift;
                     $shiftName = (string) ($resolvedShift?->name ?? $emp?->workShift?->name ?? '-');
                     $ordinaryMinutes = max(0, $summary->worked_minutes - $summary->overtime_minutes);

@@ -15,7 +15,7 @@
         </div>
     </a>
     @if(!empty($isMobileDrawer))
-        <button id="mobile-nav-close" type="button" class="btn btn-sm btn-outline-secondary" aria-label="Cerrar menú de navegación" autofocus>
+        <button id="btnCerrarMenu" type="button" class="btn btn-sm btn-outline-secondary" aria-label="Cerrar menú de navegación" autofocus>
             <i class="bi bi-x-lg" aria-hidden="true"></i>
         </button>
     @endif

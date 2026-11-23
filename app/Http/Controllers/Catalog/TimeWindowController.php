@@ -56,11 +56,11 @@ class TimeWindowController extends Controller
             $this->validateWindows($shift, $dataValidado);
         }
 
-        $before = [...$shift->windowTimes(), 'repetida_min' => $shift->repeat_threshold_minutes, 'por_omision' => ! $shift->hasCustomWindows()];
+        $dataAntes = [...$shift->windowTimes(), 'repetida_min' => $shift->repeat_threshold_minutes, 'por_omision' => ! $shift->hasCustomWindows()];
         $shift->fill($dataValidado)->save();
-        $after = [...$shift->windowTimes(), 'repetida_min' => $shift->repeat_threshold_minutes, 'por_omision' => ! $shift->hasCustomWindows()];
+        $dataDespues = [...$shift->windowTimes(), 'repetida_min' => $shift->repeat_threshold_minutes, 'por_omision' => ! $shift->hasCustomWindows()];
 
-        [$old, $new] = $this->audit->diff($before, $after);
+        [$old, $new] = $this->audit->diff($dataAntes, $dataDespues);
         if ($new === []) {
             return redirect()->route('catalogs.windows')->with('status', "Sin cambios en {$shift->name}.");
         }
@@ -74,30 +74,30 @@ class TimeWindowController extends Controller
     /**
      * La entrada del turno debe caer en su ventana, la salida en la suya, y no deben encimarse.
      *
-     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $dataVentanas
      */
-    private function validateWindows(WorkShift $shift, array $data): void
+    private function validateWindows(WorkShift $shift, array $dataVentanas): void
     {
         $date = CarbonImmutable::parse('2026-01-05');
         $scheduledEntry = CarbonImmutable::parse($date->toDateString().' '.$shift->entry_time);
         $scheduledExit = CarbonImmutable::parse(($shift->crossesMidnight() ? $date->addDay() : $date)->toDateString().' '.$shift->exit_time);
 
-        $entry = WorkShift::anchorWindow([$data['entry_window_start'], $data['entry_window_end']], $scheduledEntry);
-        $exit = WorkShift::anchorWindow([$data['exit_window_start'], $data['exit_window_end']], $scheduledExit);
+        $lstVentanaEntrada = WorkShift::anchorWindow([$dataVentanas['entry_window_start'], $dataVentanas['entry_window_end']], $scheduledEntry);
+        $lstVentanaSalida = WorkShift::anchorWindow([$dataVentanas['exit_window_start'], $dataVentanas['exit_window_end']], $scheduledExit);
 
-        $errors = [];
-        if (! $scheduledEntry->betweenIncluded($entry[0], $entry[1])) {
-            $errors['entry_window_start'] = "La ventana de entrada debe incluir la hora de entrada del turno ({$scheduledEntry->format('H:i')}).";
+        $dataErrores = [];
+        if (! $scheduledEntry->betweenIncluded($lstVentanaEntrada[0], $lstVentanaEntrada[1])) {
+            $dataErrores['entry_window_start'] = "La ventana de entrada debe incluir la hora de entrada del turno ({$scheduledEntry->format('H:i')}).";
         }
-        if (! $scheduledExit->betweenIncluded($exit[0], $exit[1])) {
-            $errors['exit_window_start'] = "La ventana de salida debe incluir la hora de salida del turno ({$scheduledExit->format('H:i')}).";
+        if (! $scheduledExit->betweenIncluded($lstVentanaSalida[0], $lstVentanaSalida[1])) {
+            $dataErrores['exit_window_start'] = "La ventana de salida debe incluir la hora de salida del turno ({$scheduledExit->format('H:i')}).";
         }
-        if ($errors === [] && $entry[1]->greaterThanOrEqualTo($exit[0])) {
-            $errors['exit_window_start'] = 'La ventana de salida debe empezar después de que termine la de entrada; entre las dos se cuenta la comida.';
+        if ($dataErrores === [] && $lstVentanaEntrada[1]->greaterThanOrEqualTo($lstVentanaSalida[0])) {
+            $dataErrores['exit_window_start'] = 'La ventana de salida debe empezar después de que termine la de entrada; entre las dos se cuenta la comida.';
         }
 
-        if ($errors !== []) {
-            throw ValidationException::withMessages($errors);
+        if ($dataErrores !== []) {
+            throw ValidationException::withMessages($dataErrores);
         }
     }
 }

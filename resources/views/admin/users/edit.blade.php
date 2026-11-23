@@ -17,16 +17,16 @@
             <h2 class="h6 fw-semibold mb-3">Cuenta</h2>
 
             <div class="mb-3">
-                <label for="txt-nombre" class="form-label">Nombre</label>
-                <input id="txt-nombre" name="name" type="text" class="form-control" maxlength="255" value="{{ old('name', $user->name) }}" required>
+                <label for="txtNombre" class="form-label">Nombre</label>
+                <input id="txtNombre" name="name" type="text" class="form-control" maxlength="255" value="{{ old('name', $user->name) }}" required>
             </div>
             <div class="mb-3">
-                <label for="txt-correo" class="form-label">Correo</label>
-                <input id="txt-correo" name="email" type="email" class="form-control" maxlength="255" value="{{ old('email', $user->email) }}" required>
+                <label for="txtCorreo" class="form-label">Correo</label>
+                <input id="txtCorreo" name="email" type="email" class="form-control" maxlength="255" value="{{ old('email', $user->email) }}" required>
             </div>
             <div class="mb-3">
-                <label for="cb-perfil" class="form-label">Perfil</label>
-                <select id="cb-perfil" name="profile_id" class="form-select" required>
+                <label for="cbPerfil" class="form-label">Perfil</label>
+                <select id="cbPerfil" name="profile_id" class="form-select" required>
                     @foreach($lstPerfiles as $perfil)
                         <option value="{{ $perfil->id }}" @selected((int) old('profile_id', $user->profile_id) === $perfil->id)>
                             {{ $perfil->name }}{{ $perfil->is_active ? '' : ' (inactivo)' }}
@@ -36,24 +36,24 @@
             </div>
             <div class="form-check form-switch mb-3">
                 <input type="hidden" name="is_active" value="0">
-                <input id="ck-activa" name="is_active" type="checkbox" class="form-check-input" value="1" @checked(old('is_active', $user->is_active))>
-                <label for="ck-activa" class="form-check-label">Cuenta activa</label>
+                <input id="ckActiva" name="is_active" type="checkbox" class="form-check-input" value="1" @checked(old('is_active', $user->is_active))>
+                <label for="ckActiva" class="form-check-label">Cuenta activa</label>
             </div>
 
             <fieldset class="border-top pt-3 mb-3">
                 <legend class="fs-6 fw-semibold">Cambiar contraseña <small class="text-secondary fw-normal">(opcional)</small></legend>
                 <div class="mb-2">
-                    <label for="txt-contrasena" class="form-label">Nueva contraseña</label>
-                    <input id="txt-contrasena" name="password" type="password" class="form-control" autocomplete="new-password">
+                    <label for="txtContrasena" class="form-label">Nueva contraseña</label>
+                    <input id="txtContrasena" name="password" type="password" class="form-control" autocomplete="new-password">
                 </div>
                 <div>
-                    <label for="txt-confirmar" class="form-label">Confirmar</label>
-                    <input id="txt-confirmar" name="password_confirmation" type="password" class="form-control" autocomplete="new-password">
+                    <label for="txtConfirmar" class="form-label">Confirmar</label>
+                    <input id="txtConfirmar" name="password_confirmation" type="password" class="form-control" autocomplete="new-password">
                 </div>
                 <div class="form-text">Al cambiarla o al desactivar la cuenta se cierran sus sesiones abiertas.</div>
             </fieldset>
 
-            <button id="btn-guardar-usuario" type="submit" class="btn btn-primary w-100">Guardar cuenta</button>
+            <button id="btnGuardarUsuario" type="submit" class="btn btn-primary w-100">Guardar cuenta</button>
         </form>
     </section>
 
@@ -63,7 +63,7 @@
             @method('PUT')
             <div class="d-flex flex-column flex-md-row justify-content-between gap-2 mb-3">
                 <div>
-                    <h2 id="lbl-excepciones" class="h6 fw-semibold mb-0">Excepciones de permisos</h2>
+                    <h2 id="lblExcepciones" class="h6 fw-semibold mb-0">Excepciones de permisos</h2>
                     <small class="text-secondary">
                         @if($user->isAdmin())
                             El perfil {{ $user->profile->name }} tiene todos los permisos; las excepciones no aplican.
@@ -72,11 +72,11 @@
                         @endif
                     </small>
                 </div>
-                <button id="btn-guardar-excepciones" type="submit" class="btn btn-primary btn-sm align-self-start" @disabled($user->isAdmin())>Guardar excepciones</button>
+                <button id="btnGuardarExcepciones" type="submit" class="btn btn-primary btn-sm align-self-start" @disabled($user->isAdmin())>Guardar excepciones</button>
             </div>
 
-            <div tabindex="0" role="region" aria-labelledby="lbl-excepciones" class="table-responsive">
-                <table id="grid-excepciones" class="table table-dark align-middle mb-0">
+            <div tabindex="0" role="region" aria-labelledby="lblExcepciones" class="table-responsive">
+                <table id="gridExcepciones" class="table table-dark align-middle mb-0">
                     <thead>
                         <tr class="text-secondary small text-uppercase">
                             <th scope="col">Permiso</th>
@@ -89,7 +89,7 @@
                         <tbody>
                             <tr><th colspan="4" scope="rowgroup" class="text-info small text-uppercase pt-3">{{ $dataModulos[$modulo] ?? $modulo }}</th></tr>
                             @foreach($lstPermisos as $permiso)
-                                @php($strModo = $dataExcepciones[$permiso->id] ?? 'profile')
+                                @php($modo = $dataExcepciones[$permiso->id] ?? 'profile')
                                 <tr>
                                     <th scope="row" class="fw-normal">
                                         {{ $permiso->description }}
@@ -98,9 +98,9 @@
                                     <td>{{ in_array($permiso->id, $lstDelPerfil, true) || $user->isAdmin() ? 'Sí' : 'No' }}</td>
                                     <td>
                                         <div class="btn-group btn-group-sm" role="radiogroup" aria-label="Excepción para {{ $permiso->description }}">
-                                            @foreach(['profile' => 'Según perfil', 'grant' => 'Dar', 'deny' => 'Negar'] as $strValor => $strTexto)
-                                                <input type="radio" class="btn-check" name="exceptions[{{ $permiso->id }}]" id="rb-{{ $strValor }}-{{ $permiso->id }}" value="{{ $strValor }}" @checked($strModo === $strValor) @disabled($user->isAdmin())>
-                                                <label class="btn btn-outline-{{ $strValor === 'deny' ? 'danger' : ($strValor === 'grant' ? 'success' : 'light') }}" for="rb-{{ $strValor }}-{{ $permiso->id }}">{{ $strTexto }}</label>
+                                            @foreach(['profile' => ['Según perfil', 'Perfil'], 'grant' => ['Dar', 'Dar'], 'deny' => ['Negar', 'Negar']] as $valor => [$texto, $sufijo])
+                                                <input type="radio" class="btn-check" name="exceptions[{{ $permiso->id }}]" id="rb{{ $sufijo }}{{ $permiso->id }}" value="{{ $valor }}" @checked($modo === $valor) @disabled($user->isAdmin())>
+                                                <label class="btn btn-outline-{{ $valor === 'deny' ? 'danger' : ($valor === 'grant' ? 'success' : 'light') }}" for="rb{{ $sufijo }}{{ $permiso->id }}">{{ $texto }}</label>
                                             @endforeach
                                         </div>
                                     </td>

@@ -20,10 +20,10 @@ function escapeHtml(value) {
 }
 
 function showToast(message, variant = 'info') {
-    const container = document.getElementById('app-toast-container');
-    if (!container) return;
+    const contenedorAvisos = document.getElementById('contenedorAvisos');
+    if (!contenedorAvisos) return;
 
-    const palette = {
+    const dataColores = {
         success: 'text-bg-success border-success',
         danger: 'text-bg-danger border-danger',
         warning: 'text-bg-warning border-warning text-dark',
@@ -31,7 +31,7 @@ function showToast(message, variant = 'info') {
     };
 
     const toastEl = document.createElement('div');
-    toastEl.className = `toast align-items-center ${palette[variant] ?? palette.info} border`;
+    toastEl.className = `toast align-items-center ${dataColores[variant] ?? dataColores.info} border`;
     toastEl.setAttribute('role', 'status');
     toastEl.setAttribute('aria-live', 'polite');
 
@@ -42,15 +42,15 @@ function showToast(message, variant = 'info') {
     body.className = 'toast-body';
     body.textContent = message;
 
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'btn-close btn-close-white me-2 m-auto';
-    closeBtn.setAttribute('data-bs-dismiss', 'toast');
-    closeBtn.setAttribute('aria-label', 'Cerrar notificación');
+    const btnCerrarAviso = document.createElement('button');
+    btnCerrarAviso.type = 'button';
+    btnCerrarAviso.className = 'btn-close btn-close-white me-2 m-auto';
+    btnCerrarAviso.setAttribute('data-bs-dismiss', 'toast');
+    btnCerrarAviso.setAttribute('aria-label', 'Cerrar notificación');
 
-    bodyWrapper.append(body, closeBtn);
+    bodyWrapper.append(body, btnCerrarAviso);
     toastEl.appendChild(bodyWrapper);
-    container.appendChild(toastEl);
+    contenedorAvisos.appendChild(toastEl);
 
     const toast = new bootstrap.Toast(toastEl, { delay: 4500 });
     toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
@@ -58,7 +58,7 @@ function showToast(message, variant = 'info') {
 }
 
 async function apiFetch(url, options = {}) {
-    const headers = {
+    const dataEncabezados = {
         Accept: 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
         'X-CSRF-TOKEN': getCsrfToken(),
@@ -66,16 +66,16 @@ async function apiFetch(url, options = {}) {
     };
 
     if (options.body && !(options.body instanceof FormData) && typeof options.body !== 'string') {
-        headers['Content-Type'] = 'application/json';
+        dataEncabezados['Content-Type'] = 'application/json';
         options.body = JSON.stringify(options.body);
     }
 
     const response = await fetch(url, {
         ...options,
-        headers,
+        headers: dataEncabezados,
     });
 
-    const data = await response.json().catch(() => ({}));
+    const dataRespuesta = await response.json().catch(() => ({}));
 
     // 401: sin sesión; 419: token CSRF vencido junto con la sesión (auditoría SE-01)
     if (response.status === 401 || response.status === 419) {
@@ -87,13 +87,13 @@ async function apiFetch(url, options = {}) {
     }
 
     if (!response.ok) {
-        const error = new Error(data.message || `Error HTTP ${response.status}`);
+        const error = new Error(dataRespuesta.message || `Error HTTP ${response.status}`);
         error.status = response.status;
-        error.payload = data;
+        error.payload = dataRespuesta;
         throw error;
     }
 
-    return data;
+    return dataRespuesta;
 }
 
 function initDialogFallbacks() {
@@ -126,17 +126,17 @@ function initDialogFallbacks() {
 }
 
 function initMobileDrawer() {
-    const drawer = document.getElementById('mobile-nav-drawer');
-    const openBtn = document.getElementById('mobile-nav-open');
-    const closeBtn = document.getElementById('mobile-nav-close');
-    if (!drawer || !openBtn || !closeBtn) return;
+    const mdMenuMovil = document.getElementById('mdMenuMovil');
+    const btnAbrirMenu = document.getElementById('btnAbrirMenu');
+    const btnCerrarMenu = document.getElementById('btnCerrarMenu');
+    if (!mdMenuMovil || !btnAbrirMenu || !btnCerrarMenu) return;
 
-    const scroller = drawer.querySelector('.mobile-drawer-scroller');
-    const sheet = drawer.querySelector('.mobile-drawer-sheet');
+    const scroller = mdMenuMovil.querySelector('.mobile-drawer-scroller');
+    const sheet = mdMenuMovil.querySelector('.mobile-drawer-sheet');
     if (!scroller || !sheet) return;
 
-    async function openDrawer() {
-        drawer.showModal();
+    async function abrirMenu() {
+        mdMenuMovil.showModal();
         if (!CSS.supports('scroll-initial-target', 'nearest')) {
             scroller.scrollTo({ left: scroller.offsetWidth, behavior: 'instant' });
             await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -144,7 +144,7 @@ function initMobileDrawer() {
         scroller.scrollTo({ left: 0, behavior: 'auto' });
     }
 
-    function closeDrawer() {
+    function cerrarMenu() {
         scroller.scrollTo({ left: scroller.offsetWidth, behavior: 'auto' });
     }
 
@@ -152,43 +152,43 @@ function initMobileDrawer() {
         scroller.addEventListener('scroll', () => {
             const width = sheet.offsetWidth || 1;
             const ratio = Math.max(0, Math.min(1, 1 - scroller.scrollLeft / width));
-            drawer.style.setProperty('--drawer-backdrop', String(ratio));
+            mdMenuMovil.style.setProperty('--drawer-backdrop', String(ratio));
         });
     }
 
     const visibleThreshold = 1 / Math.max(1, window.innerWidth);
     const observer = new IntersectionObserver(
-        (entries) => {
-            const entry = entries.at(-1);
+        (lstEntradas) => {
+            const entry = lstEntradas.at(-1);
             if (!entry) return;
-            if (entry.intersectionRatio < visibleThreshold && drawer.open) {
-                drawer.close();
-                openBtn.setAttribute('aria-expanded', 'false');
+            if (entry.intersectionRatio < visibleThreshold && mdMenuMovil.open) {
+                mdMenuMovil.close();
+                btnAbrirMenu.setAttribute('aria-expanded', 'false');
             }
             if (entry.intersectionRatio === 1) {
-                openBtn.setAttribute('aria-expanded', 'true');
+                btnAbrirMenu.setAttribute('aria-expanded', 'true');
             }
         },
-        { root: drawer, threshold: [visibleThreshold, 1] }
+        { root: mdMenuMovil, threshold: [visibleThreshold, 1] }
     );
     observer.observe(sheet);
 
-    openBtn.addEventListener('click', openDrawer);
-    closeBtn.addEventListener('click', closeDrawer);
-    drawer.addEventListener('click', (event) => {
+    btnAbrirMenu.addEventListener('click', abrirMenu);
+    btnCerrarMenu.addEventListener('click', cerrarMenu);
+    mdMenuMovil.addEventListener('click', (event) => {
         if (!sheet.contains(event.target)) {
-            closeDrawer();
+            cerrarMenu();
         }
     });
-    drawer.addEventListener('cancel', (event) => {
+    mdMenuMovil.addEventListener('cancel', (event) => {
         if (event.cancelable) {
             event.preventDefault();
-            closeDrawer();
+            cerrarMenu();
         }
     });
 }
 
-function updateDeviceStatusBadges(statusPayload) {
+function updateDeviceStatusBadges(dataEstado) {
     document.querySelectorAll('[data-device-status-widget]').forEach((widget) => {
         const dot = widget.querySelector('[data-device-dot]');
         const label = widget.querySelector('[data-device-label]');
@@ -196,18 +196,18 @@ function updateDeviceStatusBadges(statusPayload) {
 
         if (dot) {
             dot.classList.remove('online', 'offline', 'checking');
-            dot.classList.add(statusPayload.online ? 'online' : 'offline');
+            dot.classList.add(dataEstado.online ? 'online' : 'offline');
         }
         if (label) {
-            label.textContent = statusPayload.online ? 'Online' : 'Offline';
-            label.classList.toggle('text-success', Boolean(statusPayload.online));
-            label.classList.toggle('text-danger', !statusPayload.online);
+            label.textContent = dataEstado.online ? 'Online' : 'Offline';
+            label.classList.toggle('text-success', Boolean(dataEstado.online));
+            label.classList.toggle('text-danger', !dataEstado.online);
             label.classList.remove('text-warning');
         }
         if (meta) {
-            meta.textContent = statusPayload.online
-                ? `${statusPayload.model || 'DS-K1T804AEF'} · ${statusPayload.device_ip}`
-                : statusPayload.message || `Sin conexión (${statusPayload.device_ip || '192.168.0.69'})`;
+            meta.textContent = dataEstado.online
+                ? `${dataEstado.model || 'DS-K1T804AEF'} · ${dataEstado.device_ip}`
+                : dataEstado.message || `Sin conexión (${dataEstado.device_ip || '192.168.0.69'})`;
         }
     });
 }
@@ -221,8 +221,8 @@ function initDeviceControls() {
         if (!statusUrl) return;
         try {
             const url = fresh ? `${statusUrl}?fresh=1` : statusUrl;
-            const payload = await apiFetch(url, { method: 'GET' });
-            updateDeviceStatusBadges(payload);
+            const dataEstado = await apiFetch(url, { method: 'GET' });
+            updateDeviceStatusBadges(dataEstado);
         } catch {
             updateDeviceStatusBadges({
                 online: false,
@@ -247,9 +247,9 @@ function initDeviceControls() {
             btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Sincronizando...';
 
             try {
-                const res = await apiFetch(syncUrl, { method: 'POST' });
-                showToast(res.message || 'Sincronización completada.', 'success');
-                window.dispatchEvent(new CustomEvent('hikvision:synced', { detail: res }));
+                const dataRespuesta = await apiFetch(syncUrl, { method: 'POST' });
+                showToast(dataRespuesta.message || 'Sincronización completada.', 'success');
+                window.dispatchEvent(new CustomEvent('hikvision:synced', { detail: dataRespuesta }));
                 refreshStatus(true);
             } catch (err) {
                 // 409: ya hay una sincronización en curso (SE-13)

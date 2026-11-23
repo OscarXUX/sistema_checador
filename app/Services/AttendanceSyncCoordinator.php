@@ -54,12 +54,12 @@ class AttendanceSyncCoordinator
         $end = CarbonImmutable::now();
         $start = $this->incrementalStart($end);
 
-        $stats = $this->run($start, $end);
+        $dataResultado = $this->run($start, $end);
 
         // Solo se avanza el corte si la descarga terminó bien
         Cache::forever(self::CURSOR_KEY, $end->toIso8601String());
 
-        return $stats + ['from' => $start->toIso8601String()];
+        return $dataResultado + ['from' => $start->toIso8601String()];
     }
 
     /**

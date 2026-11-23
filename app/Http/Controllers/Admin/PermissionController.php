@@ -41,10 +41,10 @@ class PermissionController extends Controller
             'description.required' => 'Escribe la descripción del permiso.',
         ]);
 
-        $before = $permission->only(['description', 'details', 'is_active']);
+        $dataAntes = $permission->only(['description', 'details', 'is_active']);
         $permission->update($dataValidado);
 
-        [$old, $new] = $this->audit->diff($before, $permission->only(['description', 'details', 'is_active']));
+        [$old, $new] = $this->audit->diff($dataAntes, $permission->only(['description', 'details', 'is_active']));
         if ($new !== []) {
             $this->audit->record('permission.updated', $permission, "Cambio en el permiso {$permission->key}", $old, $new);
         }

@@ -42,15 +42,15 @@ class ShiftScheduleResolver
     public function resolveDetailForEmployeeOnDate(Employee $employee, CarbonInterface $date): array
     {
         $targetDay = CarbonImmutable::instance($date)->startOfDay();
-        $context = $this->loadBatchContext(collect([$employee]), $targetDay, $targetDay);
+        $dataContexto = $this->loadBatchContext(collect([$employee]), $targetDay, $targetDay);
 
-        return $this->resolveDetailFromContext($employee, $targetDay, $context);
+        return $this->resolveDetailFromContext($employee, $targetDay, $dataContexto);
     }
 
     /**
      * Genera la vista previa de horarios efectivos para un rango (por defecto 14 días) sin consultas N+1.
      *
-     * @param  Collection<int, Employee>  $employees
+     * @param  Collection<int, Employee>  $lstEmpleados
      * @return array{
      *     dates: list<CarbonImmutable>,
      *     rows: list<array{
@@ -67,30 +67,30 @@ class ShiftScheduleResolver
      *     }>
      * }
      */
-    public function previewForRange(Collection $employees, CarbonInterface $startDate, int $days = 14): array
+    public function previewForRange(Collection $lstEmpleados, CarbonInterface $startDate, int $days = 14): array
     {
         $days = max(1, min(31, $days));
         $start = CarbonImmutable::instance($startDate)->startOfDay();
         $end = $start->addDays($days - 1);
 
-        $dates = [];
+        $lstFechas = [];
         for ($i = 0; $i < $days; $i++) {
-            $dates[] = $start->addDays($i);
+            $lstFechas[] = $start->addDays($i);
         }
 
-        if ($employees->isEmpty()) {
-            return ['dates' => $dates, 'rows' => []];
+        if ($lstEmpleados->isEmpty()) {
+            return ['dates' => $lstFechas, 'rows' => []];
         }
 
-        $context = $this->loadBatchContext($employees, $start, $end);
-        $rows = [];
+        $dataContexto = $this->loadBatchContext($lstEmpleados, $start, $end);
+        $lstFilas = [];
 
-        foreach ($employees as $employee) {
-            $empDays = [];
-            foreach ($dates as $day) {
-                $detail = $this->resolveDetailFromContext($employee, $day, $context);
+        foreach ($lstEmpleados as $employee) {
+            $lstDiasEmpleado = [];
+            foreach ($lstFechas as $day) {
+                $detail = $this->resolveDetailFromContext($employee, $day, $dataContexto);
                 $shift = $detail['shift'];
-                $empDays[] = [
+                $lstDiasEmpleado[] = [
                     'date' => $day->toDateString(),
                     'shift' => $shift,
                     'shift_name' => $shift?->name ?? 'Sin turno',
@@ -101,22 +101,22 @@ class ShiftScheduleResolver
                 ];
             }
 
-            $rows[] = [
+            $lstFilas[] = [
                 'employee' => $employee,
-                'days' => $empDays,
+                'days' => $lstDiasEmpleado,
             ];
         }
 
         return [
-            'dates' => $dates,
-            'rows' => $rows,
+            'dates' => $lstFechas,
+            'rows' => $lstFilas,
         ];
     }
 
     /**
      * Precarga excepciones, grupos y asignaciones activas para un conjunto de empleados y rango de fechas.
      *
-     * @param  Collection<int, Employee>  $employees
+     * @param  Collection<int, Employee>  $lstEmpleados
      * @return array{
      *     exceptionsByEmployee: Collection<int, Collection<int, ShiftException>>,
      *     groupIdsByEmployee: array<int, list<int>>,
@@ -125,34 +125,34 @@ class ShiftScheduleResolver
      *     departmentAssignments: Collection<string, Collection<int, ShiftRotationAssignment>>
      * }
      */
-    public function loadBatchContext(Collection $employees, CarbonInterface $start, CarbonInterface $end): array
+    public function loadBatchContext(Collection $lstEmpleados, CarbonInterface $start, CarbonInterface $end): array
     {
-        EloquentCollection::make($employees->all())->loadMissing(['workShift', 'groups:id']);
+        EloquentCollection::make($lstEmpleados->all())->loadMissing(['workShift', 'groups:id']);
 
-        $employeeIds = $employees->pluck('id')->filter()->values()->all();
-        $groupIdsByEmployee = [];
-        $allGroupIds = [];
-        $departments = [];
+        $lstIdsEmpleados = $lstEmpleados->pluck('id')->filter()->values()->all();
+        $dataGruposPorEmpleado = [];
+        $dataIdsGrupos = [];
+        $dataDepartamentos = [];
 
-        foreach ($employees as $emp) {
-            $empGroupIds = $emp->groups->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
-            $groupIdsByEmployee[$emp->id] = $empGroupIds;
-            foreach ($empGroupIds as $gid) {
-                $allGroupIds[$gid] = true;
+        foreach ($lstEmpleados as $emp) {
+            $lstIdsGruposEmpleado = $emp->groups->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
+            $dataGruposPorEmpleado[$emp->id] = $lstIdsGruposEmpleado;
+            foreach ($lstIdsGruposEmpleado as $gid) {
+                $dataIdsGrupos[$gid] = true;
             }
             $dept = trim((string) $emp->department);
             if ($dept !== '') {
-                $departments[$dept] = true;
+                $dataDepartamentos[$dept] = true;
             }
         }
 
         $startStr = CarbonImmutable::instance($start)->toDateString();
         $endStr = CarbonImmutable::instance($end)->toDateString();
 
-        $exceptions = $employeeIds === []
+        $lstExcepciones = $lstIdsEmpleados === []
             ? collect()
             : ShiftException::with('workShift')
-                ->whereIn('employee_id', $employeeIds)
+                ->whereIn('employee_id', $lstIdsEmpleados)
                 ->where('starts_on', '<=', $endStr)
                 ->where('ends_on', '>=', $startStr)
                 ->orderByDesc('starts_on')
@@ -160,10 +160,10 @@ class ShiftScheduleResolver
                 ->get()
                 ->groupBy('employee_id');
 
-        $allGroupIdList = array_keys($allGroupIds);
-        $departmentList = array_keys($departments);
+        $lstIdsGrupos = array_keys($dataIdsGrupos);
+        $lstDepartamentos = array_keys($dataDepartamentos);
 
-        $assignments = ($employeeIds === [] && $allGroupIdList === [] && $departmentList === [])
+        $lstAsignaciones = ($lstIdsEmpleados === [] && $lstIdsGrupos === [] && $lstDepartamentos === [])
             ? collect()
             : ShiftRotationAssignment::with(['rotation.steps.workShift', 'group:id,name'])
                 ->where('is_active', true)
@@ -173,28 +173,28 @@ class ShiftScheduleResolver
                 })
                 ->whereHas('rotation', fn ($q) => $q->where('is_active', true))
                 ->whereHas('rotation.steps')
-                ->where(function ($q) use ($employeeIds, $allGroupIdList, $departmentList): void {
+                ->where(function ($q) use ($lstIdsEmpleados, $lstIdsGrupos, $lstDepartamentos): void {
                     $added = false;
-                    if ($employeeIds !== []) {
-                        $q->where(function ($sub) use ($employeeIds): void {
+                    if ($lstIdsEmpleados !== []) {
+                        $q->where(function ($sub) use ($lstIdsEmpleados): void {
                             $sub->where('target_type', ShiftRotationAssignment::TARGET_EMPLOYEE)
-                                ->whereIn('employee_id', $employeeIds);
+                                ->whereIn('employee_id', $lstIdsEmpleados);
                         });
                         $added = true;
                     }
-                    if ($allGroupIdList !== []) {
+                    if ($lstIdsGrupos !== []) {
                         $method = $added ? 'orWhere' : 'where';
-                        $q->{$method}(function ($sub) use ($allGroupIdList): void {
+                        $q->{$method}(function ($sub) use ($lstIdsGrupos): void {
                             $sub->where('target_type', ShiftRotationAssignment::TARGET_GROUP)
-                                ->whereIn('employee_group_id', $allGroupIdList);
+                                ->whereIn('employee_group_id', $lstIdsGrupos);
                         });
                         $added = true;
                     }
-                    if ($departmentList !== []) {
+                    if ($lstDepartamentos !== []) {
                         $method = $added ? 'orWhere' : 'where';
-                        $q->{$method}(function ($sub) use ($departmentList): void {
+                        $q->{$method}(function ($sub) use ($lstDepartamentos): void {
                             $sub->where('target_type', ShiftRotationAssignment::TARGET_DEPARTMENT)
-                                ->whereIn('department', $departmentList);
+                                ->whereIn('department', $lstDepartamentos);
                         });
                     }
                 })
@@ -203,26 +203,26 @@ class ShiftScheduleResolver
                 ->get();
 
         return [
-            'exceptionsByEmployee' => $exceptions,
-            'groupIdsByEmployee' => $groupIdsByEmployee,
-            'employeeAssignments' => $assignments->where('target_type', ShiftRotationAssignment::TARGET_EMPLOYEE)->groupBy('employee_id'),
-            'groupAssignments' => $assignments->where('target_type', ShiftRotationAssignment::TARGET_GROUP)->groupBy('employee_group_id'),
-            'departmentAssignments' => $assignments->where('target_type', ShiftRotationAssignment::TARGET_DEPARTMENT)->groupBy('department'),
+            'exceptionsByEmployee' => $lstExcepciones,
+            'groupIdsByEmployee' => $dataGruposPorEmpleado,
+            'employeeAssignments' => $lstAsignaciones->where('target_type', ShiftRotationAssignment::TARGET_EMPLOYEE)->groupBy('employee_id'),
+            'groupAssignments' => $lstAsignaciones->where('target_type', ShiftRotationAssignment::TARGET_GROUP)->groupBy('employee_group_id'),
+            'departmentAssignments' => $lstAsignaciones->where('target_type', ShiftRotationAssignment::TARGET_DEPARTMENT)->groupBy('department'),
         ];
     }
 
     /**
-     * @param  array<string, mixed>  $context
+     * @param  array<string, mixed>  $dataContexto
      * @return array{shift: ?WorkShift, source: string, source_label: string, meta: ?string}
      */
-    public function resolveDetailFromContext(Employee $employee, CarbonImmutable $targetDay, array $context): array
+    public function resolveDetailFromContext(Employee $employee, CarbonImmutable $targetDay, array $dataContexto): array
     {
         $dateStr = $targetDay->toDateString();
 
         // 1. Excepción puntual del empleado
-        /** @var Collection<int, ShiftException> $empExceptions */
-        $empExceptions = $context['exceptionsByEmployee']->get($employee->id, collect());
-        $exception = $empExceptions->first(function (ShiftException $ex) use ($dateStr): bool {
+        /** @var Collection<int, ShiftException> $lstExcepcionesEmpleado */
+        $lstExcepcionesEmpleado = $dataContexto['exceptionsByEmployee']->get($employee->id, collect());
+        $exception = $lstExcepcionesEmpleado->first(function (ShiftException $ex) use ($dateStr): bool {
             return $ex->starts_on !== null
                 && $ex->ends_on !== null
                 && $ex->starts_on->toDateString() <= $dateStr
@@ -239,9 +239,9 @@ class ShiftScheduleResolver
         }
 
         // 2. Rotación asignada directamente al empleado
-        /** @var Collection<int, ShiftRotationAssignment> $empAssignments */
-        $empAssignments = $context['employeeAssignments']->get($employee->id, collect());
-        if ($resolved = $this->firstMatchingAssignment($empAssignments, $targetDay)) {
+        /** @var Collection<int, ShiftRotationAssignment> $lstAsignacionesEmpleado */
+        $lstAsignacionesEmpleado = $dataContexto['employeeAssignments']->get($employee->id, collect());
+        if ($resolved = $this->firstMatchingAssignment($lstAsignacionesEmpleado, $targetDay)) {
             [$assignment, $shift] = $resolved;
 
             return [
@@ -253,21 +253,21 @@ class ShiftScheduleResolver
         }
 
         // 3. Rotación asignada a cualquiera de sus grupos (más reciente primero en caso de múltiples)
-        $empGroupIds = $context['groupIdsByEmployee'][$employee->id] ?? [];
-        if ($empGroupIds !== []) {
-            $candidateGroupAssignments = collect();
-            foreach ($empGroupIds as $gid) {
-                $candidateGroupAssignments = $candidateGroupAssignments->merge(
-                    $context['groupAssignments']->get($gid, collect())
+        $lstIdsGruposEmpleado = $dataContexto['groupIdsByEmployee'][$employee->id] ?? [];
+        if ($lstIdsGruposEmpleado !== []) {
+            $lstAsignacionesGrupo = collect();
+            foreach ($lstIdsGruposEmpleado as $gid) {
+                $lstAsignacionesGrupo = $lstAsignacionesGrupo->merge(
+                    $dataContexto['groupAssignments']->get($gid, collect())
                 );
             }
-            $candidateGroupAssignments = $candidateGroupAssignments->sort(function (ShiftRotationAssignment $a, ShiftRotationAssignment $b): int {
+            $lstAsignacionesGrupo = $lstAsignacionesGrupo->sort(function (ShiftRotationAssignment $a, ShiftRotationAssignment $b): int {
                 $cmp = strcmp((string) $b->starts_on?->toDateString(), (string) $a->starts_on?->toDateString());
 
                 return $cmp !== 0 ? $cmp : ($b->id <=> $a->id);
             });
 
-            if ($resolved = $this->firstMatchingAssignment($candidateGroupAssignments, $targetDay)) {
+            if ($resolved = $this->firstMatchingAssignment($lstAsignacionesGrupo, $targetDay)) {
                 [$assignment, $shift] = $resolved;
 
                 return [
@@ -282,9 +282,9 @@ class ShiftScheduleResolver
         // 4. Rotación asignada a su departamento
         $dept = trim((string) $employee->department);
         if ($dept !== '') {
-            /** @var Collection<int, ShiftRotationAssignment> $deptAssignments */
-            $deptAssignments = $context['departmentAssignments']->get($dept, collect());
-            if ($resolved = $this->firstMatchingAssignment($deptAssignments, $targetDay)) {
+            /** @var Collection<int, ShiftRotationAssignment> $lstAsignacionesDepto */
+            $lstAsignacionesDepto = $dataContexto['departmentAssignments']->get($dept, collect());
+            if ($resolved = $this->firstMatchingAssignment($lstAsignacionesDepto, $targetDay)) {
                 [$assignment, $shift] = $resolved;
 
                 return [
@@ -316,14 +316,14 @@ class ShiftScheduleResolver
     }
 
     /**
-     * @param  Collection<int, ShiftRotationAssignment>  $assignments
+     * @param  Collection<int, ShiftRotationAssignment>  $lstAsignaciones
      * @return array{0: ShiftRotationAssignment, 1: WorkShift}|null
      */
-    private function firstMatchingAssignment(Collection $assignments, CarbonImmutable $targetDay): ?array
+    private function firstMatchingAssignment(Collection $lstAsignaciones, CarbonImmutable $targetDay): ?array
     {
         $dateStr = $targetDay->toDateString();
 
-        foreach ($assignments as $assignment) {
+        foreach ($lstAsignaciones as $assignment) {
             if ($assignment->starts_on === null || $assignment->starts_on->toDateString() > $dateStr) {
                 continue;
             }

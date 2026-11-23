@@ -5,7 +5,7 @@
 @section('page_subtitle', 'Catálogo de turnos, ciclos rotativos, asignaciones por prioridad y vista previa de 14 días')
 
 @php
-    $sourceBadgeMap = [
+    $dataColoresOrigen = [
         \App\Services\ShiftScheduleResolver::SOURCE_EXCEPTION => 'border-danger text-danger',
         \App\Services\ShiftScheduleResolver::SOURCE_EMPLOYEE_ROTATION => 'border-info text-info',
         \App\Services\ShiftScheduleResolver::SOURCE_GROUP_ROTATION => 'border-warning text-warning',
@@ -20,7 +20,7 @@
     <div class="app-tablist" role="tablist" aria-label="Configuración de turnos y horarios">
         <button type="button"
                 role="tab"
-                id="tab-turnos"
+                id="btnTabTurnos"
                 class="app-tab"
                 data-tab="turnos"
                 aria-selected="{{ $activeTab === 'turnos' ? 'true' : 'false' }}"
@@ -29,56 +29,56 @@
         </button>
         <button type="button"
                 role="tab"
-                id="tab-rotaciones"
+                id="btnTabRotaciones"
                 class="app-tab"
                 data-tab="rotaciones"
                 aria-selected="{{ $activeTab === 'rotaciones' ? 'true' : 'false' }}"
                 tabindex="{{ $activeTab === 'rotaciones' ? '0' : '-1' }}">
             <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Rotaciones
-            <span class="badge text-bg-secondary ms-1">{{ $rotations->count() }}</span>
+            <span class="badge text-bg-secondary ms-1">{{ $lstRotaciones->count() }}</span>
         </button>
         <button type="button"
                 role="tab"
-                id="tab-asignaciones"
+                id="btnTabAsignaciones"
                 class="app-tab"
                 data-tab="asignaciones"
                 aria-selected="{{ $activeTab === 'asignaciones' ? 'true' : 'false' }}"
                 tabindex="{{ $activeTab === 'asignaciones' ? '0' : '-1' }}">
             <i class="bi bi-diagram-3 me-1" aria-hidden="true"></i>Asignaciones
-            <span class="badge text-bg-secondary ms-1">{{ $assignments->count() }}</span>
+            <span class="badge text-bg-secondary ms-1">{{ $lstAsignaciones->count() }}</span>
         </button>
         <button type="button"
                 role="tab"
-                id="tab-excepciones"
+                id="btnTabExcepciones"
                 class="app-tab"
                 data-tab="excepciones"
                 aria-selected="{{ $activeTab === 'excepciones' ? 'true' : 'false' }}"
                 tabindex="{{ $activeTab === 'excepciones' ? '0' : '-1' }}">
             <i class="bi bi-calendar-event me-1" aria-hidden="true"></i>Excepciones
-            <span class="badge text-bg-secondary ms-1">{{ $exceptions->count() }}</span>
+            <span class="badge text-bg-secondary ms-1">{{ $lstExcepciones->count() }}</span>
         </button>
     </div>
 
     <!-- Panel 1: Catálogo de Turnos -->
     <section role="tabpanel"
-             id="panel-turnos"
-             aria-labelledby="tab-turnos"
+             id="tabTurnos"
+             aria-labelledby="btnTabTurnos"
              data-panel="turnos"
              @if($activeTab !== 'turnos') hidden="until-found" @endif>
         <div class="tabpanel-inner">
             <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
                 <div>
-                    <h2 id="shifts-catalog-heading" class="h6 fw-semibold mb-0">Catálogo de Turnos</h2>
+                    <h2 id="lblCatalogoTurnos" class="h6 fw-semibold mb-0">Catálogo de Turnos</h2>
                     <small class="text-secondary">Los cálculos de retardo, comida y horas extra se basan en estas reglas</small>
                 </div>
                 @can('turnos.administrar')
-                <button id="btn-new-shift" type="button" class="btn btn-primary btn-sm align-self-start align-self-sm-auto">
+                <button id="btnNuevoTurno" type="button" class="btn btn-primary btn-sm align-self-start align-self-sm-auto">
                     <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nuevo Turno
                 </button>
                 @endcan
             </div>
 
-            <div tabindex="0" role="region" aria-labelledby="shifts-catalog-heading" class="shifts-table-wrapper">
+            <div tabindex="0" role="region" aria-labelledby="lblCatalogoTurnos" class="shifts-table-wrapper">
                 <table class="table table-dark table-hover align-middle mb-0 shifts-table">
                     <thead>
                         <tr class="text-secondary small text-uppercase">
@@ -93,7 +93,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($shifts as $shift)
+                        @forelse($lstTurnos as $shift)
                             <tr>
                                 <th scope="row" class="fw-semibold">{{ $shift->name }}</th>
                                 <td data-label="Horario" class="font-mono-tabular">{{ $shift->schedule_label }}</td>
@@ -127,24 +127,24 @@
 
     <!-- Panel 2: Rotaciones de Turnos -->
     <section role="tabpanel"
-             id="panel-rotaciones"
-             aria-labelledby="tab-rotaciones"
+             id="tabRotaciones"
+             aria-labelledby="btnTabRotaciones"
              data-panel="rotaciones"
              @if($activeTab !== 'rotaciones') hidden="until-found" @endif>
         <div class="tabpanel-inner">
             <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
                 <div>
-                    <h2 id="rotations-heading" class="h6 fw-semibold mb-0">Patrones de Rotación</h2>
+                    <h2 id="lblRotaciones" class="h6 fw-semibold mb-0">Patrones de Rotación</h2>
                     <small class="text-secondary">Secuencias ordenadas de turnos (ej. 1→2→3, 3→2→1, 2→1→3) y días por ciclo</small>
                 </div>
                 @can('turnos.programar')
-                <button id="btn-new-rotation" type="button" class="btn btn-primary btn-sm align-self-start align-self-sm-auto" @disabled($shifts->isEmpty())>
+                <button id="btnNuevaRotacion" type="button" class="btn btn-primary btn-sm align-self-start align-self-sm-auto" @disabled($lstTurnos->isEmpty())>
                     <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nueva Rotación
                 </button>
                 @endcan
             </div>
 
-            <div tabindex="0" role="region" aria-labelledby="rotations-heading" class="shifts-table-wrapper">
+            <div tabindex="0" role="region" aria-labelledby="lblRotaciones" class="shifts-table-wrapper">
                 <table class="table table-dark table-hover align-middle mb-0 shifts-table">
                     <thead>
                         <tr class="text-secondary small text-uppercase">
@@ -157,9 +157,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($rotations as $rotation)
+                        @forelse($lstRotaciones as $rotation)
                             @php
-                                $rotationPayload = [
+                                $dataRotacion = [
                                     'id' => $rotation->id,
                                     'name' => $rotation->name,
                                     'description' => $rotation->description,
@@ -201,7 +201,7 @@
                                     <div class="d-inline-flex gap-1">
                                         <button type="button"
                                                 class="btn btn-outline-light btn-sm btn-edit-rotation"
-                                                data-rotation='@json($rotationPayload)'>
+                                                data-rotation='@json($dataRotacion)'>
                                             <i class="bi bi-pencil" aria-hidden="true"></i>
                                         </button>
                                         <form method="POST" action="{{ route('shifts.rotations.destroy', $rotation) }}" class="d-inline">
@@ -230,29 +230,29 @@
 
     <!-- Panel 3: Asignaciones (Empleado / Grupo / Departamento) + Grupos -->
     <section role="tabpanel"
-             id="panel-asignaciones"
-             aria-labelledby="tab-asignaciones"
+             id="tabAsignaciones"
+             aria-labelledby="btnTabAsignaciones"
              data-panel="asignaciones"
              @if($activeTab !== 'asignaciones') hidden="until-found" @endif>
         <div class="tabpanel-inner">
             <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
                 <div>
-                    <h2 id="assignments-heading" class="h6 fw-semibold mb-0">Asignaciones de Rotación</h2>
+                    <h2 id="lblAsignaciones" class="h6 fw-semibold mb-0">Asignaciones de Rotación</h2>
                     <small class="text-secondary">Prioridad automática: Excepción &gt; Empleado &gt; Grupo &gt; Departamento &gt; Turno Base</small>
                 </div>
                 @can('turnos.programar')
                 <div class="d-flex flex-wrap gap-2">
-                    <button id="btn-new-group" type="button" class="btn btn-outline-info btn-sm">
+                    <button id="btnNuevoGrupo" type="button" class="btn btn-outline-info btn-sm">
                         <i class="bi bi-people me-1" aria-hidden="true"></i>Nuevo Grupo
                     </button>
-                    <button id="btn-new-assignment" type="button" class="btn btn-primary btn-sm" @disabled($rotations->isEmpty())>
+                    <button id="btnNuevaAsignacion" type="button" class="btn btn-primary btn-sm" @disabled($lstRotaciones->isEmpty())>
                         <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Asignar Rotación
                     </button>
                 </div>
                 @endcan
             </div>
 
-            <div tabindex="0" role="region" aria-labelledby="assignments-heading" class="shifts-table-wrapper mb-4">
+            <div tabindex="0" role="region" aria-labelledby="lblAsignaciones" class="shifts-table-wrapper mb-4">
                 <table class="table table-dark table-hover align-middle mb-0 shifts-table">
                     <thead>
                         <tr class="text-secondary small text-uppercase">
@@ -265,7 +265,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($assignments as $assignment)
+                        @forelse($lstAsignaciones as $assignment)
                             <tr>
                                 <th scope="row" class="fw-semibold">{{ $assignment->targetLabel() }}</th>
                                 <td data-label="Nivel">
@@ -304,8 +304,8 @@
             </div>
 
             <div class="pt-3 border-top border-secondary-subtle">
-                <h3 id="groups-heading" class="h6 fw-semibold mb-2">Grupos / Cuadrillas de Empleados</h3>
-                <div tabindex="0" role="region" aria-labelledby="groups-heading" class="shifts-table-wrapper">
+                <h3 id="lblGrupos" class="h6 fw-semibold mb-2">Grupos / Cuadrillas de Empleados</h3>
+                <div tabindex="0" role="region" aria-labelledby="lblGrupos" class="shifts-table-wrapper">
                     <table class="table table-dark table-hover align-middle mb-0 shifts-table">
                         <thead>
                             <tr class="text-secondary small text-uppercase">
@@ -316,9 +316,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($groups as $group)
+                            @forelse($lstGrupos as $group)
                                 @php
-                                    $groupPayload = [
+                                    $dataGrupo = [
                                         'id' => $group->id,
                                         'name' => $group->name,
                                         'description' => $group->description,
@@ -336,7 +336,7 @@
                                             @can('turnos.programar')
                                             <button type="button"
                                                     class="btn btn-outline-light btn-sm btn-edit-group"
-                                                    data-group='@json($groupPayload)'>
+                                                    data-group='@json($dataGrupo)'>
                                                 <i class="bi bi-pencil" aria-hidden="true"></i>
                                             </button>
                                             <form method="POST" action="{{ route('shifts.groups.destroy', $group) }}" class="d-inline">
@@ -366,24 +366,24 @@
 
     <!-- Panel 4: Excepciones Puntuales -->
     <section role="tabpanel"
-             id="panel-excepciones"
-             aria-labelledby="tab-excepciones"
+             id="tabExcepciones"
+             aria-labelledby="btnTabExcepciones"
              data-panel="excepciones"
              @if($activeTab !== 'excepciones') hidden="until-found" @endif>
         <div class="tabpanel-inner">
             <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
                 <div>
-                    <h2 id="exceptions-heading" class="h6 fw-semibold mb-0">Excepciones por Empleado y Fechas</h2>
+                    <h2 id="lblExcepciones" class="h6 fw-semibold mb-0">Excepciones por Empleado y Fechas</h2>
                     <small class="text-secondary">Máxima prioridad sobre cualquier rotación o turno asignado (guardias, permutas, cobertura)</small>
                 </div>
                 @can('turnos.programar')
-                <button id="btn-new-exception" type="button" class="btn btn-primary btn-sm align-self-start align-self-sm-auto" @disabled($employees->isEmpty() || $shifts->isEmpty())>
+                <button id="btnNuevaExcepcion" type="button" class="btn btn-primary btn-sm align-self-start align-self-sm-auto" @disabled($lstEmpleados->isEmpty() || $lstTurnos->isEmpty())>
                     <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nueva Excepción
                 </button>
                 @endcan
             </div>
 
-            <div tabindex="0" role="region" aria-labelledby="exceptions-heading" class="shifts-table-wrapper">
+            <div tabindex="0" role="region" aria-labelledby="lblExcepciones" class="shifts-table-wrapper">
                 <table class="table table-dark table-hover align-middle mb-0 shifts-table">
                     <thead>
                         <tr class="text-secondary small text-uppercase">
@@ -395,7 +395,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($exceptions as $exception)
+                        @forelse($lstExcepciones as $exception)
                             <tr>
                                 <th scope="row" class="fw-semibold">
                                     [{{ $exception->employee?->hikvision_employee_no ?? '-' }}] {{ $exception->employee?->full_name ?? 'N/D' }}
@@ -447,16 +447,16 @@
         </div>
 
         <form method="GET" action="{{ route('shifts.index') }}" class="row g-2 align-items-end">
-            <input type="hidden" name="tab" id="preview-active-tab" value="{{ $activeTab }}">
+            <input type="hidden" name="tab" id="txtPestanaActiva" value="{{ $activeTab }}">
             <div class="col-6 col-sm-auto">
-                <label for="preview-start" class="form-label small fw-medium mb-1">Inicio</label>
-                <input id="preview-start" name="preview_start" type="date" class="form-control form-control-sm font-mono-tabular" value="{{ $previewStart }}">
+                <label for="dtVistaInicio" class="form-label small fw-medium mb-1">Inicio</label>
+                <input id="dtVistaInicio" name="preview_start" type="date" class="form-control form-control-sm font-mono-tabular" value="{{ $previewStart }}">
             </div>
             <div class="col-6 col-sm-auto">
-                <label for="preview-department" class="form-label small fw-medium mb-1">Departamento</label>
-                <select id="preview-department" name="preview_department" class="form-select form-select-sm">
+                <label for="cbVistaDepartamento" class="form-label small fw-medium mb-1">Departamento</label>
+                <select id="cbVistaDepartamento" name="preview_department" class="form-select form-select-sm">
                     <option value="">Todos</option>
-                    @foreach($departments as $dept)
+                    @foreach($lstDepartamentos as $dept)
                         <option value="{{ $dept }}" @selected($previewDepartment === $dept)>{{ $dept }}</option>
                     @endforeach
                 </select>
@@ -474,7 +474,7 @@
             <thead>
                 <tr class="text-secondary small">
                     <th scope="col" class="sticky-col">Empleado</th>
-                    @foreach($preview['dates'] as $day)
+                    @foreach($dataVistaPrevia['dates'] as $day)
                         <th scope="col" class="text-center font-mono-tabular" style="min-width: 112px;">
                             <div>{{ $day->format('d/m') }}</div>
                             <div class="text-secondary" style="font-size: 0.7rem;">{{ $day->locale('es')->isoFormat('ddd') }}</div>
@@ -483,7 +483,7 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($preview['rows'] as $row)
+                @forelse($dataVistaPrevia['rows'] as $row)
                     <tr>
                         <th scope="row" class="sticky-col">
                             <div class="fw-semibold text-truncate" style="max-width: 210px;">
@@ -493,7 +493,7 @@
                         </th>
                         @foreach($row['days'] as $cell)
                             @php
-                                $badgeClass = $sourceBadgeMap[$cell['source']] ?? 'border-secondary text-secondary';
+                                $badgeClass = $dataColoresOrigen[$cell['source']] ?? 'border-secondary text-secondary';
                             @endphp
                             <td class="text-center p-2" title="{{ $cell['meta'] ?? '' }}">
                                 <div class="fw-medium text-truncate" style="max-width: 108px;">{{ $cell['shift_name'] }}</div>
@@ -504,7 +504,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ count($preview['dates']) + 1 }}" class="text-center text-secondary py-4">
+                        <td colspan="{{ count($dataVistaPrevia['dates']) + 1 }}" class="text-center text-secondary py-4">
                             No hay empleados para mostrar en la vista previa.
                         </td>
                     </tr>
@@ -515,51 +515,51 @@
 </section>
 
 <!-- Modal <dialog>: Turno Laboral -->
-<dialog id="shift-dialog" class="app-dialog" aria-labelledby="shift-dialog-title">
+<dialog id="mdTurno" class="app-dialog" aria-labelledby="lblTituloTurno">
     <div class="surface-card overflow-hidden">
         <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
-            <h2 id="shift-dialog-title" class="h6 mb-0 fw-semibold">Nuevo Turno Laboral</h2>
-            <button type="button" class="btn-close" data-close-dialog="shift-dialog" aria-label="Cerrar ventana"></button>
+            <h2 id="lblTituloTurno" class="h6 mb-0 fw-semibold">Nuevo Turno Laboral</h2>
+            <button type="button" class="btn-close" data-close-dialog="mdTurno" aria-label="Cerrar ventana"></button>
         </div>
 
-        <form id="shift-form" method="POST" action="{{ route('shifts.store') }}">
+        <form id="frmTurno" method="POST" action="{{ route('shifts.store') }}">
             @csrf
-            <input type="hidden" id="shift-method" name="_method" value="POST">
+            <input type="hidden" id="txtTurnoMetodo" name="_method" value="POST">
 
             <div class="p-3 p-md-4 row g-3 app-dialog-body">
                 <div class="col-12">
-                    <label for="shift-name" class="form-label small fw-medium">Nombre del Turno <span class="text-danger">*</span></label>
-                    <input id="shift-name" name="name" type="text" class="form-control" required maxlength="100" autofocus>
+                    <label for="txtTurnoNombre" class="form-label small fw-medium">Nombre del Turno <span class="text-danger">*</span></label>
+                    <input id="txtTurnoNombre" name="name" type="text" class="form-control" required maxlength="100" autofocus>
                 </div>
 
                 <div class="col-12 col-sm-6">
-                    <label for="shift-entry" class="form-label small fw-medium">Hora de Entrada <span class="text-danger">*</span></label>
-                    <input id="shift-entry" name="entry_time" type="time" class="form-control font-mono-tabular" required value="09:00">
+                    <label for="dtTurnoEntrada" class="form-label small fw-medium">Hora de Entrada <span class="text-danger">*</span></label>
+                    <input id="dtTurnoEntrada" name="entry_time" type="time" class="form-control font-mono-tabular" required value="09:00">
                 </div>
 
                 <div class="col-12 col-sm-6">
-                    <label for="shift-exit" class="form-label small fw-medium">Hora de Salida <span class="text-danger">*</span></label>
-                    <input id="shift-exit" name="exit_time" type="time" class="form-control font-mono-tabular" required value="18:00">
+                    <label for="dtTurnoSalida" class="form-label small fw-medium">Hora de Salida <span class="text-danger">*</span></label>
+                    <input id="dtTurnoSalida" name="exit_time" type="time" class="form-control font-mono-tabular" required value="18:00">
                 </div>
 
                 <div class="col-12 col-sm-4">
-                    <label for="shift-meal" class="form-label small fw-medium">Comida (min)</label>
-                    <input id="shift-meal" name="meal_duration_minutes" type="number" class="form-control font-mono-tabular" min="15" max="180" required value="60">
+                    <label for="txtTurnoComida" class="form-label small fw-medium">Comida (min)</label>
+                    <input id="txtTurnoComida" name="meal_duration_minutes" type="number" class="form-control font-mono-tabular" min="15" max="180" required value="60">
                 </div>
 
                 <div class="col-12 col-sm-4">
-                    <label for="shift-tolerance" class="form-label small fw-medium">Tolerancia (min)</label>
-                    <input id="shift-tolerance" name="tolerance_minutes" type="number" class="form-control font-mono-tabular" min="0" max="60" required value="10">
+                    <label for="txtTurnoTolerancia" class="form-label small fw-medium">Tolerancia (min)</label>
+                    <input id="txtTurnoTolerancia" name="tolerance_minutes" type="number" class="form-control font-mono-tabular" min="0" max="60" required value="10">
                 </div>
 
                 <div class="col-12 col-sm-4">
-                    <label for="shift-weekly" class="form-label small fw-medium">Tope Semanal (h)</label>
-                    <input id="shift-weekly" name="max_weekly_hours" type="number" class="form-control font-mono-tabular" min="20" max="60" required value="48">
+                    <label for="txtTurnoTopeSemanal" class="form-label small fw-medium">Tope Semanal (h)</label>
+                    <input id="txtTurnoTopeSemanal" name="max_weekly_hours" type="number" class="form-control font-mono-tabular" min="20" max="60" required value="48">
                 </div>
             </div>
 
             <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="shift-dialog">Cancelar</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="mdTurno">Cancelar</button>
                 <button type="submit" class="btn btn-primary btn-sm">Guardar Turno</button>
             </div>
         </form>
@@ -567,31 +567,31 @@
 </dialog>
 
 <!-- Modal <dialog>: Rotación de Turnos -->
-<dialog id="rotation-dialog" class="app-dialog" aria-labelledby="rotation-dialog-title">
+<dialog id="mdRotacion" class="app-dialog" aria-labelledby="lblTituloRotacion">
     <div class="surface-card overflow-hidden">
         <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
-            <h2 id="rotation-dialog-title" class="h6 mb-0 fw-semibold">Nueva Rotación</h2>
-            <button type="button" class="btn-close" data-close-dialog="rotation-dialog" aria-label="Cerrar ventana"></button>
+            <h2 id="lblTituloRotacion" class="h6 mb-0 fw-semibold">Nueva Rotación</h2>
+            <button type="button" class="btn-close" data-close-dialog="mdRotacion" aria-label="Cerrar ventana"></button>
         </div>
 
-        <form id="rotation-form" method="POST" action="{{ route('shifts.rotations.store') }}">
+        <form id="frmRotacion" method="POST" action="{{ route('shifts.rotations.store') }}">
             @csrf
-            <input type="hidden" id="rotation-method" name="_method" value="POST">
+            <input type="hidden" id="txtRotacionMetodo" name="_method" value="POST">
 
             <div class="p-3 p-md-4 row g-3 app-dialog-body">
                 <div class="col-12 col-sm-8">
-                    <label for="rotation-name" class="form-label small fw-medium">Nombre de la Rotación <span class="text-danger">*</span></label>
-                    <input id="rotation-name" name="name" type="text" class="form-control" required maxlength="120" placeholder="Ej. Rol 3 Turnos Semanal">
+                    <label for="txtRotacionNombre" class="form-label small fw-medium">Nombre de la Rotación <span class="text-danger">*</span></label>
+                    <input id="txtRotacionNombre" name="name" type="text" class="form-control" required maxlength="120" placeholder="Ej. Rol 3 Turnos Semanal">
                 </div>
 
                 <div class="col-12 col-sm-4">
-                    <label for="rotation-cycle-days" class="form-label small fw-medium">Días por Ciclo <span class="text-danger">*</span></label>
-                    <input id="rotation-cycle-days" name="cycle_days" type="number" class="form-control font-mono-tabular" min="1" max="365" required value="7">
+                    <label for="txtRotacionDias" class="form-label small fw-medium">Días por Ciclo <span class="text-danger">*</span></label>
+                    <input id="txtRotacionDias" name="cycle_days" type="number" class="form-control font-mono-tabular" min="1" max="365" required value="7">
                 </div>
 
                 <div class="col-12">
-                    <label for="rotation-description" class="form-label small fw-medium">Descripción</label>
-                    <input id="rotation-description" name="description" type="text" class="form-control" maxlength="255">
+                    <label for="txtRotacionDescripcion" class="form-label small fw-medium">Descripción</label>
+                    <input id="txtRotacionDescripcion" name="description" type="text" class="form-control" maxlength="255">
                 </div>
 
                 <div class="col-12">
@@ -601,24 +601,24 @@
                             <button type="button" class="btn btn-outline-info btn-sm py-0 px-2" data-preset="123" title="Secuencia 1 → 2 → 3">1→2→3</button>
                             <button type="button" class="btn btn-outline-info btn-sm py-0 px-2" data-preset="321" title="Secuencia 3 → 2 → 1">3→2→1</button>
                             <button type="button" class="btn btn-outline-info btn-sm py-0 px-2" data-preset="213" title="Secuencia 2 → 1 → 3">2→1→3</button>
-                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="btn-add-rotation-step">
+                            <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="btnAgregarPaso">
                                 <i class="bi bi-plus-lg" aria-hidden="true"></i> Paso
                             </button>
                         </div>
                     </div>
-                    <div id="rotation-steps-list" class="d-flex flex-column gap-2"></div>
+                    <div id="contenedorPasos" class="d-flex flex-column gap-2"></div>
                 </div>
 
                 <div class="col-12">
                     <div class="form-check form-switch">
-                        <input id="rotation-active" name="is_active" class="form-check-input" type="checkbox" value="1" checked>
-                        <label class="form-check-label small" for="rotation-active">Rotación Activa</label>
+                        <input id="ckRotacionActiva" name="is_active" class="form-check-input" type="checkbox" value="1" checked>
+                        <label class="form-check-label small" for="ckRotacionActiva">Rotación Activa</label>
                     </div>
                 </div>
             </div>
 
             <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="rotation-dialog">Cancelar</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="mdRotacion">Cancelar</button>
                 <button type="submit" class="btn btn-primary btn-sm">Guardar Rotación</button>
             </div>
         </form>
@@ -626,37 +626,37 @@
 </dialog>
 
 <!-- Modal <dialog>: Grupo de Empleados -->
-<dialog id="group-dialog" class="app-dialog" aria-labelledby="group-dialog-title">
+<dialog id="mdGrupo" class="app-dialog" aria-labelledby="lblTituloGrupo">
     <div class="surface-card overflow-hidden">
         <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
-            <h2 id="group-dialog-title" class="h6 mb-0 fw-semibold">Nuevo Grupo de Empleados</h2>
-            <button type="button" class="btn-close" data-close-dialog="group-dialog" aria-label="Cerrar ventana"></button>
+            <h2 id="lblTituloGrupo" class="h6 mb-0 fw-semibold">Nuevo Grupo de Empleados</h2>
+            <button type="button" class="btn-close" data-close-dialog="mdGrupo" aria-label="Cerrar ventana"></button>
         </div>
 
-        <form id="group-form" method="POST" action="{{ route('shifts.groups.store') }}">
+        <form id="frmGrupo" method="POST" action="{{ route('shifts.groups.store') }}">
             @csrf
-            <input type="hidden" id="group-method" name="_method" value="POST">
+            <input type="hidden" id="txtGrupoMetodo" name="_method" value="POST">
 
             <div class="p-3 p-md-4 row g-3 app-dialog-body">
                 <div class="col-12">
-                    <label for="group-name" class="form-label small fw-medium">Nombre del Grupo <span class="text-danger">*</span></label>
-                    <input id="group-name" name="name" type="text" class="form-control" required maxlength="120" placeholder="Ej. Cuadrilla A">
+                    <label for="txtGrupoNombre" class="form-label small fw-medium">Nombre del Grupo <span class="text-danger">*</span></label>
+                    <input id="txtGrupoNombre" name="name" type="text" class="form-control" required maxlength="120" placeholder="Ej. Cuadrilla A">
                 </div>
                 <div class="col-12">
-                    <label for="group-description" class="form-label small fw-medium">Descripción</label>
-                    <input id="group-description" name="description" type="text" class="form-control" maxlength="255">
+                    <label for="txtGrupoDescripcion" class="form-label small fw-medium">Descripción</label>
+                    <input id="txtGrupoDescripcion" name="description" type="text" class="form-control" maxlength="255">
                 </div>
                 <div class="col-12">
                     <div class="small fw-medium mb-2">Integrantes</div>
                     <div class="border border-secondary-subtle rounded p-2" style="max-height: 220px; overflow-y: auto;">
-                        @foreach($employees as $emp)
+                        @foreach($lstEmpleados as $emp)
                             <div class="form-check">
                                 <input class="form-check-input group-employee-checkbox"
                                        type="checkbox"
                                        name="employee_ids[]"
                                        value="{{ $emp->id }}"
-                                       id="grp-emp-{{ $emp->id }}">
-                                <label class="form-check-label small" for="grp-emp-{{ $emp->id }}">
+                                       id="ckGrupoEmpleado{{ $emp->id }}">
+                                <label class="form-check-label small" for="ckGrupoEmpleado{{ $emp->id }}">
                                     [{{ $emp->hikvision_employee_no }}] {{ $emp->full_name }}
                                     <span class="text-secondary">({{ $emp->department }})</span>
                                 </label>
@@ -667,7 +667,7 @@
             </div>
 
             <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="group-dialog">Cancelar</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="mdGrupo">Cancelar</button>
                 <button type="submit" class="btn btn-primary btn-sm">Guardar Grupo</button>
             </div>
         </form>
@@ -675,83 +675,83 @@
 </dialog>
 
 <!-- Modal <dialog>: Asignación de Rotación -->
-<dialog id="assignment-dialog" class="app-dialog" aria-labelledby="assignment-dialog-title">
+<dialog id="mdAsignacion" class="app-dialog" aria-labelledby="lblTituloAsignacion">
     <div class="surface-card overflow-hidden">
         <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
-            <h2 id="assignment-dialog-title" class="h6 mb-0 fw-semibold">Asignar Rotación</h2>
-            <button type="button" class="btn-close" data-close-dialog="assignment-dialog" aria-label="Cerrar ventana"></button>
+            <h2 id="lblTituloAsignacion" class="h6 mb-0 fw-semibold">Asignar Rotación</h2>
+            <button type="button" class="btn-close" data-close-dialog="mdAsignacion" aria-label="Cerrar ventana"></button>
         </div>
 
-        <form id="assignment-form" method="POST" action="{{ route('shifts.assignments.store') }}">
+        <form id="frmAsignacion" method="POST" action="{{ route('shifts.assignments.store') }}">
             @csrf
 
             <div class="p-3 p-md-4 row g-3 app-dialog-body">
                 <div class="col-12">
-                    <label for="assign-rotation" class="form-label small fw-medium">Rotación <span class="text-danger">*</span></label>
-                    <select id="assign-rotation" name="shift_rotation_id" class="form-select" required>
-                        @foreach($rotations as $rotation)
+                    <label for="cbAsignarRotacion" class="form-label small fw-medium">Rotación <span class="text-danger">*</span></label>
+                    <select id="cbAsignarRotacion" name="shift_rotation_id" class="form-select" required>
+                        @foreach($lstRotaciones as $rotation)
                             <option value="{{ $rotation->id }}">{{ $rotation->name }} ({{ $rotation->cycle_days }}d)</option>
                         @endforeach
                     </select>
                 </div>
 
                 <div class="col-12 col-sm-5">
-                    <label for="assign-target-type" class="form-label small fw-medium">Nivel de Aplicación <span class="text-danger">*</span></label>
-                    <select id="assign-target-type" name="target_type" class="form-select" required>
+                    <label for="cbAsignarNivel" class="form-label small fw-medium">Nivel de Aplicación <span class="text-danger">*</span></label>
+                    <select id="cbAsignarNivel" name="target_type" class="form-select" required>
                         <option value="employee">Empleado individual</option>
                         <option value="group">Grupo / Cuadrilla</option>
                         <option value="department">Departamento completo</option>
                     </select>
                 </div>
 
-                <div class="col-12 col-sm-7" id="assign-target-employee-wrap">
-                    <label for="assign-employee" class="form-label small fw-medium">Empleado <span class="text-danger">*</span></label>
-                    <select id="assign-employee" name="employee_id" class="form-select">
+                <div class="col-12 col-sm-7" id="contenedorAsignarEmpleado">
+                    <label for="cbAsignarEmpleado" class="form-label small fw-medium">Empleado <span class="text-danger">*</span></label>
+                    <select id="cbAsignarEmpleado" name="employee_id" class="form-select">
                         <option value="">Selecciona un empleado...</option>
-                        @foreach($employees as $emp)
+                        @foreach($lstEmpleados as $emp)
                             <option value="{{ $emp->id }}">[{{ $emp->hikvision_employee_no }}] {{ $emp->full_name }}</option>
                         @endforeach
                     </select>
                 </div>
 
-                <div class="col-12 col-sm-7 d-none" id="assign-target-group-wrap">
-                    <label for="assign-group" class="form-label small fw-medium">Grupo <span class="text-danger">*</span></label>
-                    <select id="assign-group" name="employee_group_id" class="form-select">
+                <div class="col-12 col-sm-7 d-none" id="contenedorAsignarGrupo">
+                    <label for="cbAsignarGrupo" class="form-label small fw-medium">Grupo <span class="text-danger">*</span></label>
+                    <select id="cbAsignarGrupo" name="employee_group_id" class="form-select">
                         <option value="">Selecciona un grupo...</option>
-                        @foreach($groups as $group)
+                        @foreach($lstGrupos as $group)
                             <option value="{{ $group->id }}">{{ $group->name }} ({{ $group->employees_count }})</option>
                         @endforeach
                     </select>
                 </div>
 
-                <div class="col-12 col-sm-7 d-none" id="assign-target-department-wrap">
-                    <label for="assign-department" class="form-label small fw-medium">Departamento <span class="text-danger">*</span></label>
-                    <select id="assign-department" name="department" class="form-select">
+                <div class="col-12 col-sm-7 d-none" id="contenedorAsignarDepartamento">
+                    <label for="cbAsignarDepartamento" class="form-label small fw-medium">Departamento <span class="text-danger">*</span></label>
+                    <select id="cbAsignarDepartamento" name="department" class="form-select">
                         <option value="">Selecciona un departamento...</option>
-                        @foreach($departments as $dept)
+                        @foreach($lstDepartamentos as $dept)
                             <option value="{{ $dept }}">{{ $dept }}</option>
                         @endforeach
                     </select>
                 </div>
 
                 <div class="col-12 col-sm-4">
-                    <label for="assign-starts-on" class="form-label small fw-medium">Fecha Inicio <span class="text-danger">*</span></label>
-                    <input id="assign-starts-on" name="starts_on" type="date" class="form-control font-mono-tabular" required value="{{ now()->toDateString() }}">
+                    <label for="dtAsignarInicio" class="form-label small fw-medium">Fecha Inicio <span class="text-danger">*</span></label>
+                    <input id="dtAsignarInicio" name="starts_on" type="date" class="form-control font-mono-tabular" required value="{{ now()->toDateString() }}">
                 </div>
 
                 <div class="col-12 col-sm-4">
-                    <label for="assign-ends-on" class="form-label small fw-medium">Fecha Fin (opcional)</label>
-                    <input id="assign-ends-on" name="ends_on" type="date" class="form-control font-mono-tabular">
+                    <label for="dtAsignarFin" class="form-label small fw-medium">Fecha Fin (opcional)</label>
+                    <input id="dtAsignarFin" name="ends_on" type="date" class="form-control font-mono-tabular">
                 </div>
 
                 <div class="col-12 col-sm-4">
-                    <label for="assign-start-step" class="form-label small fw-medium">Paso Inicial</label>
-                    <input id="assign-start-step" name="start_step_order" type="number" class="form-control font-mono-tabular" min="1" max="20" value="1">
+                    <label for="txtAsignarPasoInicial" class="form-label small fw-medium">Paso Inicial</label>
+                    <input id="txtAsignarPasoInicial" name="start_step_order" type="number" class="form-control font-mono-tabular" min="1" max="20" value="1">
                 </div>
             </div>
 
             <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="assignment-dialog">Cancelar</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="mdAsignacion">Cancelar</button>
                 <button type="submit" class="btn btn-primary btn-sm">Guardar Asignación</button>
             </div>
         </form>
@@ -759,54 +759,54 @@
 </dialog>
 
 <!-- Modal <dialog>: Excepción de Turno -->
-<dialog id="exception-dialog" class="app-dialog" aria-labelledby="exception-dialog-title">
+<dialog id="mdExcepcion" class="app-dialog" aria-labelledby="lblTituloExcepcion">
     <div class="surface-card overflow-hidden">
         <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
-            <h2 id="exception-dialog-title" class="h6 mb-0 fw-semibold">Nueva Excepción de Turno</h2>
-            <button type="button" class="btn-close" data-close-dialog="exception-dialog" aria-label="Cerrar ventana"></button>
+            <h2 id="lblTituloExcepcion" class="h6 mb-0 fw-semibold">Nueva Excepción de Turno</h2>
+            <button type="button" class="btn-close" data-close-dialog="mdExcepcion" aria-label="Cerrar ventana"></button>
         </div>
 
-        <form id="exception-form" method="POST" action="{{ route('shifts.exceptions.store') }}">
+        <form id="frmExcepcion" method="POST" action="{{ route('shifts.exceptions.store') }}">
             @csrf
 
             <div class="p-3 p-md-4 row g-3 app-dialog-body">
                 <div class="col-12">
-                    <label for="exc-employee" class="form-label small fw-medium">Empleado <span class="text-danger">*</span></label>
-                    <select id="exc-employee" name="employee_id" class="form-select" required>
+                    <label for="cbExcepcionEmpleado" class="form-label small fw-medium">Empleado <span class="text-danger">*</span></label>
+                    <select id="cbExcepcionEmpleado" name="employee_id" class="form-select" required>
                         <option value="">Selecciona un empleado...</option>
-                        @foreach($employees as $emp)
+                        @foreach($lstEmpleados as $emp)
                             <option value="{{ $emp->id }}">[{{ $emp->hikvision_employee_no }}] {{ $emp->full_name }}</option>
                         @endforeach
                     </select>
                 </div>
 
                 <div class="col-12">
-                    <label for="exc-shift" class="form-label small fw-medium">Turno Temporal <span class="text-danger">*</span></label>
-                    <select id="exc-shift" name="work_shift_id" class="form-select" required>
-                        @foreach($shifts as $shift)
+                    <label for="cbExcepcionTurno" class="form-label small fw-medium">Turno Temporal <span class="text-danger">*</span></label>
+                    <select id="cbExcepcionTurno" name="work_shift_id" class="form-select" required>
+                        @foreach($lstTurnos as $shift)
                             <option value="{{ $shift->id }}">{{ $shift->name }} ({{ $shift->schedule_label }})</option>
                         @endforeach
                     </select>
                 </div>
 
                 <div class="col-12 col-sm-6">
-                    <label for="exc-starts-on" class="form-label small fw-medium">Desde <span class="text-danger">*</span></label>
-                    <input id="exc-starts-on" name="starts_on" type="date" class="form-control font-mono-tabular" required value="{{ now()->toDateString() }}">
+                    <label for="dtExcepcionInicio" class="form-label small fw-medium">Desde <span class="text-danger">*</span></label>
+                    <input id="dtExcepcionInicio" name="starts_on" type="date" class="form-control font-mono-tabular" required value="{{ now()->toDateString() }}">
                 </div>
 
                 <div class="col-12 col-sm-6">
-                    <label for="exc-ends-on" class="form-label small fw-medium">Hasta <span class="text-danger">*</span></label>
-                    <input id="exc-ends-on" name="ends_on" type="date" class="form-control font-mono-tabular" required value="{{ now()->toDateString() }}">
+                    <label for="dtExcepcionFin" class="form-label small fw-medium">Hasta <span class="text-danger">*</span></label>
+                    <input id="dtExcepcionFin" name="ends_on" type="date" class="form-control font-mono-tabular" required value="{{ now()->toDateString() }}">
                 </div>
 
                 <div class="col-12">
-                    <label for="exc-reason" class="form-label small fw-medium">Motivo</label>
-                    <input id="exc-reason" name="reason" type="text" class="form-control" maxlength="255" placeholder="Ej. Cobertura operativa / permiso">
+                    <label for="txtExcepcionMotivo" class="form-label small fw-medium">Motivo</label>
+                    <input id="txtExcepcionMotivo" name="reason" type="text" class="form-control" maxlength="255" placeholder="Ej. Cobertura operativa / permiso">
                 </div>
             </div>
 
             <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="exception-dialog">Cancelar</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="mdExcepcion">Cancelar</button>
                 <button type="submit" class="btn btn-primary btn-sm">Guardar Excepción</button>
             </div>
         </form>
@@ -815,18 +815,18 @@
 @endsection
 
 @push('scripts')
-<script id="shifts-catalog-data" type="application/json">@json($shifts->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'schedule' => $s->schedule_label])->values())</script>
+<script id="dataCatalogoTurnos" type="application/json">@json($lstTurnos->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'schedule' => $s->schedule_label])->values())</script>
 <script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
-    const shiftOptions = JSON.parse(document.getElementById('shifts-catalog-data').textContent);
+    const lstTurnos = JSON.parse(document.getElementById('dataCatalogoTurnos').textContent);
 
     // 1. Pestañas accesibles (Turnos, Rotaciones, Asignaciones, Excepciones) + hidden="until-found"
-    const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
-    const panels = Array.from(document.querySelectorAll('[role="tabpanel"]'));
-    const previewTabInput = document.getElementById('preview-active-tab');
+    const lstPestanas = Array.from(document.querySelectorAll('[role="tab"]'));
+    const lstPaneles = Array.from(document.querySelectorAll('[role="tabpanel"]'));
+    const txtPestanaActiva = document.getElementById('txtPestanaActiva');
 
     function activateTab(tabKey, moveFocus = false) {
-        tabs.forEach((t) => {
+        lstPestanas.forEach((t) => {
             const selected = t.dataset.tab === tabKey;
             t.setAttribute('aria-selected', selected ? 'true' : 'false');
             t.setAttribute('tabindex', selected ? '0' : '-1');
@@ -834,230 +834,230 @@ document.addEventListener('DOMContentLoaded', () => {
                 t.focus();
             }
         });
-        panels.forEach((p) => {
+        lstPaneles.forEach((p) => {
             if (p.dataset.panel === tabKey) {
                 p.removeAttribute('hidden');
             } else {
                 p.setAttribute('hidden', 'until-found');
             }
         });
-        if (previewTabInput) {
-            previewTabInput.value = tabKey;
+        if (txtPestanaActiva) {
+            txtPestanaActiva.value = tabKey;
         }
     }
 
-    tabs.forEach((tab, idx) => {
+    lstPestanas.forEach((tab, idx) => {
         tab.addEventListener('click', () => activateTab(tab.dataset.tab));
         tab.addEventListener('keydown', (e) => {
             let nextIdx = null;
-            if (e.key === 'ArrowRight') nextIdx = (idx + 1) % tabs.length;
-            else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + tabs.length) % tabs.length;
+            if (e.key === 'ArrowRight') nextIdx = (idx + 1) % lstPestanas.length;
+            else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + lstPestanas.length) % lstPestanas.length;
             else if (e.key === 'Home') nextIdx = 0;
-            else if (e.key === 'End') nextIdx = tabs.length - 1;
+            else if (e.key === 'End') nextIdx = lstPestanas.length - 1;
             if (nextIdx !== null) {
                 e.preventDefault();
-                activateTab(tabs[nextIdx].dataset.tab, true);
+                activateTab(lstPestanas[nextIdx].dataset.tab, true);
             }
         });
     });
 
-    panels.forEach((panel) => {
+    lstPaneles.forEach((panel) => {
         panel.addEventListener('beforematch', () => {
             activateTab(panel.dataset.panel);
         });
     });
 
     // Cierre unificado de <dialog>
-    document.querySelectorAll('[data-close-dialog]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            document.getElementById(btn.getAttribute('data-close-dialog'))?.close();
+    document.querySelectorAll('[data-close-dialog]').forEach((btnAccion) => {
+        btnAccion.addEventListener('click', () => {
+            document.getElementById(btnAccion.getAttribute('data-close-dialog'))?.close();
         });
     });
 
     // 2. Modal de Turno
-    const shiftDialog = document.getElementById('shift-dialog');
-    const shiftForm = document.getElementById('shift-form');
-    const shiftMethod = document.getElementById('shift-method');
+    const mdTurno = document.getElementById('mdTurno');
+    const frmTurno = document.getElementById('frmTurno');
+    const txtTurnoMetodo = document.getElementById('txtTurnoMetodo');
     const shiftStoreUrl = '{{ route("shifts.store") }}';
     const shiftUpdateBase = '{{ url("/shifts") }}';
 
-    document.getElementById('btn-new-shift')?.addEventListener('click', () => {
-        shiftForm.action = shiftStoreUrl;
-        shiftMethod.value = 'POST';
-        document.getElementById('shift-dialog-title').textContent = 'Nuevo Turno Laboral';
-        shiftForm.reset();
-        shiftDialog.showModal();
+    document.getElementById('btnNuevoTurno')?.addEventListener('click', () => {
+        frmTurno.action = shiftStoreUrl;
+        txtTurnoMetodo.value = 'POST';
+        document.getElementById('lblTituloTurno').textContent = 'Nuevo Turno Laboral';
+        frmTurno.reset();
+        mdTurno.showModal();
     });
 
-    document.querySelectorAll('.btn-edit-shift').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const shift = JSON.parse(btn.getAttribute('data-shift'));
-            shiftForm.action = `${shiftUpdateBase}/${shift.id}`;
-            shiftMethod.value = 'PUT';
-            document.getElementById('shift-dialog-title').textContent = `Editar Turno: ${shift.name}`;
-            document.getElementById('shift-name').value = shift.name;
-            document.getElementById('shift-entry').value = String(shift.entry_time).slice(0, 5);
-            document.getElementById('shift-exit').value = String(shift.exit_time).slice(0, 5);
-            document.getElementById('shift-meal').value = shift.meal_duration_minutes;
-            document.getElementById('shift-tolerance').value = shift.tolerance_minutes;
-            document.getElementById('shift-weekly').value = shift.max_weekly_hours;
-            shiftDialog.showModal();
+    document.querySelectorAll('.btn-edit-shift').forEach((btnAccion) => {
+        btnAccion.addEventListener('click', () => {
+            const dataTurno = JSON.parse(btnAccion.getAttribute('data-shift'));
+            frmTurno.action = `${shiftUpdateBase}/${dataTurno.id}`;
+            txtTurnoMetodo.value = 'PUT';
+            document.getElementById('lblTituloTurno').textContent = `Editar Turno: ${dataTurno.name}`;
+            document.getElementById('txtTurnoNombre').value = dataTurno.name;
+            document.getElementById('dtTurnoEntrada').value = String(dataTurno.entry_time).slice(0, 5);
+            document.getElementById('dtTurnoSalida').value = String(dataTurno.exit_time).slice(0, 5);
+            document.getElementById('txtTurnoComida').value = dataTurno.meal_duration_minutes;
+            document.getElementById('txtTurnoTolerancia').value = dataTurno.tolerance_minutes;
+            document.getElementById('txtTurnoTopeSemanal').value = dataTurno.max_weekly_hours;
+            mdTurno.showModal();
         });
     });
 
     // 3. Modal de Rotaciones con pasos ordenados (1->2->3, 3->2->1, 2->1->3)
-    const rotationDialog = document.getElementById('rotation-dialog');
-    const rotationForm = document.getElementById('rotation-form');
-    const rotationMethod = document.getElementById('rotation-method');
-    const rotationStepsList = document.getElementById('rotation-steps-list');
+    const mdRotacion = document.getElementById('mdRotacion');
+    const frmRotacion = document.getElementById('frmRotacion');
+    const txtRotacionMetodo = document.getElementById('txtRotacionMetodo');
+    const contenedorPasos = document.getElementById('contenedorPasos');
     const rotationStoreUrl = '{{ route("shifts.rotations.store") }}';
     const rotationUpdateBase = '{{ url("/shifts/rotations") }}';
 
     function renderRotationSteps(stepIds) {
-        rotationStepsList.innerHTML = '';
-        const list = stepIds.length ? stepIds : (shiftOptions[0] ? [shiftOptions[0].id] : []);
-        list.forEach((selectedId, index) => {
-            const row = document.createElement('div');
-            row.className = 'd-flex align-items-center gap-2';
+        contenedorPasos.innerHTML = '';
+        const lstPasos = stepIds.length ? stepIds : (lstTurnos[0] ? [lstTurnos[0].id] : []);
+        lstPasos.forEach((selectedId, index) => {
+            const filaPaso = document.createElement('div');
+            filaPaso.className = 'd-flex align-items-center gap-2';
 
             const badge = document.createElement('span');
             badge.className = 'badge text-bg-secondary font-mono-tabular';
             badge.textContent = `Paso ${index + 1}`;
 
-            const select = document.createElement('select');
-            select.name = 'steps[]';
-            select.className = 'form-select form-select-sm flex-grow-1';
-            select.required = true;
-            shiftOptions.forEach((opt) => {
-                const option = document.createElement('option');
-                option.value = String(opt.id);
-                option.textContent = `${opt.name} (${opt.schedule})`;
+            const cbPaso = document.createElement('select');
+            cbPaso.name = 'steps[]';
+            cbPaso.className = 'form-select form-select-sm flex-grow-1';
+            cbPaso.required = true;
+            lstTurnos.forEach((opt) => {
+                const opcion = document.createElement('option');
+                opcion.value = String(opt.id);
+                opcion.textContent = `${opt.name} (${opt.schedule})`;
                 if (Number(selectedId) === Number(opt.id)) {
-                    option.selected = true;
+                    opcion.selected = true;
                 }
-                select.appendChild(option);
+                cbPaso.appendChild(opcion);
             });
 
-            const removeBtn = document.createElement('button');
-            removeBtn.type = 'button';
-            removeBtn.className = 'btn btn-outline-danger btn-sm';
-            removeBtn.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
-            removeBtn.setAttribute('aria-label', `Quitar paso ${index + 1}`);
-            removeBtn.disabled = list.length <= 1;
-            removeBtn.addEventListener('click', () => {
-                const currentIds = Array.from(rotationStepsList.querySelectorAll('select')).map((s) => Number(s.value));
-                currentIds.splice(index, 1);
-                renderRotationSteps(currentIds);
+            const btnQuitarPaso = document.createElement('button');
+            btnQuitarPaso.type = 'button';
+            btnQuitarPaso.className = 'btn btn-outline-danger btn-sm';
+            btnQuitarPaso.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
+            btnQuitarPaso.setAttribute('aria-label', `Quitar paso ${index + 1}`);
+            btnQuitarPaso.disabled = lstPasos.length <= 1;
+            btnQuitarPaso.addEventListener('click', () => {
+                const lstIdsActuales = Array.from(contenedorPasos.querySelectorAll('select')).map((s) => Number(s.value));
+                lstIdsActuales.splice(index, 1);
+                renderRotationSteps(lstIdsActuales);
             });
 
-            row.append(badge, select, removeBtn);
-            rotationStepsList.appendChild(row);
+            filaPaso.append(badge, cbPaso, btnQuitarPaso);
+            contenedorPasos.appendChild(filaPaso);
         });
     }
 
-    document.getElementById('btn-add-rotation-step')?.addEventListener('click', () => {
-        const currentIds = Array.from(rotationStepsList.querySelectorAll('select')).map((s) => Number(s.value));
-        const nextDefault = shiftOptions[currentIds.length % Math.max(1, shiftOptions.length)]?.id ?? shiftOptions[0]?.id;
+    document.getElementById('btnAgregarPaso')?.addEventListener('click', () => {
+        const lstIdsActuales = Array.from(contenedorPasos.querySelectorAll('select')).map((s) => Number(s.value));
+        const nextDefault = lstTurnos[lstIdsActuales.length % Math.max(1, lstTurnos.length)]?.id ?? lstTurnos[0]?.id;
         if (nextDefault) {
-            currentIds.push(nextDefault);
-            renderRotationSteps(currentIds);
+            lstIdsActuales.push(nextDefault);
+            renderRotationSteps(lstIdsActuales);
         }
     });
 
-    document.querySelectorAll('[data-preset]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const digits = String(btn.getAttribute('data-preset')).split('').map(Number);
-            const mapped = digits
-                .map((d) => shiftOptions[d - 1]?.id ?? shiftOptions[0]?.id)
+    document.querySelectorAll('[data-preset]').forEach((btnAccion) => {
+        btnAccion.addEventListener('click', () => {
+            const lstDigitos = String(btnAccion.getAttribute('data-preset')).split('').map(Number);
+            const lstIdsPreset = lstDigitos
+                .map((d) => lstTurnos[d - 1]?.id ?? lstTurnos[0]?.id)
                 .filter(Boolean);
-            if (mapped.length > 0) {
-                renderRotationSteps(mapped);
+            if (lstIdsPreset.length > 0) {
+                renderRotationSteps(lstIdsPreset);
             }
         });
     });
 
-    document.getElementById('btn-new-rotation')?.addEventListener('click', () => {
-        rotationForm.action = rotationStoreUrl;
-        rotationMethod.value = 'POST';
-        document.getElementById('rotation-dialog-title').textContent = 'Nueva Rotación de Turnos';
-        rotationForm.reset();
-        document.getElementById('rotation-cycle-days').value = '7';
-        document.getElementById('rotation-active').checked = true;
-        renderRotationSteps(shiftOptions.slice(0, 3).map((s) => s.id));
-        rotationDialog.showModal();
+    document.getElementById('btnNuevaRotacion')?.addEventListener('click', () => {
+        frmRotacion.action = rotationStoreUrl;
+        txtRotacionMetodo.value = 'POST';
+        document.getElementById('lblTituloRotacion').textContent = 'Nueva Rotación de Turnos';
+        frmRotacion.reset();
+        document.getElementById('txtRotacionDias').value = '7';
+        document.getElementById('ckRotacionActiva').checked = true;
+        renderRotationSteps(lstTurnos.slice(0, 3).map((s) => s.id));
+        mdRotacion.showModal();
     });
 
-    document.querySelectorAll('.btn-edit-rotation').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const rot = JSON.parse(btn.getAttribute('data-rotation'));
-            rotationForm.action = `${rotationUpdateBase}/${rot.id}`;
-            rotationMethod.value = 'PUT';
-            document.getElementById('rotation-dialog-title').textContent = `Editar Rotación: ${rot.name}`;
-            document.getElementById('rotation-name').value = rot.name;
-            document.getElementById('rotation-description').value = rot.description || '';
-            document.getElementById('rotation-cycle-days').value = rot.cycle_days;
-            document.getElementById('rotation-active').checked = Boolean(rot.is_active);
-            renderRotationSteps(rot.steps || []);
-            rotationDialog.showModal();
+    document.querySelectorAll('.btn-edit-rotation').forEach((btnAccion) => {
+        btnAccion.addEventListener('click', () => {
+            const dataRotacion = JSON.parse(btnAccion.getAttribute('data-rotation'));
+            frmRotacion.action = `${rotationUpdateBase}/${dataRotacion.id}`;
+            txtRotacionMetodo.value = 'PUT';
+            document.getElementById('lblTituloRotacion').textContent = `Editar Rotación: ${dataRotacion.name}`;
+            document.getElementById('txtRotacionNombre').value = dataRotacion.name;
+            document.getElementById('txtRotacionDescripcion').value = dataRotacion.description || '';
+            document.getElementById('txtRotacionDias').value = dataRotacion.cycle_days;
+            document.getElementById('ckRotacionActiva').checked = Boolean(dataRotacion.is_active);
+            renderRotationSteps(dataRotacion.steps || []);
+            mdRotacion.showModal();
         });
     });
 
     // 4. Modal de Grupo de Empleados
-    const groupDialog = document.getElementById('group-dialog');
-    const groupForm = document.getElementById('group-form');
-    const groupMethod = document.getElementById('group-method');
+    const mdGrupo = document.getElementById('mdGrupo');
+    const frmGrupo = document.getElementById('frmGrupo');
+    const txtGrupoMetodo = document.getElementById('txtGrupoMetodo');
     const groupStoreUrl = '{{ route("shifts.groups.store") }}';
     const groupUpdateBase = '{{ url("/shifts/groups") }}';
 
-    document.getElementById('btn-new-group')?.addEventListener('click', () => {
-        groupForm.action = groupStoreUrl;
-        groupMethod.value = 'POST';
-        document.getElementById('group-dialog-title').textContent = 'Nuevo Grupo de Empleados';
-        groupForm.reset();
-        document.querySelectorAll('.group-employee-checkbox').forEach((cb) => { cb.checked = false; });
-        groupDialog.showModal();
+    document.getElementById('btnNuevoGrupo')?.addEventListener('click', () => {
+        frmGrupo.action = groupStoreUrl;
+        txtGrupoMetodo.value = 'POST';
+        document.getElementById('lblTituloGrupo').textContent = 'Nuevo Grupo de Empleados';
+        frmGrupo.reset();
+        document.querySelectorAll('.group-employee-checkbox').forEach((ckEmpleado) => { ckEmpleado.checked = false; });
+        mdGrupo.showModal();
     });
 
-    document.querySelectorAll('.btn-edit-group').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const group = JSON.parse(btn.getAttribute('data-group'));
-            groupForm.action = `${groupUpdateBase}/${group.id}`;
-            groupMethod.value = 'PUT';
-            document.getElementById('group-dialog-title').textContent = `Editar Grupo: ${group.name}`;
-            document.getElementById('group-name').value = group.name;
-            document.getElementById('group-description').value = group.description || '';
-            const selected = new Set((group.employee_ids || []).map(Number));
-            document.querySelectorAll('.group-employee-checkbox').forEach((cb) => {
-                cb.checked = selected.has(Number(cb.value));
+    document.querySelectorAll('.btn-edit-group').forEach((btnAccion) => {
+        btnAccion.addEventListener('click', () => {
+            const dataGrupo = JSON.parse(btnAccion.getAttribute('data-group'));
+            frmGrupo.action = `${groupUpdateBase}/${dataGrupo.id}`;
+            txtGrupoMetodo.value = 'PUT';
+            document.getElementById('lblTituloGrupo').textContent = `Editar Grupo: ${dataGrupo.name}`;
+            document.getElementById('txtGrupoNombre').value = dataGrupo.name;
+            document.getElementById('txtGrupoDescripcion').value = dataGrupo.description || '';
+            const lstSeleccionados = new Set((dataGrupo.employee_ids || []).map(Number));
+            document.querySelectorAll('.group-employee-checkbox').forEach((ckEmpleado) => {
+                ckEmpleado.checked = lstSeleccionados.has(Number(ckEmpleado.value));
             });
-            groupDialog.showModal();
+            mdGrupo.showModal();
         });
     });
 
     // 5. Modal de Asignación de Rotación
-    const assignmentDialog = document.getElementById('assignment-dialog');
-    const targetTypeSelect = document.getElementById('assign-target-type');
-    const empWrap = document.getElementById('assign-target-employee-wrap');
-    const grpWrap = document.getElementById('assign-target-group-wrap');
-    const deptWrap = document.getElementById('assign-target-department-wrap');
+    const mdAsignacion = document.getElementById('mdAsignacion');
+    const cbAsignarNivel = document.getElementById('cbAsignarNivel');
+    const contenedorAsignarEmpleado = document.getElementById('contenedorAsignarEmpleado');
+    const contenedorAsignarGrupo = document.getElementById('contenedorAsignarGrupo');
+    const contenedorAsignarDepartamento = document.getElementById('contenedorAsignarDepartamento');
 
     function syncAssignmentTargetFields() {
-        const val = targetTypeSelect.value;
-        empWrap.classList.toggle('d-none', val !== 'employee');
-        grpWrap.classList.toggle('d-none', val !== 'group');
-        deptWrap.classList.toggle('d-none', val !== 'department');
+        const val = cbAsignarNivel.value;
+        contenedorAsignarEmpleado.classList.toggle('d-none', val !== 'employee');
+        contenedorAsignarGrupo.classList.toggle('d-none', val !== 'group');
+        contenedorAsignarDepartamento.classList.toggle('d-none', val !== 'department');
     }
 
-    targetTypeSelect?.addEventListener('change', syncAssignmentTargetFields);
-    document.getElementById('btn-new-assignment')?.addEventListener('click', () => {
+    cbAsignarNivel?.addEventListener('change', syncAssignmentTargetFields);
+    document.getElementById('btnNuevaAsignacion')?.addEventListener('click', () => {
         syncAssignmentTargetFields();
-        assignmentDialog.showModal();
+        mdAsignacion.showModal();
     });
 
     // 6. Modal de Excepción
-    const exceptionDialog = document.getElementById('exception-dialog');
-    document.getElementById('btn-new-exception')?.addEventListener('click', () => {
-        exceptionDialog.showModal();
+    const mdExcepcion = document.getElementById('mdExcepcion');
+    document.getElementById('btnNuevaExcepcion')?.addEventListener('click', () => {
+        mdExcepcion.showModal();
     });
 });
 </script>

@@ -164,10 +164,10 @@ class WorkShift extends Model
         $date = CarbonImmutable::instance($workDate)->startOfDay();
         $scheduledEntry = CarbonImmutable::parse($date->toDateString().' '.$this->entry_time);
         $scheduledExit = CarbonImmutable::parse(($this->crossesMidnight() ? $date->addDay() : $date)->toDateString().' '.$this->exit_time);
-        $times = $this->windowTimes();
+        $lstHoras = $this->windowTimes();
 
-        $entry = self::anchorWindow($times['entrada'], $scheduledEntry);
-        $exit = self::anchorWindow($times['salida'], $scheduledExit);
+        $entry = self::anchorWindow($lstHoras['entrada'], $scheduledEntry);
+        $exit = self::anchorWindow($lstHoras['salida'], $scheduledExit);
 
         if ($entry[1]->greaterThanOrEqualTo($exit[0])) {
             $midpoint = $scheduledEntry->addSeconds(intdiv((int) $scheduledEntry->diffInSeconds($scheduledExit), 2));
@@ -182,12 +182,12 @@ class WorkShift extends Model
      * Convierte un rango de horas en fechas alrededor de la hora del turno: el inicio queda a menos de
      * 12 horas antes de $anchor y el fin después del inicio (si es menor, es del día siguiente).
      *
-     * @param  array{0: string, 1: string}  $times
+     * @param  array{0: string, 1: string}  $lstHoras
      * @return array{0: CarbonImmutable, 1: CarbonImmutable}
      */
-    public static function anchorWindow(array $times, CarbonImmutable $anchor): array
+    public static function anchorWindow(array $lstHoras, CarbonImmutable $anchor): array
     {
-        $start = CarbonImmutable::parse($anchor->toDateString().' '.$times[0]);
+        $start = CarbonImmutable::parse($anchor->toDateString().' '.$lstHoras[0]);
         if ($start->greaterThan($anchor)) {
             $start = $start->subDay();
         }
@@ -195,7 +195,7 @@ class WorkShift extends Model
             $start = $start->addDay();
         }
 
-        $end = CarbonImmutable::parse($start->toDateString().' '.$times[1]);
+        $end = CarbonImmutable::parse($start->toDateString().' '.$lstHoras[1]);
         if ($end->lessThanOrEqualTo($start)) {
             $end = $end->addDay();
         }

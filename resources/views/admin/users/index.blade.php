@@ -8,9 +8,9 @@
 <div class="row g-3">
     <section class="col-12 col-xl-8">
         <div class="surface-card p-3 p-md-4">
-            <h2 id="lbl-usuarios" class="h6 fw-semibold mb-3">Cuentas registradas</h2>
-            <div tabindex="0" role="region" aria-labelledby="lbl-usuarios" class="table-responsive">
-                <table id="grid-usuarios" class="table table-dark table-hover align-middle mb-0">
+            <h2 id="lblUsuarios" class="h6 fw-semibold mb-3">Cuentas registradas</h2>
+            <div tabindex="0" role="region" aria-labelledby="lblUsuarios" class="table-responsive">
+                <table id="gridUsuarios" class="table table-dark table-hover align-middle mb-0">
                     <thead>
                         <tr class="text-secondary small text-uppercase">
                             <th scope="col">Nombre</th>
@@ -55,16 +55,16 @@
             <h2 class="h6 fw-semibold mb-3">Nueva cuenta</h2>
 
             <div class="mb-3">
-                <label for="txt-nombre" class="form-label">Nombre</label>
-                <input id="txt-nombre" name="name" type="text" class="form-control" maxlength="255" value="{{ old('name') }}" required>
+                <label for="txtNombre" class="form-label">Nombre</label>
+                <input id="txtNombre" name="name" type="text" class="form-control" maxlength="255" value="{{ old('name') }}" required>
             </div>
             <div class="mb-3">
-                <label for="txt-correo" class="form-label">Correo</label>
-                <input id="txt-correo" name="email" type="email" class="form-control" maxlength="255" value="{{ old('email') }}" autocomplete="off" required>
+                <label for="txtCorreo" class="form-label">Correo</label>
+                <input id="txtCorreo" name="email" type="email" class="form-control" maxlength="255" value="{{ old('email') }}" autocomplete="off" required>
             </div>
             <div class="mb-3">
-                <label for="cb-perfil" class="form-label">Perfil</label>
-                <select id="cb-perfil" name="profile_id" class="form-select" required>
+                <label for="cbPerfil" class="form-label">Perfil</label>
+                <select id="cbPerfil" name="profile_id" class="form-select" required>
                     <option value="">Elige un perfil</option>
                     @foreach($lstPerfiles as $perfil)
                         <option value="{{ $perfil->id }}" @selected((int) old('profile_id') === $perfil->id)>{{ $perfil->name }}</option>
@@ -72,15 +72,15 @@
                 </select>
             </div>
             <div class="mb-3">
-                <label for="txt-contrasena" class="form-label">Contraseña</label>
-                <input id="txt-contrasena" name="password" type="password" class="form-control" minlength="{{ \App\Support\PasswordPolicy::MIN_LENGTH }}" autocomplete="new-password" required>
+                <label for="txtContrasena" class="form-label">Contraseña</label>
+                <input id="txtContrasena" name="password" type="password" class="form-control" minlength="{{ \App\Support\PasswordPolicy::MIN_LENGTH }}" autocomplete="new-password" required>
                 <div class="form-text">Mínimo {{ \App\Support\PasswordPolicy::MIN_LENGTH }} caracteres. Una frase es más fácil de recordar.</div>
             </div>
             <div class="mb-3">
-                <label for="txt-confirmar" class="form-label">Confirmar contraseña</label>
-                <input id="txt-confirmar" name="password_confirmation" type="password" class="form-control" autocomplete="new-password" required>
+                <label for="txtConfirmar" class="form-label">Confirmar contraseña</label>
+                <input id="txtConfirmar" name="password_confirmation" type="password" class="form-control" autocomplete="new-password" required>
             </div>
-            <button id="btn-crear-usuario" type="submit" class="btn btn-primary w-100">Crear cuenta</button>
+            <button id="btnCrearUsuario" type="submit" class="btn btn-primary w-100">Crear cuenta</button>
         </form>
     </section>
 </div>

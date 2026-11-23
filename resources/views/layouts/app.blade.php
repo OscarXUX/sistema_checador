@@ -21,7 +21,7 @@
     </aside>
 
     <!-- Drawer móvil nativo con <dialog> -->
-    <dialog id="mobile-nav-drawer" class="mobile-drawer d-lg-none" aria-label="Menú de navegación">
+    <dialog id="mdMenuMovil" class="mobile-drawer d-lg-none" aria-label="Menú de navegación">
         <div class="mobile-drawer-scroller">
             <aside class="mobile-drawer-sheet">
                 @include('partials.sidebar-content', ['isMobileDrawer' => true])
@@ -32,12 +32,12 @@
     <div class="app-main">
         <header class="app-topbar px-3 px-lg-4 py-3 d-flex align-items-center justify-content-between gap-2 gap-md-3 flex-wrap">
             <div class="d-flex align-items-center gap-2 gap-sm-3 min-w-0 flex-grow-1">
-                <button id="mobile-nav-open"
+                <button id="btnAbrirMenu"
                         type="button"
                         class="btn btn-outline-secondary d-lg-none flex-shrink-0"
                         aria-label="Abrir menú de navegación"
                         aria-expanded="false"
-                        aria-controls="mobile-nav-drawer">
+                        aria-controls="mdMenuMovil">
                     <i class="bi bi-list" aria-hidden="true"></i>
                 </button>
                 <div class="min-w-0">
@@ -105,7 +105,7 @@
 </div>
 
 <!-- Contenedor de toasts accesibles -->
-<div id="app-toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090;" aria-live="polite" aria-atomic="true"></div>
+<div id="contenedorAvisos" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1090;" aria-live="polite" aria-atomic="true"></div>
 
 @stack('scripts')
 </body>

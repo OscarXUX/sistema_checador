@@ -78,25 +78,25 @@ class RecalculateAttendanceCommand extends Command
             || ($departmentOpt !== null && $departmentOpt !== '')
             || ($rotationOpt !== null && $rotationOpt !== '');
 
-        $employees = null;
+        $lstEmpleados = null;
 
         if ($hasScopeFilter) {
-            $employeeIds = collect();
+            $lstIdsEmpleados = collect();
 
             if ($employeeOpt !== null && $employeeOpt !== '') {
-                $employeeIds->push((int) $employeeOpt);
+                $lstIdsEmpleados->push((int) $employeeOpt);
             }
 
             if ($groupOpt !== null && $groupOpt !== '') {
                 $group = EmployeeGroup::with('employees:id')->find((int) $groupOpt);
                 if ($group !== null) {
-                    $employeeIds = $employeeIds->merge($group->employees->pluck('id'));
+                    $lstIdsEmpleados = $lstIdsEmpleados->merge($group->employees->pluck('id'));
                 }
             }
 
             if ($departmentOpt !== null && $departmentOpt !== '') {
-                $deptEmpIds = Employee::where('department', (string) $departmentOpt)->pluck('id');
-                $employeeIds = $employeeIds->merge($deptEmpIds);
+                $lstIdsDepartamento = Employee::where('department', (string) $departmentOpt)->pluck('id');
+                $lstIdsEmpleados = $lstIdsEmpleados->merge($lstIdsDepartamento);
             }
 
             if ($rotationOpt !== null && $rotationOpt !== '') {
@@ -104,16 +104,16 @@ class RecalculateAttendanceCommand extends Command
                 if ($rotation !== null) {
                     foreach ($rotation->assignments as $assignment) {
                         if ($assignment->employee_id !== null) {
-                            $employeeIds->push($assignment->employee_id);
+                            $lstIdsEmpleados->push($assignment->employee_id);
                         }
                         if ($assignment->employee_group_id !== null) {
                             $grp = EmployeeGroup::with('employees:id')->find($assignment->employee_group_id);
                             if ($grp !== null) {
-                                $employeeIds = $employeeIds->merge($grp->employees->pluck('id'));
+                                $lstIdsEmpleados = $lstIdsEmpleados->merge($grp->employees->pluck('id'));
                             }
                         }
                         if ($assignment->department !== null && $assignment->department !== '') {
-                            $employeeIds = $employeeIds->merge(
+                            $lstIdsEmpleados = $lstIdsEmpleados->merge(
                                 Employee::where('department', $assignment->department)->pluck('id')
                             );
                         }
@@ -121,13 +121,13 @@ class RecalculateAttendanceCommand extends Command
                 }
             }
 
-            $uniqueIds = $employeeIds->filter()->unique()->values();
-            $employees = $uniqueIds->isEmpty()
+            $lstIdsUnicos = $lstIdsEmpleados->filter()->unique()->values();
+            $lstEmpleados = $lstIdsUnicos->isEmpty()
                 ? collect()
-                : Employee::with(['workShift', 'groups:id'])->whereIn('id', $uniqueIds)->get();
+                : Employee::with(['workShift', 'groups:id'])->whereIn('id', $lstIdsUnicos)->get();
         }
 
-        $count = $calculator->recalculateForScope($employees, $from, $to);
+        $count = $calculator->recalculateForScope($lstEmpleados, $from, $to);
         $this->info("Se recalcularon {$count} jornadas a partir de attendance_logs.");
 
         return self::SUCCESS;

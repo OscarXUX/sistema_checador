@@ -11,7 +11,7 @@
 
 @section('content')
 @php
-    $kpis = $dashboardData['kpis'];
+    $dataKpis = $dataDashboard['kpis'];
 @endphp
 
 <!-- 4 Tarjetas KPI de Bootstrap 5 -->
@@ -21,14 +21,14 @@
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                     <div class="text-secondary small fw-medium">Empleados en Planta</div>
-                    <div class="kpi-value fw-bold mt-1 font-mono-tabular" id="kpi-in-plant">{{ $kpis['in_plant'] }}</div>
+                    <div class="kpi-value fw-bold mt-1 font-mono-tabular" id="lblEnPlanta">{{ $dataKpis['in_plant'] }}</div>
                 </div>
                 <div class="kpi-icon bg-info bg-opacity-10 text-info border border-info border-opacity-25">
                     <i class="bi bi-building-check" aria-hidden="true"></i>
                 </div>
             </div>
             <div class="small text-secondary">
-                De <span class="text-light fw-semibold font-mono-tabular" id="kpi-active-total">{{ $kpis['active_employees'] }}</span> empleados activos en padrón
+                De <span class="text-light fw-semibold font-mono-tabular" id="lblEmpleadosActivos">{{ $dataKpis['active_employees'] }}</span> empleados activos en padrón
             </div>
         </article>
     </div>
@@ -38,17 +38,17 @@
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                     <div class="text-secondary small fw-medium">En Hora de Comida</div>
-                    <div class="kpi-value fw-bold mt-1 font-mono-tabular" id="kpi-in-meal">{{ $kpis['in_meal'] }}</div>
+                    <div class="kpi-value fw-bold mt-1 font-mono-tabular" id="lblEnComida">{{ $dataKpis['in_meal'] }}</div>
                 </div>
                 <div class="kpi-icon bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">
                     <i class="bi bi-cup-hot" aria-hidden="true"></i>
                 </div>
             </div>
-            <div id="kpi-meal-alert-badge" class="small">
-                @if($kpis['meal_exceeded_count'] > 0)
+            <div id="lblAvisoComida" class="small">
+                @if($dataKpis['meal_exceeded_count'] > 0)
                     <span class="badge text-bg-danger">
                         <i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>
-                        {{ $kpis['meal_exceeded_count'] }} exceso(s) de comida hoy
+                        {{ $dataKpis['meal_exceeded_count'] }} exceso(s) de comida hoy
                     </span>
                 @else
                     <span class="text-success">
@@ -64,14 +64,14 @@
             <div class="d-flex justify-content-between align-items-start mb-3">
                 <div>
                     <div class="text-secondary small fw-medium">Retardos Hoy</div>
-                    <div class="kpi-value fw-bold mt-1 font-mono-tabular text-warning" id="kpi-late-today">{{ $kpis['late_today'] }}</div>
+                    <div class="kpi-value fw-bold mt-1 font-mono-tabular text-warning" id="lblRetardosHoy">{{ $dataKpis['late_today'] }}</div>
                 </div>
                 <div class="kpi-icon bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
                     <i class="bi bi-alarm" aria-hidden="true"></i>
                 </div>
             </div>
             <div class="small text-secondary">
-                Acumulado hoy: <span class="text-light fw-semibold font-mono-tabular" id="kpi-late-minutes">{{ $kpis['late_today_minutes'] }}</span> min fuera de tolerancia
+                Acumulado hoy: <span class="text-light fw-semibold font-mono-tabular" id="lblMinutosRetardo">{{ $dataKpis['late_today_minutes'] }}</span> min fuera de tolerancia
             </div>
         </article>
     </div>
@@ -82,7 +82,7 @@
                 <div>
                     <div class="text-secondary small fw-medium">Horas Extra (Semana)</div>
                     <div class="kpi-value fw-bold mt-1 font-mono-tabular text-info">
-                        <span id="kpi-overtime-hours">{{ number_format($kpis['weekly_overtime_hours'], 1) }}</span>
+                        <span id="lblHorasExtra">{{ number_format($dataKpis['weekly_overtime_hours'], 1) }}</span>
                         <span class="fs-5 text-secondary fw-normal">hrs</span>
                     </div>
                 </div>
@@ -91,22 +91,22 @@
                 </div>
             </div>
             <div class="small text-secondary">
-                Equivalente a <span class="text-light fw-semibold font-mono-tabular" id="kpi-overtime-minutes">{{ $kpis['weekly_overtime_minutes'] }}</span> minutos extras
+                Equivalente a <span class="text-light fw-semibold font-mono-tabular" id="lblMinutosExtra">{{ $dataKpis['weekly_overtime_minutes'] }}</span> minutos extras
             </div>
         </article>
     </div>
 </section>
 
 <!-- Alerta detallada de exceso de comida -->
-<section id="meal-alerts-banner" class="mb-4 {{ count($kpis['meal_alerts']) === 0 ? 'd-none' : '' }}" aria-live="polite">
+<section id="avisoComida" class="mb-4 {{ count($dataKpis['meal_alerts']) === 0 ? 'd-none' : '' }}" aria-live="polite">
     <div class="alert alert-danger border-danger-subtle bg-danger bg-opacity-10 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-0">
         <div>
             <div class="fw-semibold text-danger-emphasis">
                 <i class="bi bi-exclamation-octagon-fill me-2" aria-hidden="true"></i>
                 Alerta Fiscal de Comida Excedida
             </div>
-            <div class="small text-light mt-1" id="meal-alerts-list">
-                @foreach($kpis['meal_alerts'] as $alert)
+            <div class="small text-light mt-1" id="lblAvisosComida">
+                @foreach($dataKpis['meal_alerts'] as $alert)
                     <span class="badge text-bg-dark border border-danger me-1 mb-1">
                         {{ $alert['employee_name'] }}: {{ $alert['elapsed_minutes'] }} / {{ $alert['allowed_minutes'] }} min
                         @if($alert['active']) (En curso) @endif
@@ -121,21 +121,21 @@
 </section>
 
 <!-- Incidencias de checadas de las jornadas en curso (paquete 3) -->
-<section id="incident-alerts-banner" class="mb-4 {{ $kpis['incidents_today'] === 0 ? 'd-none' : '' }}" aria-live="polite">
+<section id="avisoIncidencias" class="mb-4 {{ $dataKpis['incidents_today'] === 0 ? 'd-none' : '' }}" aria-live="polite">
     <div class="alert alert-warning border-warning-subtle bg-warning bg-opacity-10 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-0">
         <div>
             <div class="fw-semibold text-warning-emphasis">
                 <i class="bi bi-exclamation-diamond-fill me-2" aria-hidden="true"></i>
-                Incidencias de checadas hoy: <span id="lbl-incidencias-total" class="font-mono-tabular">{{ $kpis['incidents_today'] }}</span>
+                Incidencias de checadas hoy: <span id="lblIncidenciasTotal" class="font-mono-tabular">{{ $dataKpis['incidents_today'] }}</span>
             </div>
-            <div class="small text-light mt-1" id="lst-incidencias">
-                @foreach($kpis['incident_alerts'] as $incidencia)
+            <div class="small text-light mt-1" id="lblIncidencias">
+                @foreach($dataKpis['incident_alerts'] as $incidencia)
                     <span class="badge text-bg-dark border border-warning me-1 mb-1">
                         [{{ $incidencia['employee_no'] }}] {{ $incidencia['employee_name'] }}: {{ $incidencia['label'] }} · {{ $incidencia['at'] }}
                     </span>
                 @endforeach
             </div>
-            <div id="lbl-incidencias-mas" class="small text-secondary {{ $kpis['incidents_today'] > count($kpis['incident_alerts']) ? '' : 'd-none' }}">Se muestran las 30 más recientes.</div>
+            <div id="lblIncidenciasMas" class="small text-secondary {{ $dataKpis['incidents_today'] > count($dataKpis['incident_alerts']) ? '' : 'd-none' }}">Se muestran las 30 más recientes.</div>
         </div>
         @can('kardex.consultar')
         <a href="{{ route('reports.kardex', ['start_date' => now()->toDateString(), 'end_date' => now()->toDateString()]) }}" class="btn btn-sm btn-outline-warning flex-shrink-0">
@@ -156,7 +156,7 @@
                 </div>
                 <span class="badge text-bg-dark border border-secondary-subtle">Wijmo FlexChart</span>
             </div>
-            <div id="punctuality-chart" role="img" aria-label="Gráfica de puntualidad semanal"></div>
+            <div id="chartPuntualidad" role="img" aria-label="Gráfica de puntualidad semanal"></div>
         </div>
     </div>
 
@@ -169,7 +169,7 @@
                 </div>
                 <span class="badge text-bg-dark border border-secondary-subtle">Wijmo FlexChart</span>
             </div>
-            <div id="department-chart" role="img" aria-label="Gráfica comparativa de horas por departamento"></div>
+            <div id="chartDepartamentos" role="img" aria-label="Gráfica comparativa de horas por departamento"></div>
         </div>
     </div>
 </section>
@@ -178,23 +178,23 @@
 <section class="surface-card p-3 p-md-4 isolated-panel" aria-label="Monitor de checadas en vivo">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
         <div>
-            <h2 class="h6 fw-semibold mb-0" id="live-monitor-title">
-                {{ ($dashboardData['live_logs_scope'] ?? 'today') === 'recent' ? 'Monitor en Vivo de Checadas (Últimas registradas)' : 'Monitor en Vivo de Checadas (Hoy)' }}
+            <h2 class="h6 fw-semibold mb-0" id="lblTituloMonitor">
+                {{ ($dataDashboard['live_logs_scope'] ?? 'today') === 'recent' ? 'Monitor en Vivo de Checadas (Últimas registradas)' : 'Monitor en Vivo de Checadas (Hoy)' }}
             </h2>
             <small class="text-secondary">
-                Última actualización: <span id="dashboard-generated-at" class="font-mono-tabular">{{ $dashboardData['generated_at'] }}</span>
+                Última actualización: <span id="lblActualizado" class="font-mono-tabular">{{ $dataDashboard['generated_at'] }}</span>
             </small>
         </div>
 
         <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 w-100 w-md-auto">
             <search class="flex-grow-1">
-                <form id="live-filter-form" class="d-flex align-items-center">
-                    <label for="live-search-input" class="visually-hidden">Filtrar checadas del día</label>
+                <form id="frmFiltroMonitor" class="d-flex align-items-center">
+                    <label for="txtBuscarMonitor" class="visually-hidden">Filtrar checadas del día</label>
                     <div class="input-group input-group-sm w-100">
                         <span class="input-group-text bg-dark border-secondary-subtle text-secondary">
                             <i class="bi bi-search" aria-hidden="true"></i>
                         </span>
-                        <input id="live-search-input"
+                        <input id="txtBuscarMonitor"
                                type="search"
                                class="form-control bg-dark border-secondary-subtle"
                                placeholder="Filtrar empleado, depto, evento..."
@@ -204,30 +204,30 @@
                     </div>
                 </form>
             </search>
-            <button id="refresh-dashboard-btn" type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0">
+            <button id="btnRefrescar" type="button" class="btn btn-sm btn-outline-secondary flex-shrink-0">
                 <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Refrescar
             </button>
         </div>
     </div>
 
     <div class="grid-region" tabindex="0" role="region" aria-label="Tabla en vivo de checadas biométricas">
-        <div id="live-monitor-grid"></div>
+        <div id="gridMonitor"></div>
     </div>
 </section>
 @endsection
 
 @push('scripts')
-<script id="dashboard-initial-data" type="application/json">@json($dashboardData)</script>
+<script id="dataDashboardInicial" type="application/json">@json($dataDashboard)</script>
 <script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
     const { core: wjCore, grid: wjGrid, chart: wjChart } = window.AppUI.wijmo;
     const { apiFetch, escapeHtml } = window.AppUI;
 
-    let payload = JSON.parse(document.getElementById('dashboard-initial-data').textContent);
+    let dataDashboard = JSON.parse(document.getElementById('dataDashboardInicial').textContent);
 
     // 1. FlexChart: Puntualidad semanal
-    const punctualityChart = new wjChart.FlexChart('#punctuality-chart', {
-        itemsSource: payload.charts.punctuality,
+    const chartPuntualidad = new wjChart.FlexChart('#chartPuntualidad', {
+        itemsSource: dataDashboard.charts.punctuality,
         bindingX: 'day',
         chartType: wjChart.ChartType.Column,
         legend: { position: wjChart.Position.Bottom },
@@ -247,12 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
             },
         ],
     });
-    punctualityChart.axisY.min = 0;
-    punctualityChart.axisY.format = 'n0';
+    chartPuntualidad.axisY.min = 0;
+    chartPuntualidad.axisY.format = 'n0';
 
     // 2. FlexChart: Horas Ordinarias vs Extra por Departamento
-    const departmentChart = new wjChart.FlexChart('#department-chart', {
-        itemsSource: payload.charts.departments,
+    const chartDepartamentos = new wjChart.FlexChart('#chartDepartamentos', {
+        itemsSource: dataDashboard.charts.departments,
         bindingX: 'department',
         chartType: wjChart.ChartType.Column,
         stacking: wjChart.Stacking.Stacked,
@@ -273,16 +273,16 @@ document.addEventListener('DOMContentLoaded', () => {
             },
         ],
     });
-    departmentChart.axisY.min = 0;
-    departmentChart.axisY.title = 'Horas';
+    chartDepartamentos.axisY.min = 0;
+    chartDepartamentos.axisY.title = 'Horas';
 
     // 3. FlexGrid: Monitor en Vivo
-    const liveView = new wjCore.CollectionView(payload.live_logs);
-    const searchInput = document.getElementById('live-search-input');
-    document.getElementById('live-filter-form')?.addEventListener('submit', (e) => e.preventDefault());
+    const lstMonitor = new wjCore.CollectionView(dataDashboard.live_logs);
+    const txtBuscarMonitor = document.getElementById('txtBuscarMonitor');
+    document.getElementById('frmFiltroMonitor')?.addEventListener('submit', (e) => e.preventDefault());
 
-    liveView.filter = (item) => {
-        const term = (searchInput.value || '').trim().toLowerCase();
+    lstMonitor.filter = (item) => {
+        const term = (txtBuscarMonitor.value || '').trim().toLowerCase();
         if (!term) return true;
         return [
             item.employee_no,
@@ -295,10 +295,10 @@ document.addEventListener('DOMContentLoaded', () => {
         ].some((val) => String(val || '').toLowerCase().includes(term));
     };
 
-    searchInput.addEventListener('input', () => liveView.refresh());
+    txtBuscarMonitor.addEventListener('input', () => lstMonitor.refresh());
 
-    const liveGrid = new wjGrid.FlexGrid('#live-monitor-grid', {
-        itemsSource: liveView,
+    const gridMonitor = new wjGrid.FlexGrid('#gridMonitor', {
+        itemsSource: lstMonitor,
         autoGenerateColumns: false,
         isReadOnly: true,
         selectionMode: wjGrid.SelectionMode.Row,
@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ],
     });
 
-    const eventBadgeMap = {
+    const dataColoresEvento = {
         check_in: 'text-bg-success',
         break_out: 'text-bg-warning text-dark',
         break_in: 'text-bg-info text-dark',
@@ -324,7 +324,7 @@ document.addEventListener('DOMContentLoaded', () => {
         unclassified: 'text-bg-secondary',
     };
 
-    const statusBadgeMap = {
+    const dataColoresEstado = {
         on_time: 'border-success text-success',
         late: 'border-warning text-warning',
         in_meal: 'border-info text-info',
@@ -333,82 +333,82 @@ document.addEventListener('DOMContentLoaded', () => {
         absent: 'border-danger text-danger',
     };
 
-    liveGrid.formatItem.addHandler((s, e) => {
+    gridMonitor.formatItem.addHandler((s, e) => {
         if (e.panel !== s.cells) return;
         const col = s.columns[e.col];
         const rowItem = s.rows[e.row]?.dataItem;
         if (!rowItem) return;
 
         if (col.binding === 'event_label') {
-            const cls = eventBadgeMap[rowItem.event_type] || 'text-bg-secondary';
+            const cls = dataColoresEvento[rowItem.event_type] || 'text-bg-secondary';
             e.cell.innerHTML = `<span class="badge ${cls}">${escapeHtml(rowItem.event_label)}</span>`;
         } else if (col.binding === 'daily_status_label') {
-            const cls = statusBadgeMap[rowItem.daily_status] || 'border-secondary text-secondary';
+            const cls = dataColoresEstado[rowItem.daily_status] || 'border-secondary text-secondary';
             e.cell.innerHTML = `<span class="badge bg-dark border ${cls}">${escapeHtml(rowItem.daily_status_label)}</span>`;
         }
     });
 
-    function renderDashboardData(next) {
-        payload = next;
-        const k = next.kpis;
+    function pintarDashboard(dataNuevo) {
+        dataDashboard = dataNuevo;
+        const dataKpis = dataNuevo.kpis;
 
-        document.getElementById('kpi-in-plant').textContent = k.in_plant;
-        document.getElementById('kpi-active-total').textContent = k.active_employees;
-        document.getElementById('kpi-in-meal').textContent = k.in_meal;
-        document.getElementById('kpi-late-today').textContent = k.late_today;
-        document.getElementById('kpi-late-minutes').textContent = k.late_today_minutes;
-        document.getElementById('kpi-overtime-hours').textContent = Number(k.weekly_overtime_hours).toFixed(1);
-        document.getElementById('kpi-overtime-minutes').textContent = k.weekly_overtime_minutes;
-        document.getElementById('dashboard-generated-at').textContent = next.generated_at;
-        document.getElementById('live-monitor-title').textContent = next.live_logs_scope === 'recent'
+        document.getElementById('lblEnPlanta').textContent = dataKpis.in_plant;
+        document.getElementById('lblEmpleadosActivos').textContent = dataKpis.active_employees;
+        document.getElementById('lblEnComida').textContent = dataKpis.in_meal;
+        document.getElementById('lblRetardosHoy').textContent = dataKpis.late_today;
+        document.getElementById('lblMinutosRetardo').textContent = dataKpis.late_today_minutes;
+        document.getElementById('lblHorasExtra').textContent = Number(dataKpis.weekly_overtime_hours).toFixed(1);
+        document.getElementById('lblMinutosExtra').textContent = dataKpis.weekly_overtime_minutes;
+        document.getElementById('lblActualizado').textContent = dataNuevo.generated_at;
+        document.getElementById('lblTituloMonitor').textContent = dataNuevo.live_logs_scope === 'recent'
             ? 'Monitor en Vivo de Checadas (Últimas registradas)'
             : 'Monitor en Vivo de Checadas (Hoy)';
 
-        const alertBadge = document.getElementById('kpi-meal-alert-badge');
-        if (k.meal_exceeded_count > 0) {
-            alertBadge.innerHTML = `<span class="badge text-bg-danger"><i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>${escapeHtml(k.meal_exceeded_count)} exceso(s) de comida hoy</span>`;
+        const lblAvisoComida = document.getElementById('lblAvisoComida');
+        if (dataKpis.meal_exceeded_count > 0) {
+            lblAvisoComida.innerHTML = `<span class="badge text-bg-danger"><i class="bi bi-exclamation-triangle-fill me-1" aria-hidden="true"></i>${escapeHtml(dataKpis.meal_exceeded_count)} exceso(s) de comida hoy</span>`;
         } else {
-            alertBadge.innerHTML = `<span class="text-success"><i class="bi bi-check-circle me-1" aria-hidden="true"></i>Sin excesos de tiempo</span>`;
+            lblAvisoComida.innerHTML = `<span class="text-success"><i class="bi bi-check-circle me-1" aria-hidden="true"></i>Sin excesos de tiempo</span>`;
         }
 
-        const banner = document.getElementById('meal-alerts-banner');
-        const listEl = document.getElementById('meal-alerts-list');
-        if (k.meal_alerts.length > 0) {
-            banner.classList.remove('d-none');
-            listEl.innerHTML = k.meal_alerts.map((a) => (
+        const avisoComida = document.getElementById('avisoComida');
+        const lblAvisosComida = document.getElementById('lblAvisosComida');
+        if (dataKpis.meal_alerts.length > 0) {
+            avisoComida.classList.remove('d-none');
+            lblAvisosComida.innerHTML = dataKpis.meal_alerts.map((a) => (
                 `<span class="badge text-bg-dark border border-danger me-1 mb-1">${escapeHtml(a.employee_name)}: ${escapeHtml(a.elapsed_minutes)} / ${escapeHtml(a.allowed_minutes)} min${a.active ? ' (En curso)' : ''}</span>`
             )).join('');
         } else {
-            banner.classList.add('d-none');
-            listEl.innerHTML = '';
+            avisoComida.classList.add('d-none');
+            lblAvisosComida.innerHTML = '';
         }
 
-        const bannerIncidencias = document.getElementById('incident-alerts-banner');
-        const lstIncidencias = document.getElementById('lst-incidencias');
-        document.getElementById('lbl-incidencias-total').textContent = k.incidents_today;
-        document.getElementById('lbl-incidencias-mas').classList.toggle('d-none', k.incidents_today <= k.incident_alerts.length);
-        bannerIncidencias.classList.toggle('d-none', k.incidents_today === 0);
-        lstIncidencias.innerHTML = k.incident_alerts.map((i) => (
+        const avisoIncidencias = document.getElementById('avisoIncidencias');
+        const lblIncidencias = document.getElementById('lblIncidencias');
+        document.getElementById('lblIncidenciasTotal').textContent = dataKpis.incidents_today;
+        document.getElementById('lblIncidenciasMas').classList.toggle('d-none', dataKpis.incidents_today <= dataKpis.incident_alerts.length);
+        avisoIncidencias.classList.toggle('d-none', dataKpis.incidents_today === 0);
+        lblIncidencias.innerHTML = dataKpis.incident_alerts.map((i) => (
             `<span class="badge text-bg-dark border border-warning me-1 mb-1">[${escapeHtml(i.employee_no)}] ${escapeHtml(i.employee_name)}: ${escapeHtml(i.label)} · ${escapeHtml(i.at)}</span>`
         )).join('');
 
-        punctualityChart.itemsSource = next.charts.punctuality;
-        departmentChart.itemsSource = next.charts.departments;
-        liveView.sourceCollection = next.live_logs;
-        liveView.refresh();
+        chartPuntualidad.itemsSource = dataNuevo.charts.punctuality;
+        chartDepartamentos.itemsSource = dataNuevo.charts.departments;
+        lstMonitor.sourceCollection = dataNuevo.live_logs;
+        lstMonitor.refresh();
     }
 
-    async function refreshDashboard() {
+    async function refrescarDashboard() {
         try {
-            const fresh = await apiFetch('{{ route("dashboard.data") }}', { method: 'GET' });
-            renderDashboardData(fresh);
+            const dataRespuesta = await apiFetch('{{ route("dashboard.data") }}', { method: 'GET' });
+            pintarDashboard(dataRespuesta);
         } catch (err) {
             window.AppUI.showToast(err.message || 'No se pudo actualizar el dashboard.', 'danger');
         }
     }
 
-    document.getElementById('refresh-dashboard-btn').addEventListener('click', refreshDashboard);
-    window.addEventListener('hikvision:synced', refreshDashboard);
+    document.getElementById('btnRefrescar').addEventListener('click', refrescarDashboard);
+    window.addEventListener('hikvision:synced', refrescarDashboard);
 });
 </script>
 @endpush

@@ -56,9 +56,9 @@ class EventTypeController extends Controller
         $request->merge(['applies_to' => $eventType->applies_to, 'is_active' => $request->boolean('is_active')]);
         $dataValidado = $this->validated($request, $eventType);
 
-        $before = $eventType->only(['name', 'min_minutes', 'max_minutes', 'color', 'sort_order', 'is_active']);
+        $dataAntes = $eventType->only(['name', 'min_minutes', 'max_minutes', 'color', 'sort_order', 'is_active']);
         $eventType->update($dataValidado);
-        [$old, $new] = $this->audit->diff($before, $eventType->only(array_keys($before)));
+        [$old, $new] = $this->audit->diff($dataAntes, $eventType->only(array_keys($dataAntes)));
 
         if ($new === []) {
             return redirect()->route('catalogs.event-types')->with('status', 'Sin cambios.');

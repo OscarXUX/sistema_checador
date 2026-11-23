@@ -56,17 +56,17 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited($audit);
 
-        $credentials = [
+        $dataCredenciales = [
             'email' => $this->string('email')->lower()->trim()->toString(),
             'password' => $this->string('password')->toString(),
             'is_active' => true,
         ];
 
-        if (! Auth::attempt($credentials)) {
+        if (! Auth::attempt($dataCredenciales)) {
             RateLimiter::hit($this->throttleKey(), 60);
 
             $audit->record('auth.login_failed', null, 'Intento fallido de inicio de sesión', [], [
-                'email' => $credentials['email'],
+                'email' => $dataCredenciales['email'],
             ]);
 
             // Mismo mensaje exista o no la cuenta, esté o no activa

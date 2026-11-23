@@ -14,13 +14,13 @@
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-3">
         <div class="d-flex flex-wrap align-items-center gap-2 flex-grow-1">
             <search class="flex-grow-1" style="max-width: 420px;">
-                <form id="employee-filter-form" class="d-flex align-items-center">
-                    <label for="employee-search-input" class="visually-hidden">Buscar empleados</label>
+                <form id="frmBuscarEmpleados" class="d-flex align-items-center">
+                    <label for="txtBuscarEmpleado" class="visually-hidden">Buscar empleados</label>
                     <div class="input-group input-group-sm w-100">
                         <span class="input-group-text bg-dark border-secondary-subtle text-secondary">
                             <i class="bi bi-search" aria-hidden="true"></i>
                         </span>
-                        <input id="employee-search-input"
+                        <input id="txtBuscarEmpleado"
                                type="search"
                                class="form-control bg-dark border-secondary-subtle"
                                placeholder="Buscar nombre, ID reloj, depto o RFC/CURP completo..."
@@ -30,13 +30,13 @@
                     </div>
                 </form>
             </search>
-            <span class="badge text-bg-dark border border-secondary-subtle" id="employee-count-badge">
-                {{ $employeesPage['meta']['total'] }} empleados
+            <span class="badge text-bg-dark border border-secondary-subtle" id="lblTotalEmpleados">
+                {{ $dataPaginaEmpleados['meta']['total'] }} empleados
             </span>
         </div>
 
         @can('empleados.agregar')
-        <button id="btn-new-employee" type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 flex-shrink-0">
+        <button id="btnNuevoEmpleado" type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center justify-content-center gap-2 flex-shrink-0">
             <i class="bi bi-person-plus-fill" aria-hidden="true"></i>
             <span>Nuevo Empleado</span>
         </button>
@@ -44,43 +44,43 @@
     </div>
 
     <div class="grid-region" tabindex="0" role="region" aria-label="Tabla de empleados y acciones biométricas">
-        <div id="employees-grid"></div>
+        <div id="gridEmpleados"></div>
     </div>
 
     {{-- Paginación en el servidor (auditoría OP-07) --}}
     <nav class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3" aria-label="Páginas de empleados">
-        <button id="employees-prev" type="button" class="btn btn-outline-secondary btn-sm">
+        <button id="btnPaginaAnterior" type="button" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-chevron-left" aria-hidden="true"></i> Anterior
         </button>
-        <span id="employees-page-label" class="small text-secondary font-mono-tabular" aria-live="polite">
-            Página {{ $employeesPage['meta']['page'] }} de {{ $employeesPage['meta']['last_page'] }}
+        <span id="lblPagina" class="small text-secondary font-mono-tabular" aria-live="polite">
+            Página {{ $dataPaginaEmpleados['meta']['page'] }} de {{ $dataPaginaEmpleados['meta']['last_page'] }}
         </span>
-        <button id="employees-next" type="button" class="btn btn-outline-secondary btn-sm">
+        <button id="btnPaginaSiguiente" type="button" class="btn btn-outline-secondary btn-sm">
             Siguiente <i class="bi bi-chevron-right" aria-hidden="true"></i>
         </button>
     </nav>
 </section>
 
 <!-- Modal nativo <dialog>: Crear / Editar Empleado -->
-<dialog id="employee-form-dialog" class="app-dialog" aria-labelledby="employee-dialog-title">
+<dialog id="mdEmpleado" class="app-dialog" aria-labelledby="lblTituloEmpleado">
     <div class="surface-card overflow-hidden">
         <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
-            <h2 id="employee-dialog-title" class="h6 mb-0 fw-semibold">Nuevo Empleado</h2>
-            <button type="button" class="btn-close" data-close-dialog="employee-form-dialog" aria-label="Cerrar ventana"></button>
+            <h2 id="lblTituloEmpleado" class="h6 mb-0 fw-semibold">Nuevo Empleado</h2>
+            <button type="button" class="btn-close" data-close-dialog="mdEmpleado" aria-label="Cerrar ventana"></button>
         </div>
 
-        <form id="employee-form" method="POST" action="{{ route('employees.store') }}" novalidate>
+        <form id="frmEmpleado" method="POST" action="{{ route('employees.store') }}" novalidate>
             @csrf
-            <input type="hidden" id="emp-id" name="id" value="">
+            <input type="hidden" id="txtIdEmpleado" name="id" value="">
 
             <div class="p-3 p-md-4 row g-3 app-dialog-body">
-                <div id="employee-form-errors" class="col-12 d-none">
+                <div id="lblErroresEmpleado" class="col-12 d-none">
                     <div class="alert alert-danger py-2 small mb-0" role="alert" aria-live="polite"></div>
                 </div>
 
                 <div class="col-12 col-sm-4">
-                    <label for="emp-no" class="form-label small fw-medium">ID Reloj Hikvision <span class="text-danger">*</span></label>
-                    <input id="emp-no"
+                    <label for="txtNumeroReloj" class="form-label small fw-medium">ID Reloj Hikvision <span class="text-danger">*</span></label>
+                    <input id="txtNumeroReloj"
                            name="hikvision_employee_no"
                            type="text"
                            class="form-control font-mono-tabular"
@@ -90,14 +90,14 @@
                            autocorrect="off"
                            autocapitalize="none"
                            spellcheck="false"
-                           aria-describedby="emp-no-help"
+                           aria-describedby="lblAyudaNumeroReloj"
                            autofocus>
-                    <div id="emp-no-help" class="form-text small">Llave única en terminal (ej. 1015).</div>
+                    <div id="lblAyudaNumeroReloj" class="form-text small">Llave única en terminal (ej. 1015).</div>
                 </div>
 
                 <div class="col-12 col-sm-8">
-                    <label for="emp-name" class="form-label small fw-medium">Nombre Completo <span class="text-danger">*</span></label>
-                    <input id="emp-name"
+                    <label for="txtNombre" class="form-label small fw-medium">Nombre Completo <span class="text-danger">*</span></label>
+                    <input id="txtNombre"
                            name="full_name"
                            type="text"
                            class="form-control"
@@ -107,8 +107,8 @@
                 </div>
 
                 <div class="col-12 col-sm-4">
-                    <label for="emp-rfc" class="form-label small fw-medium">RFC</label>
-                    <input id="emp-rfc"
+                    <label for="txtRfc" class="form-label small fw-medium">RFC</label>
+                    <input id="txtRfc"
                            name="rfc"
                            type="text"
                            class="form-control font-mono-tabular text-uppercase"
@@ -120,8 +120,8 @@
                 </div>
 
                 <div class="col-12 col-sm-5">
-                    <label for="emp-curp" class="form-label small fw-medium">CURP</label>
-                    <input id="emp-curp"
+                    <label for="txtCurp" class="form-label small fw-medium">CURP</label>
+                    <input id="txtCurp"
                            name="curp"
                            type="text"
                            class="form-control font-mono-tabular text-uppercase"
@@ -133,8 +133,8 @@
                 </div>
 
                 <div class="col-12 col-sm-3">
-                    <label for="emp-nss" class="form-label small fw-medium">NSS (11 dígitos)</label>
-                    <input id="emp-nss"
+                    <label for="txtNss" class="form-label small fw-medium">NSS (11 dígitos)</label>
+                    <input id="txtNss"
                            name="nss"
                            type="text"
                            class="form-control font-mono-tabular"
@@ -146,24 +146,24 @@
                 </div>
 
                 <div class="col-12 col-sm-6">
-                    <label for="emp-department" class="form-label small fw-medium">Departamento <span class="text-danger">*</span></label>
-                    <input id="emp-department"
+                    <label for="cbDepartamento" class="form-label small fw-medium">Departamento <span class="text-danger">*</span></label>
+                    <input id="cbDepartamento"
                            name="department"
                            type="text"
                            class="form-control"
-                           list="department-options"
+                           list="opcionesDepartamento"
                            required
                            maxlength="100">
-                    <datalist id="department-options">
-                        @foreach($departments as $dept)
+                    <datalist id="opcionesDepartamento">
+                        @foreach($lstDepartamentos as $dept)
                             <option value="{{ $dept }}"></option>
                         @endforeach
                     </datalist>
                 </div>
 
                 <div class="col-12 col-sm-6">
-                    <label for="emp-position" class="form-label small fw-medium">Puesto <span class="text-danger">*</span></label>
-                    <input id="emp-position"
+                    <label for="txtPuesto" class="form-label small fw-medium">Puesto <span class="text-danger">*</span></label>
+                    <input id="txtPuesto"
                            name="position"
                            type="text"
                            class="form-control"
@@ -172,20 +172,20 @@
                 </div>
 
                 <div class="col-12 col-sm-8">
-                    <label for="emp-shift" class="form-label small fw-medium">Turno Fiscal Asignado <span class="text-danger">*</span></label>
-                    <select id="emp-shift" name="work_shift_id" class="form-select" required>
-                        @if($workShifts->isEmpty())
+                    <label for="cbTurno" class="form-label small fw-medium">Turno Fiscal Asignado <span class="text-danger">*</span></label>
+                    <select id="cbTurno" name="work_shift_id" class="form-select" required>
+                        @if($lstTurnos->isEmpty())
                             <option value="" selected disabled>Sin turnos registrados — crea un turno primero</option>
                         @else
                             <option value="" disabled>Selecciona un turno...</option>
-                            @foreach($workShifts as $shift)
+                            @foreach($lstTurnos as $shift)
                                 <option value="{{ $shift->id }}">
                                     {{ $shift->name }} ({{ $shift->schedule_label }} · {{ $shift->meal_duration_minutes }}m comida)
                                 </option>
                             @endforeach
                         @endif
                     </select>
-                    @if($workShifts->isEmpty())
+                    @if($lstTurnos->isEmpty())
                         <div class="form-text text-warning d-flex align-items-center gap-1 mt-1">
                             <i class="bi bi-exclamation-triangle"></i>
                             <span>Debes registrar al menos un turno antes de dar de alta empleados.</span>
@@ -196,19 +196,19 @@
 
                 <div class="col-12 col-sm-4 d-flex align-items-end">
                     <div class="form-check form-switch mb-2">
-                        <input id="emp-active" name="is_active" class="form-check-input" type="checkbox" value="1" checked>
-                        <label class="form-check-label small" for="emp-active">Empleado Activo</label>
+                        <input id="ckActivo" name="is_active" class="form-check-input" type="checkbox" value="1" checked>
+                        <label class="form-check-label small" for="ckActivo">Empleado Activo</label>
                     </div>
                 </div>
 
                 {{-- Nota 16: tipo de sangre (dato de salud, solo con permiso) y foto --}}
                 @can('empleados.datos_salud')
                 <div class="col-12 col-sm-4">
-                    <label for="cb-tipo-sangre" class="form-label small fw-medium">Tipo de sangre</label>
-                    <select id="cb-tipo-sangre" name="blood_type" class="form-select">
+                    <label for="cbTipoSangre" class="form-label small fw-medium">Tipo de sangre</label>
+                    <select id="cbTipoSangre" name="blood_type" class="form-select">
                         <option value="">Sin registrar</option>
-                        @foreach(\App\Models\Employee::BLOOD_TYPES as $strTipo)
-                            <option value="{{ $strTipo }}">{{ $strTipo }}</option>
+                        @foreach(\App\Models\Employee::BLOOD_TYPES as $tipo)
+                            <option value="{{ $tipo }}">{{ $tipo }}</option>
                         @endforeach
                     </select>
                     <div class="form-text small">Dato de salud: se guarda cifrado y cada consulta queda en la bitácora.</div>
@@ -216,20 +216,20 @@
                 @else
                 <div class="col-12 col-sm-4">
                     <span class="form-label small fw-medium d-block">Tipo de sangre</span>
-                    <span id="lbl-tipo-sangre" class="small text-secondary">Necesitas el permiso "Ver y editar tipo de sangre".</span>
+                    <span id="lblTipoSangre" class="small text-secondary">Necesitas el permiso "Ver y editar tipo de sangre".</span>
                 </div>
                 @endcan
 
                 <div class="col-12 col-sm-8">
                     <span class="form-label small fw-medium d-block">Foto</span>
-                    <div id="lbl-foto-nueva" class="small text-secondary">Guarda el empleado para agregar su foto.</div>
-                    <div id="tab-foto" class="d-none d-flex align-items-center gap-3">
-                        <img id="pic-foto" src="" alt="Foto del empleado" width="72" height="72" class="rounded border border-secondary-subtle d-none" style="object-fit: cover;">
-                        <span id="lbl-sin-foto" class="small text-secondary">Sin foto</span>
+                    <div id="lblFotoNueva" class="small text-secondary">Guarda el empleado para agregar su foto.</div>
+                    <div id="contenedorFoto" class="d-none d-flex align-items-center gap-3">
+                        <img id="picFoto" src="" alt="Foto del empleado" width="72" height="72" class="rounded border border-secondary-subtle d-none" style="object-fit: cover;">
+                        <span id="lblSinFoto" class="small text-secondary">Sin foto</span>
                         <div class="d-flex flex-wrap gap-2">
-                            <label for="txt-foto" class="btn btn-outline-info btn-sm mb-0"><i class="bi bi-camera me-1" aria-hidden="true"></i>Subir foto</label>
-                            <input id="txt-foto" type="file" accept="image/jpeg,image/png,image/webp" class="visually-hidden">
-                            <button id="btn-quitar-foto" type="button" class="btn btn-outline-danger btn-sm d-none">Quitar foto</button>
+                            <label for="txtFoto" class="btn btn-outline-info btn-sm mb-0"><i class="bi bi-camera me-1" aria-hidden="true"></i>Subir foto</label>
+                            <input id="txtFoto" type="file" accept="image/jpeg,image/png,image/webp" class="visually-hidden">
+                            <button id="btnQuitarFoto" type="button" class="btn btn-outline-danger btn-sm d-none">Quitar foto</button>
                         </div>
                     </div>
                     <div class="form-text small">JPG, PNG o WebP de hasta 4 MB. Se reduce a 600 px y se le quitan los metadatos.</div>
@@ -237,10 +237,10 @@
             </div>
 
             <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="employee-form-dialog">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="mdEmpleado">
                     Cancelar
                 </button>
-                <button id="emp-submit-btn" type="submit" class="btn btn-primary btn-sm">
+                <button id="btnGuardarEmpleado" type="submit" class="btn btn-primary btn-sm">
                     Guardar Empleado
                 </button>
             </div>
@@ -249,25 +249,25 @@
 </dialog>
 
 <!-- Modal nativo <dialog>: Enrolamiento Remoto de Huella en Tiempo Real -->
-<dialog id="fingerprint-dialog" class="app-dialog" closedby="any" aria-labelledby="fp-dialog-title">
+<dialog id="mdHuella" class="app-dialog" closedby="any" aria-labelledby="lblTituloHuella">
     <div class="surface-card overflow-hidden">
         <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
-            <h2 id="fp-dialog-title" class="h6 mb-0 fw-semibold">Captura Remota de Huella (ISAPI)</h2>
-            <button type="button" class="btn-close" data-close-dialog="fingerprint-dialog" aria-label="Cerrar ventana"></button>
+            <h2 id="lblTituloHuella" class="h6 mb-0 fw-semibold">Captura Remota de Huella (ISAPI)</h2>
+            <button type="button" class="btn-close" data-close-dialog="mdHuella" aria-label="Cerrar ventana"></button>
         </div>
 
         <div class="p-4 text-center app-dialog-body">
-            <div id="fp-pulse-indicator" class="fingerprint-pulse mb-3">
+            <div id="indicadorHuella" class="fingerprint-pulse mb-3">
                 <i class="bi bi-fingerprint" aria-hidden="true"></i>
             </div>
 
-            <h3 id="fp-employee-name" class="h6 fw-semibold mb-1">-</h3>
-            <p class="small text-secondary font-mono-tabular mb-3" id="fp-employee-no">ID Reloj: -</p>
+            <h3 id="lblHuellaNombre" class="h6 fw-semibold mb-1">-</h3>
+            <p class="small text-secondary font-mono-tabular mb-3" id="lblHuellaNumero">ID Reloj: -</p>
 
             <div class="row justify-content-center mb-3">
                 <div class="col-12 col-sm-7 text-start">
-                    <label for="fp-finger-no" class="form-label small fw-medium">Índice de dedo (1-10)</label>
-                    <select id="fp-finger-no" class="form-select form-select-sm">
+                    <label for="cbDedo" class="form-label small fw-medium">Índice de dedo (1-10)</label>
+                    <select id="cbDedo" class="form-select form-select-sm">
                         <option value="1">1 — Pulgar Derecho</option>
                         <option value="2" selected>2 — Índice Derecho</option>
                         <option value="3">3 — Medio Derecho</option>
@@ -277,16 +277,16 @@
                 </div>
             </div>
 
-            <div id="fp-status-box" class="alert alert-secondary small text-start mb-0" role="status" aria-live="polite">
+            <div id="lblEstadoHuella" class="alert alert-secondary small text-start mb-0" role="status" aria-live="polite">
                 Presiona <strong>Activar Lector Óptico</strong> para enviar <code>POST /ISAPI/AccessControl/CaptureFingerPrint</code> a la terminal y solicitar al empleado colocar su dedo.
             </div>
         </div>
 
         <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end gap-2">
-            <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="fingerprint-dialog" autofocus>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="mdHuella" autofocus>
                 Cerrar
             </button>
-            <button id="fp-start-btn" type="button" class="btn btn-info btn-sm text-dark fw-semibold">
+            <button id="btnIniciarHuella" type="button" class="btn btn-info btn-sm text-dark fw-semibold">
                 <i class="bi bi-broadcast me-1" aria-hidden="true"></i>Activar Lector Óptico
             </button>
         </div>
@@ -294,30 +294,30 @@
 </dialog>
 
 <!-- Modal nativo <dialog>: Alta de Tarjeta RFID, PIN y Aviso Facial (TE-02) -->
-<dialog id="credentials-dialog" class="app-dialog" closedby="any" aria-labelledby="cred-dialog-title">
+<dialog id="mdMedios" class="app-dialog" closedby="any" aria-labelledby="lblTituloMedios">
     <div class="surface-card overflow-hidden">
         <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
-            <h2 id="cred-dialog-title" class="h6 mb-0 fw-semibold">Medios de Marcaje del Empleado</h2>
-            <button type="button" class="btn-close" data-close-dialog="credentials-dialog" aria-label="Cerrar ventana"></button>
+            <h2 id="lblTituloMedios" class="h6 mb-0 fw-semibold">Medios de Marcaje del Empleado</h2>
+            <button type="button" class="btn-close" data-close-dialog="mdMedios" aria-label="Cerrar ventana"></button>
         </div>
 
         <div class="p-3 p-md-4 app-dialog-body d-flex flex-column gap-4">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pb-2 border-bottom border-secondary-subtle">
                 <div>
-                    <div id="cred-employee-name" class="fw-semibold">-</div>
-                    <small id="cred-employee-no" class="font-mono-tabular text-secondary">ID Reloj: -</small>
+                    <div id="lblMediosNombre" class="fw-semibold">-</div>
+                    <small id="lblMediosNumero" class="font-mono-tabular text-secondary">ID Reloj: -</small>
                 </div>
-                <div class="d-flex flex-wrap gap-1" id="cred-status-badges"></div>
+                <div class="d-flex flex-wrap gap-1" id="lblEstadoMedios"></div>
             </div>
 
             <!-- Alta de Tarjeta RFID -->
-            <form id="card-enroll-form" class="p-3 rounded border border-secondary-subtle bg-dark bg-opacity-50">
+            <form id="frmTarjeta" class="p-3 rounded border border-secondary-subtle bg-dark bg-opacity-50">
                 <h3 class="h6 fw-semibold mb-1"><i class="bi bi-credit-card-2-front me-1 text-info" aria-hidden="true"></i>Alta de Tarjeta RFID</h3>
                 <p class="small text-secondary mb-3">Registra el número de tarjeta en la terminal Hikvision (<code>CardInfo/Record</code>).</p>
                 <div class="row g-2 align-items-end">
                     <div class="col-12 col-sm-8">
-                        <label for="cred-card-no" class="form-label small fw-medium">Número de Tarjeta <span class="text-danger">*</span></label>
-                        <input id="cred-card-no"
+                        <label for="txtNumeroTarjeta" class="form-label small fw-medium">Número de Tarjeta <span class="text-danger">*</span></label>
+                        <input id="txtNumeroTarjeta"
                                name="card_no"
                                type="text"
                                class="form-control form-control-sm font-mono-tabular"
@@ -327,10 +327,10 @@
                                placeholder="Ej. 0019283746">
                     </div>
                     <div class="col-12 col-sm-4">
-                        <button id="cred-card-submit"
+                        <button id="btnGuardarTarjeta"
                                 type="submit"
                                 class="btn btn-info btn-sm text-dark fw-semibold w-100"
-                                @disabled(!($markingMethods['card']->is_enabled ?? true))>
+                                @disabled(!($dataMediosMarcaje['card']->is_enabled ?? true))>
                             Enviar Tarjeta
                         </button>
                     </div>
@@ -338,15 +338,15 @@
             </form>
 
             <!-- Alta de PIN (nunca se guarda en la base) -->
-            <form id="pin-enroll-form" class="p-3 rounded border border-secondary-subtle bg-dark bg-opacity-50">
+            <form id="frmPin" class="p-3 rounded border border-secondary-subtle bg-dark bg-opacity-50">
                 <h3 class="h6 fw-semibold mb-1"><i class="bi bi-key me-1 text-warning" aria-hidden="true"></i>Alta de PIN en Terminal</h3>
                 <p class="small text-secondary mb-2">
                     El PIN se envía directo a la terminal vía ISAPI (<code>UserInfo/Modify</code>) y <strong>nunca se guarda en la base de datos</strong> ni en la bitácora.
                 </p>
                 <div class="row g-2 align-items-end">
                     <div class="col-12 col-sm-8">
-                        <label for="cred-pin" class="form-label small fw-medium">PIN numérico (4 a 8 dígitos) <span class="text-danger">*</span></label>
-                        <input id="cred-pin"
+                        <label for="txtPin" class="form-label small fw-medium">PIN numérico (4 a 8 dígitos) <span class="text-danger">*</span></label>
+                        <input id="txtPin"
                                name="pin"
                                type="password"
                                inputmode="numeric"
@@ -359,10 +359,10 @@
                                placeholder="••••">
                     </div>
                     <div class="col-12 col-sm-4">
-                        <button id="cred-pin-submit"
+                        <button id="btnGuardarPin"
                                 type="submit"
                                 class="btn btn-warning btn-sm text-dark fw-semibold w-100"
-                                @disabled(!($markingMethods['pin']->is_enabled ?? true))>
+                                @disabled(!($dataMediosMarcaje['pin']->is_enabled ?? true))>
                             Configurar PIN
                         </button>
                     </div>
@@ -382,7 +382,7 @@
         </div>
 
         <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end">
-            <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="credentials-dialog" autofocus>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="mdMedios" autofocus>
                 Cerrar
             </button>
         </div>
@@ -390,32 +390,32 @@
 </dialog>
 
 <!-- Modal nativo <dialog>: Confirmación de Baja / Eliminación -->
-<dialog id="delete-employee-dialog" class="app-dialog" closedby="any" aria-labelledby="delete-dialog-title">
+<dialog id="mdBaja" class="app-dialog" closedby="any" aria-labelledby="lblTituloBaja">
     <div class="surface-card overflow-hidden">
         <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
-            <h2 id="delete-dialog-title" class="h6 mb-0 fw-semibold text-danger">Confirmar Baja</h2>
-            <button type="button" class="btn-close" data-close-dialog="delete-employee-dialog" aria-label="Cerrar ventana"></button>
+            <h2 id="lblTituloBaja" class="h6 mb-0 fw-semibold text-danger">Confirmar Baja</h2>
+            <button type="button" class="btn-close" data-close-dialog="mdBaja" aria-label="Cerrar ventana"></button>
         </div>
 
         <div class="p-3 p-md-4 app-dialog-body">
             <p class="mb-3">
-                ¿Deseas dar de baja a <strong id="del-employee-name"></strong> (<span id="del-employee-no" class="font-mono-tabular"></span>)?
+                ¿Deseas dar de baja a <strong id="lblBajaNombre"></strong> (<span id="lblBajaNumero" class="font-mono-tabular"></span>)?
                 Si ya tiene checadas, quedará como <strong>Inactivo</strong> y se conserva su historial.
                 Si no tiene checadas, se elimina del sistema.
             </p>
             <div class="form-check">
-                <input id="del-from-device" class="form-check-input" type="checkbox" value="1">
-                <label class="form-check-label small" for="del-from-device">
+                <input id="ckBajaTerminal" class="form-check-input" type="checkbox" value="1">
+                <label class="form-check-label small" for="ckBajaTerminal">
                     Dar de baja también en la terminal Hikvision (<code>PUT /ISAPI/AccessControl/UserInfo/Delete</code>)
                 </label>
             </div>
         </div>
 
         <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end gap-2">
-            <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="delete-employee-dialog" autofocus>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-close-dialog="mdBaja" autofocus>
                 Cancelar
             </button>
-            <button id="del-confirm-btn" type="button" class="btn btn-danger btn-sm">
+            <button id="btnConfirmarBaja" type="button" class="btn btn-danger btn-sm">
                 Dar de Baja
             </button>
         </div>
@@ -424,7 +424,7 @@
 @endsection
 
 @push('scripts')
-<script id="employees-initial-data" type="application/json">@json($employeesPage)</script>
+<script id="dataEmpleadosInicial" type="application/json">@json($dataPaginaEmpleados)</script>
 <script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
     const { core: wjCore, grid: wjGrid } = window.AppUI.wijmo;
@@ -439,76 +439,76 @@ document.addEventListener('DOMContentLoaded', () => {
         'huellas' => auth()->user()->can('terminal.huellas'),
     ]) }};
 
-    const routes = {
+    const dataRutas = {
         store: '{{ route("employees.store") }}',
         updateBase: '{{ url("/employees") }}',
         list: '{{ route("employees.list") }}',
     };
 
     // Paginación y búsqueda en el servidor (auditoría OP-07): la página solo trae 50 empleados a la vez
-    const initialPage = JSON.parse(document.getElementById('employees-initial-data').textContent);
-    let employees = initialPage.employees || [];
-    let meta = initialPage.meta;
-    const view = new wjCore.CollectionView(employees);
-    const searchInput = document.getElementById('employee-search-input');
-    const prevBtn = document.getElementById('employees-prev');
-    const nextBtn = document.getElementById('employees-next');
-    document.getElementById('employee-filter-form')?.addEventListener('submit', (e) => e.preventDefault());
+    const dataPaginaInicial = JSON.parse(document.getElementById('dataEmpleadosInicial').textContent);
+    let lstEmpleados = dataPaginaInicial.employees || [];
+    let dataMeta = dataPaginaInicial.meta;
+    const lstVistaEmpleados = new wjCore.CollectionView(lstEmpleados);
+    const txtBuscarEmpleado = document.getElementById('txtBuscarEmpleado');
+    const btnPaginaAnterior = document.getElementById('btnPaginaAnterior');
+    const btnPaginaSiguiente = document.getElementById('btnPaginaSiguiente');
+    document.getElementById('frmBuscarEmpleados')?.addEventListener('submit', (e) => e.preventDefault());
 
     let searchTimer = null;
-    searchInput.addEventListener('input', () => {
+    txtBuscarEmpleado.addEventListener('input', () => {
         clearTimeout(searchTimer);
         searchTimer = setTimeout(() => loadPage(1), 300);
     });
-    prevBtn.addEventListener('click', () => loadPage(meta.page - 1));
-    nextBtn.addEventListener('click', () => loadPage(meta.page + 1));
+    btnPaginaAnterior.addEventListener('click', () => loadPage(dataMeta.page - 1));
+    btnPaginaSiguiente.addEventListener('click', () => loadPage(dataMeta.page + 1));
 
     function updateCount() {
-        document.getElementById('employee-count-badge').textContent = `${meta.total} empleados`;
-        document.getElementById('employees-page-label').textContent = `Página ${meta.page} de ${meta.last_page}`;
-        prevBtn.disabled = meta.page <= 1;
-        nextBtn.disabled = meta.page >= meta.last_page;
+        document.getElementById('lblTotalEmpleados').textContent = `${dataMeta.total} empleados`;
+        document.getElementById('lblPagina').textContent = `Página ${dataMeta.page} de ${dataMeta.last_page}`;
+        btnPaginaAnterior.disabled = dataMeta.page <= 1;
+        btnPaginaSiguiente.disabled = dataMeta.page >= dataMeta.last_page;
     }
     updateCount();
 
     // Orden en el servidor: se aplica a todos los empleados (o a toda la búsqueda) antes de paginar.
     // La tabla no reordena localmente (el comparador siempre empata y conserva el orden del servidor);
     // solo muestra la flecha de la columna elegida.
-    view.sortComparer = () => 0;
-    let sortState = { sort: meta.sort || 'hikvision_employee_no', direction: meta.direction || 'asc' };
+    lstVistaEmpleados.sortComparer = () => 0;
+    let dataOrden = { sort: dataMeta.sort || 'hikvision_employee_no', direction: dataMeta.direction || 'asc' };
 
-    view.sortDescriptions.collectionChanged.addHandler(() => {
-        const sd = view.sortDescriptions[0];
-        const next = sd
+    lstVistaEmpleados.sortDescriptions.collectionChanged.addHandler(() => {
+        const sd = lstVistaEmpleados.sortDescriptions[0];
+        const dataSiguiente = sd
             ? { sort: sd.property, direction: sd.ascending ? 'asc' : 'desc' }
             : { sort: 'hikvision_employee_no', direction: 'asc' };
 
-        if (next.sort === sortState.sort && next.direction === sortState.direction) return;
-        sortState = next;
+        if (dataSiguiente.sort === dataOrden.sort && dataSiguiente.direction === dataOrden.direction) return;
+        dataOrden = dataSiguiente;
         loadPage(1);
     });
 
     async function loadPage(page) {
         const params = new URLSearchParams({
             page: String(Math.max(1, page)),
-            q: (searchInput.value || '').trim(),
-            sort: sortState.sort,
-            direction: sortState.direction,
+            q: (txtBuscarEmpleado.value || '').trim(),
+            sort: dataOrden.sort,
+            direction: dataOrden.direction,
         });
         try {
-            const data = await apiFetch(`${routes.list}?${params}`, { method: 'GET' });
-            employees = data.employees || [];
-            meta = data.meta;
-            view.sourceCollection = employees;
-            view.refresh();
+            const dataRespuesta = await apiFetch(`${dataRutas.list}?${params}`, { method: 'GET' });
+            lstEmpleados = dataRespuesta.employees || [];
+            dataMeta = dataRespuesta.meta;
+            lstVistaEmpleados.sourceCollection = lstEmpleados;
+            lstVistaEmpleados.refresh();
             updateCount();
         } catch (err) {
             showToast(err.message || 'No se pudo cargar la lista de empleados.', 'danger');
         }
     }
 
-    const grid = new wjGrid.FlexGrid('#employees-grid', {
-        itemsSource: view,
+    const gridEmpleados = new wjGrid.FlexGrid('#gridEmpleados', {
+        itemsSource: lstVistaEmpleados,
         autoGenerateColumns: false,
         isReadOnly: true,
         selectionMode: wjGrid.SelectionMode.Row,
@@ -524,61 +524,61 @@ document.addEventListener('DOMContentLoaded', () => {
             { binding: 'id', header: 'Acciones Hikvision / CRUD', width: 375, allowSorting: false },
         ],
     });
-    grid.rows.defaultSize = 48;
+    gridEmpleados.rows.defaultSize = 48;
 
-    grid.formatItem.addHandler((s, e) => {
+    gridEmpleados.formatItem.addHandler((s, e) => {
         if (e.panel !== s.cells) return;
         const col = s.columns[e.col];
-        const row = s.rows[e.row]?.dataItem;
-        if (!row) return;
+        const dataFila = s.rows[e.row]?.dataItem;
+        if (!dataFila) return;
 
         if (col.binding === 'full_name') {
             // Miniatura de la foto (nota 16); la ruta revisa el permiso
-            const strFoto = row.photo_url
-                ? `<img src="${escapeHtml(row.photo_url)}" alt="" width="28" height="28" loading="lazy" class="rounded-circle me-2 border border-secondary-subtle" style="object-fit: cover;">`
+            const htmlFoto = dataFila.photo_url
+                ? `<img src="${escapeHtml(dataFila.photo_url)}" alt="" width="28" height="28" loading="lazy" class="rounded-circle me-2 border border-secondary-subtle" style="object-fit: cover;">`
                 : '<span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-secondary bg-opacity-25 text-secondary me-2" style="width: 28px; height: 28px;" aria-hidden="true"><i class="bi bi-person"></i></span>';
-            e.cell.innerHTML = `<span class="d-inline-flex align-items-center">${strFoto}${escapeHtml(row.full_name)}</span>`;
+            e.cell.innerHTML = `<span class="d-inline-flex align-items-center">${htmlFoto}${escapeHtml(dataFila.full_name)}</span>`;
         } else if (col.binding === 'status_label') {
-            const cls = row.is_active ? 'text-bg-success' : 'text-bg-secondary';
-            e.cell.innerHTML = `<span class="badge ${cls}">${escapeHtml(row.status_label)}</span>`;
+            const cls = dataFila.is_active ? 'text-bg-success' : 'text-bg-secondary';
+            e.cell.innerHTML = `<span class="badge ${cls}">${escapeHtml(dataFila.status_label)}</span>`;
         } else if (col.binding === 'device_synced_at') {
-            const syncHtml = row.device_synced_at
-                ? `<span class="badge text-bg-dark border border-info text-info me-1" title="Última sincronización">${escapeHtml(row.device_synced_at)}</span>`
+            const syncHtml = dataFila.device_synced_at
+                ? `<span class="badge text-bg-dark border border-info text-info me-1" title="Última sincronización">${escapeHtml(dataFila.device_synced_at)}</span>`
                 : `<span class="badge text-bg-dark border border-secondary text-secondary me-1">Pendiente</span>`;
-            const fpHtml = row.fingerprint_enrolled
+            const fpHtml = dataFila.fingerprint_enrolled
                 ? `<span class="badge text-bg-dark border border-success text-success"><i class="bi bi-fingerprint me-1"></i>Huella</span>`
                 : `<span class="badge text-bg-dark border border-warning text-warning">Sin Huella</span>`;
-            const cardHtml = row.card_enrolled
-                ? `<span class="badge text-bg-dark border border-info text-info" title="Tarjeta ${escapeHtml(row.card_no || '')}"><i class="bi bi-credit-card me-1"></i>Tarjeta</span>`
+            const cardHtml = dataFila.card_enrolled
+                ? `<span class="badge text-bg-dark border border-info text-info" title="Tarjeta ${escapeHtml(dataFila.card_no || '')}"><i class="bi bi-credit-card me-1"></i>Tarjeta</span>`
                 : '';
-            const pinHtml = row.pin_configured
+            const pinHtml = dataFila.pin_configured
                 ? `<span class="badge text-bg-dark border border-warning text-warning"><i class="bi bi-key me-1"></i>PIN</span>`
                 : '';
             e.cell.innerHTML = `<div class="d-flex flex-wrap gap-1">${syncHtml}${fpHtml}${cardHtml}${pinHtml}</div>`;
         } else if (col.binding === 'id') {
             const lstBotones = [];
             if (dataPermisos.terminal) {
-                lstBotones.push(`<button type="button" class="btn btn-outline-info" data-action="sync" data-id="${row.id}" title="Sincronizar a Hikvision">
+                lstBotones.push(`<button type="button" class="btn btn-outline-info" data-action="sync" data-id="${dataFila.id}" title="Sincronizar a Hikvision">
                         <i class="bi bi-hdd-network me-1" aria-hidden="true"></i>Sincronizar
                     </button>`);
             }
             if (dataPermisos.huellas) {
-                lstBotones.push(`<button type="button" class="btn btn-outline-warning" data-action="fingerprint" data-id="${row.id}" title="Capturar Huella Remota">
+                lstBotones.push(`<button type="button" class="btn btn-outline-warning" data-action="fingerprint" data-id="${dataFila.id}" title="Capturar Huella Remota">
                         <i class="bi bi-fingerprint me-1" aria-hidden="true"></i>Huella
                     </button>`);
             }
             if (dataPermisos.terminal) {
-                lstBotones.push(`<button type="button" class="btn btn-outline-primary" data-action="credentials" data-id="${row.id}" title="Tarjeta RFID / PIN">
+                lstBotones.push(`<button type="button" class="btn btn-outline-primary" data-action="credentials" data-id="${dataFila.id}" title="Tarjeta RFID / PIN">
                         <i class="bi bi-key me-1" aria-hidden="true"></i>Medios
                     </button>`);
             }
             if (dataPermisos.actualizar) {
-                lstBotones.push(`<button type="button" class="btn btn-outline-light" data-action="edit" data-id="${row.id}" title="Editar empleado">
+                lstBotones.push(`<button type="button" class="btn btn-outline-light" data-action="edit" data-id="${dataFila.id}" title="Editar empleado">
                         <i class="bi bi-pencil" aria-hidden="true"></i>
                     </button>`);
             }
             if (dataPermisos.baja) {
-                lstBotones.push(`<button type="button" class="btn btn-outline-danger" data-action="delete" data-id="${row.id}" title="Dar de baja">
+                lstBotones.push(`<button type="button" class="btn btn-outline-danger" data-action="delete" data-id="${dataFila.id}" title="Dar de baja">
                         <i class="bi bi-trash" aria-hidden="true"></i>
                     </button>`);
             }
@@ -595,39 +595,39 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    const formDialog = document.getElementById('employee-form-dialog');
-    const empForm = document.getElementById('employee-form');
-    const formErrorBox = document.getElementById('employee-form-errors');
-    const submitBtn = document.getElementById('emp-submit-btn');
+    const mdEmpleado = document.getElementById('mdEmpleado');
+    const frmEmpleado = document.getElementById('frmEmpleado');
+    const lblErroresEmpleado = document.getElementById('lblErroresEmpleado');
+    const btnGuardarEmpleado = document.getElementById('btnGuardarEmpleado');
 
     function clearFormErrors() {
-        formErrorBox.classList.add('d-none');
-        formErrorBox.querySelector('.alert').textContent = '';
-        empForm.querySelectorAll('[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
+        lblErroresEmpleado.classList.add('d-none');
+        lblErroresEmpleado.querySelector('.alert').textContent = '';
+        frmEmpleado.querySelectorAll('[aria-invalid]').forEach((el) => el.removeAttribute('aria-invalid'));
     }
 
     // Foto del empleado (nota 16): se sube aparte, solo cuando el empleado ya existe
-    function renderPhoto(emp) {
-        const picFoto = document.getElementById('pic-foto');
-        document.getElementById('lbl-foto-nueva').classList.toggle('d-none', Boolean(emp));
-        document.getElementById('tab-foto').classList.toggle('d-none', !emp);
-        const strUrl = emp?.photo_url || '';
-        picFoto.classList.toggle('d-none', !strUrl);
-        picFoto.src = strUrl;
-        document.getElementById('lbl-sin-foto').classList.toggle('d-none', Boolean(strUrl));
-        document.getElementById('btn-quitar-foto').classList.toggle('d-none', !strUrl);
+    function renderPhoto(dataEmpleado) {
+        const picFoto = document.getElementById('picFoto');
+        document.getElementById('lblFotoNueva').classList.toggle('d-none', Boolean(dataEmpleado));
+        document.getElementById('contenedorFoto').classList.toggle('d-none', !dataEmpleado);
+        const urlFoto = dataEmpleado?.photo_url || '';
+        picFoto.classList.toggle('d-none', !urlFoto);
+        picFoto.src = urlFoto;
+        document.getElementById('lblSinFoto').classList.toggle('d-none', Boolean(urlFoto));
+        document.getElementById('btnQuitarFoto').classList.toggle('d-none', !urlFoto);
     }
 
-    document.getElementById('txt-foto').addEventListener('change', async (event) => {
+    document.getElementById('txtFoto').addEventListener('change', async (event) => {
         const fileFoto = event.target.files[0];
-        const empId = document.getElementById('emp-id').value;
+        const empId = document.getElementById('txtIdEmpleado').value;
         if (!fileFoto || !empId) return;
         const dataForm = new FormData();
         dataForm.append('photo', fileFoto);
         try {
-            const res = await apiFetch(`${routes.updateBase}/${empId}/photo`, { method: 'POST', body: dataForm });
-            renderPhoto({ photo_url: res.photo_url });
-            showToast(res.message, 'success');
+            const dataRespuesta = await apiFetch(`${dataRutas.updateBase}/${empId}/photo`, { method: 'POST', body: dataForm });
+            renderPhoto({ photo_url: dataRespuesta.photo_url });
+            showToast(dataRespuesta.message, 'success');
             await reloadEmployees();
         } catch (err) {
             showToast(err.payload?.errors ? Object.values(err.payload.errors).flat().join(' · ') : (err.message || 'No se pudo subir la foto.'), 'danger');
@@ -636,12 +636,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('btn-quitar-foto').addEventListener('click', async () => {
-        const empId = document.getElementById('emp-id').value;
+    document.getElementById('btnQuitarFoto').addEventListener('click', async () => {
+        const empId = document.getElementById('txtIdEmpleado').value;
         try {
-            const res = await apiFetch(`${routes.updateBase}/${empId}/photo`, { method: 'DELETE' });
+            const dataRespuesta = await apiFetch(`${dataRutas.updateBase}/${empId}/photo`, { method: 'DELETE' });
             renderPhoto({ photo_url: null });
-            showToast(res.message, 'success');
+            showToast(dataRespuesta.message, 'success');
             await reloadEmployees();
         } catch (err) {
             showToast(err.message || 'No se pudo quitar la foto.', 'danger');
@@ -650,328 +650,328 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openCreateModal() {
         clearFormErrors();
-        empForm.reset();
+        frmEmpleado.reset();
         renderPhoto(null);
         setPersonalIdsLocked(false);
-        document.getElementById('emp-id').value = '';
-        document.getElementById('emp-active').checked = true;
-        document.getElementById('employee-dialog-title').textContent = 'Nuevo Empleado';
-        submitBtn.textContent = 'Guardar Empleado';
-        formDialog.showModal();
+        document.getElementById('txtIdEmpleado').value = '';
+        document.getElementById('ckActivo').checked = true;
+        document.getElementById('lblTituloEmpleado').textContent = 'Nuevo Empleado';
+        btnGuardarEmpleado.textContent = 'Guardar Empleado';
+        mdEmpleado.showModal();
     }
 
     // La tabla trae RFC, CURP y NSS enmascarados; los completos se piden solo al editar (SE-05)
-    async function openEditModal(rowEmp) {
-        let emp;
+    async function openEditModal(dataFila) {
+        let dataEmpleado;
         try {
-            emp = (await apiFetch(`${routes.updateBase}/${rowEmp.id}`, { method: 'GET' })).employee;
+            dataEmpleado = (await apiFetch(`${dataRutas.updateBase}/${dataFila.id}`, { method: 'GET' })).employee;
         } catch (err) {
             showToast(err.message || 'No se pudieron cargar los datos del empleado.', 'danger');
             return;
         }
 
         clearFormErrors();
-        document.getElementById('emp-id').value = emp.id;
-        document.getElementById('emp-no').value = emp.hikvision_employee_no || '';
-        document.getElementById('emp-name').value = emp.full_name || '';
-        document.getElementById('emp-rfc').value = emp.rfc || '';
-        document.getElementById('emp-curp').value = emp.curp || '';
-        document.getElementById('emp-nss').value = emp.nss || '';
+        document.getElementById('txtIdEmpleado').value = dataEmpleado.id;
+        document.getElementById('txtNumeroReloj').value = dataEmpleado.hikvision_employee_no || '';
+        document.getElementById('txtNombre').value = dataEmpleado.full_name || '';
+        document.getElementById('txtRfc').value = dataEmpleado.rfc || '';
+        document.getElementById('txtCurp').value = dataEmpleado.curp || '';
+        document.getElementById('txtNss').value = dataEmpleado.nss || '';
         // Sin permiso de datos personales llegan enmascarados: se muestran bloqueados y no se envían
-        setPersonalIdsLocked(Boolean(emp.personal_ids_masked));
-        const cbTipoSangre = document.getElementById('cb-tipo-sangre');
-        if (cbTipoSangre) cbTipoSangre.value = emp.blood_type || '';
-        const lblTipoSangre = document.getElementById('lbl-tipo-sangre');
-        if (lblTipoSangre) lblTipoSangre.textContent = emp.has_blood_type ? 'Registrado (protegido)' : 'Sin registrar';
-        renderPhoto(emp);
-        document.getElementById('emp-department').value = emp.department || '';
-        document.getElementById('emp-position').value = emp.position || '';
-        document.getElementById('emp-shift').value = String(emp.work_shift_id || '');
-        document.getElementById('emp-active').checked = Boolean(emp.is_active);
-        document.getElementById('employee-dialog-title').textContent = `Editar Empleado #${emp.hikvision_employee_no}`;
-        submitBtn.textContent = 'Actualizar Cambios';
-        formDialog.showModal();
+        setPersonalIdsLocked(Boolean(dataEmpleado.personal_ids_masked));
+        const cbTipoSangre = document.getElementById('cbTipoSangre');
+        if (cbTipoSangre) cbTipoSangre.value = dataEmpleado.blood_type || '';
+        const lblTipoSangre = document.getElementById('lblTipoSangre');
+        if (lblTipoSangre) lblTipoSangre.textContent = dataEmpleado.has_blood_type ? 'Registrado (protegido)' : 'Sin registrar';
+        renderPhoto(dataEmpleado);
+        document.getElementById('cbDepartamento').value = dataEmpleado.department || '';
+        document.getElementById('txtPuesto').value = dataEmpleado.position || '';
+        document.getElementById('cbTurno').value = String(dataEmpleado.work_shift_id || '');
+        document.getElementById('ckActivo').checked = Boolean(dataEmpleado.is_active);
+        document.getElementById('lblTituloEmpleado').textContent = `Editar Empleado #${dataEmpleado.hikvision_employee_no}`;
+        btnGuardarEmpleado.textContent = 'Actualizar Cambios';
+        mdEmpleado.showModal();
     }
 
     function setPersonalIdsLocked(locked) {
-        ['emp-rfc', 'emp-curp', 'emp-nss'].forEach((id) => {
-            const field = document.getElementById(id);
-            field.disabled = locked;
-            field.title = locked ? 'Necesitas el permiso "Ver y editar RFC, CURP y NSS" para cambiar este dato.' : '';
+        ['txtRfc', 'txtCurp', 'txtNss'].forEach((id) => {
+            const txtCampo = document.getElementById(id);
+            txtCampo.disabled = locked;
+            txtCampo.title = locked ? 'Necesitas el permiso "Ver y editar RFC, CURP y NSS" para cambiar este dato.' : '';
         });
     }
 
-    document.getElementById('btn-new-employee')?.addEventListener('click', openCreateModal);
+    document.getElementById('btnNuevoEmpleado')?.addEventListener('click', openCreateModal);
 
     // Validación por campo tras interacción (blur) y limpieza en input
-    empForm.querySelectorAll('input, select').forEach((field) => {
-        field.addEventListener('input', () => {
-            field.removeAttribute('aria-invalid');
+    frmEmpleado.querySelectorAll('input, select').forEach((txtCampo) => {
+        txtCampo.addEventListener('input', () => {
+            txtCampo.removeAttribute('aria-invalid');
         });
-        field.addEventListener('blur', () => {
-            if (!field.checkValidity()) {
-                field.setAttribute('aria-invalid', 'true');
+        txtCampo.addEventListener('blur', () => {
+            if (!txtCampo.checkValidity()) {
+                txtCampo.setAttribute('aria-invalid', 'true');
             }
         });
     });
 
-    empForm.addEventListener('submit', async (e) => {
+    frmEmpleado.addEventListener('submit', async (e) => {
         e.preventDefault();
         clearFormErrors();
 
-        if (!empForm.checkValidity()) {
-            const firstInvalid = empForm.querySelector(':invalid');
-            if (firstInvalid) {
-                firstInvalid.setAttribute('aria-invalid', 'true');
-                firstInvalid.focus();
-                firstInvalid.reportValidity();
+        if (!frmEmpleado.checkValidity()) {
+            const txtInvalido = frmEmpleado.querySelector(':invalid');
+            if (txtInvalido) {
+                txtInvalido.setAttribute('aria-invalid', 'true');
+                txtInvalido.focus();
+                txtInvalido.reportValidity();
             }
             return;
         }
 
-        const empId = document.getElementById('emp-id').value;
+        const empId = document.getElementById('txtIdEmpleado').value;
         const isEdit = empId !== '';
-        const url = isEdit ? `${routes.updateBase}/${empId}` : routes.store;
+        const url = isEdit ? `${dataRutas.updateBase}/${empId}` : dataRutas.store;
 
         const dataPayload = {
-            hikvision_employee_no: document.getElementById('emp-no').value,
-            full_name: document.getElementById('emp-name').value,
-            department: document.getElementById('emp-department').value,
-            position: document.getElementById('emp-position').value,
-            work_shift_id: Number(document.getElementById('emp-shift').value),
-            is_active: document.getElementById('emp-active').checked,
+            hikvision_employee_no: document.getElementById('txtNumeroReloj').value,
+            full_name: document.getElementById('txtNombre').value,
+            department: document.getElementById('cbDepartamento').value,
+            position: document.getElementById('txtPuesto').value,
+            work_shift_id: Number(document.getElementById('cbTurno').value),
+            is_active: document.getElementById('ckActivo').checked,
         };
-        const cbTipoSangre = document.getElementById('cb-tipo-sangre');
+        const cbTipoSangre = document.getElementById('cbTipoSangre');
         if (cbTipoSangre) {
             dataPayload.blood_type = cbTipoSangre.value || null;
         }
-        if (!document.getElementById('emp-rfc').disabled) {
-            dataPayload.rfc = document.getElementById('emp-rfc').value || null;
-            dataPayload.curp = document.getElementById('emp-curp').value || null;
-            dataPayload.nss = document.getElementById('emp-nss').value || null;
+        if (!document.getElementById('txtRfc').disabled) {
+            dataPayload.rfc = document.getElementById('txtRfc').value || null;
+            dataPayload.curp = document.getElementById('txtCurp').value || null;
+            dataPayload.nss = document.getElementById('txtNss').value || null;
         }
 
-        submitBtn.disabled = true;
+        btnGuardarEmpleado.disabled = true;
         try {
-            const res = await apiFetch(url, {
+            const dataRespuesta = await apiFetch(url, {
                 method: isEdit ? 'PUT' : 'POST',
                 body: dataPayload,
             });
             await reloadEmployees();
-            formDialog.close();
-            showToast(res.message, 'success');
+            mdEmpleado.close();
+            showToast(dataRespuesta.message, 'success');
         } catch (err) {
             const validationErrors = err.payload?.errors
                 ? Object.values(err.payload.errors).flat().join(' · ')
                 : err.message;
-            formErrorBox.classList.remove('d-none');
-            formErrorBox.querySelector('.alert').textContent = validationErrors;
+            lblErroresEmpleado.classList.remove('d-none');
+            lblErroresEmpleado.querySelector('.alert').textContent = validationErrors;
         } finally {
-            submitBtn.disabled = false;
+            btnGuardarEmpleado.disabled = false;
         }
     });
 
     // Modal de Tarjeta RFID y PIN (O3)
-    const credDialog = document.getElementById('credentials-dialog');
-    const cardForm = document.getElementById('card-enroll-form');
-    const pinForm = document.getElementById('pin-enroll-form');
-    const cardSubmitBtn = document.getElementById('cred-card-submit');
-    const pinSubmitBtn = document.getElementById('cred-pin-submit');
-    let currentCredEmployee = null;
+    const mdMedios = document.getElementById('mdMedios');
+    const frmTarjeta = document.getElementById('frmTarjeta');
+    const frmPin = document.getElementById('frmPin');
+    const btnGuardarTarjeta = document.getElementById('btnGuardarTarjeta');
+    const btnGuardarPin = document.getElementById('btnGuardarPin');
+    let dataEmpleadoMedios = null;
 
-    function renderCredBadges(emp) {
-        const container = document.getElementById('cred-status-badges');
+    function renderCredBadges(dataEmpleado) {
+        const container = document.getElementById('lblEstadoMedios');
         container.innerHTML = '';
-        const items = [
-            emp.card_enrolled
-                ? `<span class="badge text-bg-dark border border-info text-info">Tarjeta: ${escapeHtml(emp.card_no || 'OK')}</span>`
+        const lstEtiquetas = [
+            dataEmpleado.card_enrolled
+                ? `<span class="badge text-bg-dark border border-info text-info">Tarjeta: ${escapeHtml(dataEmpleado.card_no || 'OK')}</span>`
                 : `<span class="badge text-bg-dark border border-secondary text-secondary">Sin Tarjeta</span>`,
-            emp.pin_configured
+            dataEmpleado.pin_configured
                 ? `<span class="badge text-bg-dark border border-warning text-warning">PIN Configurado</span>`
                 : `<span class="badge text-bg-dark border border-secondary text-secondary">Sin PIN</span>`,
         ];
-        container.innerHTML = items.join('');
+        container.innerHTML = lstEtiquetas.join('');
     }
 
-    function openCredentialsModal(emp) {
-        currentCredEmployee = emp;
-        document.getElementById('cred-employee-name').textContent = emp.full_name;
-        document.getElementById('cred-employee-no').textContent = `ID Reloj Hikvision: ${emp.hikvision_employee_no}`;
-        document.getElementById('cred-card-no').value = emp.card_no || '';
-        document.getElementById('cred-pin').value = '';
-        renderCredBadges(emp);
-        credDialog.showModal();
+    function openCredentialsModal(dataEmpleado) {
+        dataEmpleadoMedios = dataEmpleado;
+        document.getElementById('lblMediosNombre').textContent = dataEmpleado.full_name;
+        document.getElementById('lblMediosNumero').textContent = `ID Reloj Hikvision: ${dataEmpleado.hikvision_employee_no}`;
+        document.getElementById('txtNumeroTarjeta').value = dataEmpleado.card_no || '';
+        document.getElementById('txtPin').value = '';
+        renderCredBadges(dataEmpleado);
+        mdMedios.showModal();
     }
 
-    cardForm.addEventListener('submit', async (e) => {
+    frmTarjeta.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!currentCredEmployee || !cardForm.reportValidity()) return;
+        if (!dataEmpleadoMedios || !frmTarjeta.reportValidity()) return;
 
-        cardSubmitBtn.disabled = true;
+        btnGuardarTarjeta.disabled = true;
         try {
-            const res = await apiFetch(`${routes.updateBase}/${currentCredEmployee.id}/enroll-card`, {
+            const dataRespuesta = await apiFetch(`${dataRutas.updateBase}/${dataEmpleadoMedios.id}/enroll-card`, {
                 method: 'POST',
-                body: { card_no: document.getElementById('cred-card-no').value.trim() },
+                body: { card_no: document.getElementById('txtNumeroTarjeta').value.trim() },
             });
-            currentCredEmployee = res.employee;
-            renderCredBadges(currentCredEmployee);
+            dataEmpleadoMedios = dataRespuesta.employee;
+            renderCredBadges(dataEmpleadoMedios);
             await reloadEmployees();
-            showToast(res.message, 'success');
+            showToast(dataRespuesta.message, 'success');
         } catch (err) {
             showToast(err.message || 'No se pudo asignar la tarjeta en la terminal.', 'danger');
         } finally {
-            cardSubmitBtn.disabled = false;
+            btnGuardarTarjeta.disabled = false;
         }
     });
 
-    pinForm.addEventListener('submit', async (e) => {
+    frmPin.addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!currentCredEmployee || !pinForm.reportValidity()) return;
+        if (!dataEmpleadoMedios || !frmPin.reportValidity()) return;
 
-        const pinInput = document.getElementById('cred-pin');
-        pinSubmitBtn.disabled = true;
+        const txtPin = document.getElementById('txtPin');
+        btnGuardarPin.disabled = true;
         try {
-            const res = await apiFetch(`${routes.updateBase}/${currentCredEmployee.id}/enroll-pin`, {
+            const dataRespuesta = await apiFetch(`${dataRutas.updateBase}/${dataEmpleadoMedios.id}/enroll-pin`, {
                 method: 'POST',
-                body: { pin: pinInput.value.trim() },
+                body: { pin: txtPin.value.trim() },
             });
-            pinInput.value = '';
-            currentCredEmployee = res.employee;
-            renderCredBadges(currentCredEmployee);
+            txtPin.value = '';
+            dataEmpleadoMedios = dataRespuesta.employee;
+            renderCredBadges(dataEmpleadoMedios);
             await reloadEmployees();
-            showToast(res.message, 'success');
+            showToast(dataRespuesta.message, 'success');
         } catch (err) {
             showToast(err.message || 'No se pudo configurar el PIN en la terminal.', 'danger');
         } finally {
-            pinSubmitBtn.disabled = false;
+            btnGuardarPin.disabled = false;
         }
     });
 
     // Modal de captura remota de huella
-    const fpDialog = document.getElementById('fingerprint-dialog');
-    const fpPulse = document.getElementById('fp-pulse-indicator');
-    const fpStatusBox = document.getElementById('fp-status-box');
-    const fpStartBtn = document.getElementById('fp-start-btn');
-    let currentFpEmployee = null;
+    const mdHuella = document.getElementById('mdHuella');
+    const indicadorHuella = document.getElementById('indicadorHuella');
+    const lblEstadoHuella = document.getElementById('lblEstadoHuella');
+    const btnIniciarHuella = document.getElementById('btnIniciarHuella');
+    let dataEmpleadoHuella = null;
 
-    function openFingerprintModal(emp) {
-        currentFpEmployee = emp;
-        document.getElementById('fp-employee-name').textContent = emp.full_name;
-        document.getElementById('fp-employee-no').textContent = `ID Reloj Hikvision: ${emp.hikvision_employee_no}`;
-        fpPulse.classList.remove('scanning', 'success', 'error');
-        fpStatusBox.className = 'alert alert-secondary small text-start mb-0';
-        fpStatusBox.innerHTML = 'Presiona <strong>Activar Lector Óptico</strong> para enviar <code>POST /ISAPI/AccessControl/CaptureFingerPrint</code> a la terminal y solicitar al empleado colocar su dedo.';
-        fpStartBtn.disabled = false;
-        fpDialog.showModal();
+    function openFingerprintModal(dataEmpleado) {
+        dataEmpleadoHuella = dataEmpleado;
+        document.getElementById('lblHuellaNombre').textContent = dataEmpleado.full_name;
+        document.getElementById('lblHuellaNumero').textContent = `ID Reloj Hikvision: ${dataEmpleado.hikvision_employee_no}`;
+        indicadorHuella.classList.remove('scanning', 'success', 'error');
+        lblEstadoHuella.className = 'alert alert-secondary small text-start mb-0';
+        lblEstadoHuella.innerHTML = 'Presiona <strong>Activar Lector Óptico</strong> para enviar <code>POST /ISAPI/AccessControl/CaptureFingerPrint</code> a la terminal y solicitar al empleado colocar su dedo.';
+        btnIniciarHuella.disabled = false;
+        mdHuella.showModal();
     }
 
-    fpStartBtn.addEventListener('click', async () => {
-        if (!currentFpEmployee) return;
+    btnIniciarHuella.addEventListener('click', async () => {
+        if (!dataEmpleadoHuella) return;
 
-        const fingerNo = Number(document.getElementById('fp-finger-no').value || 2);
-        fpStartBtn.disabled = true;
-        fpPulse.classList.remove('success', 'error');
-        fpPulse.classList.add('scanning');
-        fpStatusBox.className = 'alert alert-info small text-start mb-0';
-        fpStatusBox.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Esperando lectura en el sensor óptico del DS-K1T804AEF... Coloque el dedo en el reloj.';
+        const fingerNo = Number(document.getElementById('cbDedo').value || 2);
+        btnIniciarHuella.disabled = true;
+        indicadorHuella.classList.remove('success', 'error');
+        indicadorHuella.classList.add('scanning');
+        lblEstadoHuella.className = 'alert alert-info small text-start mb-0';
+        lblEstadoHuella.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Esperando lectura en el sensor óptico del DS-K1T804AEF... Coloque el dedo en el reloj.';
 
         try {
-            const res = await apiFetch(`${routes.updateBase}/${currentFpEmployee.id}/capture-fingerprint`, {
+            const dataRespuesta = await apiFetch(`${dataRutas.updateBase}/${dataEmpleadoHuella.id}/capture-fingerprint`, {
                 method: 'POST',
                 body: { finger_no: fingerNo },
             });
-            fpPulse.classList.remove('scanning');
-            fpPulse.classList.add('success');
-            fpStatusBox.className = 'alert alert-success small text-start mb-0';
-            fpStatusBox.textContent = res.message || 'Huella capturada y vinculada correctamente.';
+            indicadorHuella.classList.remove('scanning');
+            indicadorHuella.classList.add('success');
+            lblEstadoHuella.className = 'alert alert-success small text-start mb-0';
+            lblEstadoHuella.textContent = dataRespuesta.message || 'Huella capturada y vinculada correctamente.';
             await reloadEmployees();
-            showToast(res.message, 'success');
+            showToast(dataRespuesta.message, 'success');
         } catch (err) {
-            fpPulse.classList.remove('scanning');
-            fpPulse.classList.add('error');
-            fpStatusBox.className = 'alert alert-danger small text-start mb-0';
-            fpStatusBox.textContent = err.message || 'No se pudo completar la captura remota de huella.';
+            indicadorHuella.classList.remove('scanning');
+            indicadorHuella.classList.add('error');
+            lblEstadoHuella.className = 'alert alert-danger small text-start mb-0';
+            lblEstadoHuella.textContent = err.message || 'No se pudo completar la captura remota de huella.';
         } finally {
-            fpStartBtn.disabled = false;
+            btnIniciarHuella.disabled = false;
         }
     });
 
     // Modal de eliminación
-    const deleteDialog = document.getElementById('delete-employee-dialog');
-    const delConfirmBtn = document.getElementById('del-confirm-btn');
-    let currentDeleteEmployee = null;
+    const mdBaja = document.getElementById('mdBaja');
+    const btnConfirmarBaja = document.getElementById('btnConfirmarBaja');
+    let dataEmpleadoBaja = null;
 
-    function openDeleteModal(emp) {
-        currentDeleteEmployee = emp;
-        document.getElementById('del-employee-name').textContent = emp.full_name;
-        document.getElementById('del-employee-no').textContent = `#${emp.hikvision_employee_no}`;
-        document.getElementById('del-from-device').checked = false;
-        deleteDialog.showModal();
+    function openDeleteModal(dataEmpleado) {
+        dataEmpleadoBaja = dataEmpleado;
+        document.getElementById('lblBajaNombre').textContent = dataEmpleado.full_name;
+        document.getElementById('lblBajaNumero').textContent = `#${dataEmpleado.hikvision_employee_no}`;
+        document.getElementById('ckBajaTerminal').checked = false;
+        mdBaja.showModal();
     }
 
-    delConfirmBtn.addEventListener('click', async () => {
-        if (!currentDeleteEmployee) return;
-        delConfirmBtn.disabled = true;
+    btnConfirmarBaja.addEventListener('click', async () => {
+        if (!dataEmpleadoBaja) return;
+        btnConfirmarBaja.disabled = true;
 
         try {
-            const res = await apiFetch(`${routes.updateBase}/${currentDeleteEmployee.id}`, {
+            const dataRespuesta = await apiFetch(`${dataRutas.updateBase}/${dataEmpleadoBaja.id}`, {
                 method: 'DELETE',
                 body: {
-                    delete_from_device: document.getElementById('del-from-device').checked,
+                    delete_from_device: document.getElementById('ckBajaTerminal').checked,
                 },
             });
             await reloadEmployees();
-            deleteDialog.close();
-            showToast(res.message, 'success');
+            mdBaja.close();
+            showToast(dataRespuesta.message, 'success');
         } catch (err) {
             showToast(err.message || 'Error al eliminar el empleado.', 'danger');
         } finally {
-            delConfirmBtn.disabled = false;
+            btnConfirmarBaja.disabled = false;
         }
     });
 
-    async function syncEmployeeToHikvision(emp, buttonEl) {
-        const original = buttonEl.innerHTML;
-        buttonEl.disabled = true;
-        buttonEl.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
+    async function syncEmployeeToHikvision(dataEmpleado, btnAccion) {
+        const original = btnAccion.innerHTML;
+        btnAccion.disabled = true;
+        btnAccion.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
 
         try {
-            const res = await apiFetch(`${routes.updateBase}/${emp.id}/sync-device`, { method: 'POST' });
+            const dataRespuesta = await apiFetch(`${dataRutas.updateBase}/${dataEmpleado.id}/sync-device`, { method: 'POST' });
             await reloadEmployees();
-            showToast(res.message, 'success');
+            showToast(dataRespuesta.message, 'success');
         } catch (err) {
             showToast(err.message || 'Error al sincronizar usuario en Hikvision.', 'danger');
         } finally {
-            buttonEl.disabled = false;
-            buttonEl.innerHTML = original;
+            btnAccion.disabled = false;
+            btnAccion.innerHTML = original;
         }
     }
 
     async function reloadEmployees() {
         // Recarga la página actual con la búsqueda actual
-        await loadPage(meta.page);
+        await loadPage(dataMeta.page);
     }
 
     // Delegación única de eventos sobre FlexGrid
-    document.getElementById('employees-grid').addEventListener('click', (event) => {
-        const btn = event.target.closest('button[data-action]');
-        if (!btn) return;
+    document.getElementById('gridEmpleados').addEventListener('click', (event) => {
+        const btnAccion = event.target.closest('button[data-action]');
+        if (!btnAccion) return;
 
-        const id = Number(btn.getAttribute('data-id'));
-        const action = btn.getAttribute('data-action');
-        const emp = employees.find((e) => e.id === id);
-        if (!emp) return;
+        const id = Number(btnAccion.getAttribute('data-id'));
+        const action = btnAccion.getAttribute('data-action');
+        const dataEmpleado = lstEmpleados.find((e) => e.id === id);
+        if (!dataEmpleado) return;
 
         if (action === 'edit') {
-            openEditModal(emp);
+            openEditModal(dataEmpleado);
         } else if (action === 'sync') {
-            syncEmployeeToHikvision(emp, btn);
+            syncEmployeeToHikvision(dataEmpleado, btnAccion);
         } else if (action === 'fingerprint') {
-            openFingerprintModal(emp);
+            openFingerprintModal(dataEmpleado);
         } else if (action === 'credentials') {
-            openCredentialsModal(emp);
+            openCredentialsModal(dataEmpleado);
         } else if (action === 'delete') {
-            openDeleteModal(emp);
+            openDeleteModal(dataEmpleado);
         }
     });
 });

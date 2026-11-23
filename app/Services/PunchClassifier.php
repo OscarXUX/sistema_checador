@@ -58,21 +58,21 @@ class PunchClassifier
     ];
 
     /**
-     * @param  Collection<int, AttendanceLog>  $logs  ordenadas por hora (con la relación correction cargada si existe)
+     * @param  Collection<int, AttendanceLog>  $lstChecadas  ordenadas por hora (con la relación correction cargada si existe)
      * @return array{check_in: ?CarbonImmutable, break_out: ?CarbonImmutable, break_in: ?CarbonImmutable, check_out: ?CarbonImmutable, incidents: list<array{code: string, at: string}>, roles: array<int, string>, corrected: int}
      */
-    public function classify(Collection $logs, WorkShift $shift, CarbonImmutable $workDate, bool $isActiveShiftWindow): array
+    public function classify(Collection $lstChecadas, WorkShift $shift, CarbonImmutable $workDate, bool $isActiveShiftWindow): array
     {
-        $incidents = [];
-        $roles = [];
-        $note = function (string $code, array $item) use (&$incidents, &$roles): void {
-            $incidents[] = ['code' => $code, 'at' => $item['at']->format('Y-m-d H:i:s')];
-            $roles[$item['id']] = 'not_counted';
+        $lstIncidencias = [];
+        $dataRoles = [];
+        $note = function (string $code, array $dataChecada) use (&$lstIncidencias, &$dataRoles): void {
+            $lstIncidencias[] = ['code' => $code, 'at' => $dataChecada['at']->format('Y-m-d H:i:s')];
+            $dataRoles[$dataChecada['id']] = 'not_counted';
         };
 
-        $windows = $shift->classificationWindows($workDate);
-        [$entryStart, $entryEnd] = $windows['entrada'];
-        [$exitStart, $exitEnd] = $windows['salida'];
+        $dataVentanas = $shift->classificationWindows($workDate);
+        [$entryStart, $entryEnd] = $dataVentanas['entrada'];
+        [$exitStart, $exitEnd] = $dataVentanas['salida'];
 
         $threshold = max(0, (int) ($shift->repeat_threshold_minutes ?? 3)) * 60;
         $lstEntradas = [];
@@ -82,8 +82,8 @@ class PunchClassifier
         $corrected = 0;
         $previous = null;
 
-        foreach ($logs as $log) {
-            $item = ['at' => CarbonImmutable::instance($log->punched_at), 'id' => (int) $log->id];
+        foreach ($lstChecadas as $log) {
+            $dataChecada = ['at' => CarbonImmutable::instance($log->punched_at), 'id' => (int) $log->id];
             $key = (string) $log->event_type;
             $correction = $log->relationLoaded('correction') ? $log->correction : null;
 
@@ -92,54 +92,54 @@ class PunchClassifier
                 $corrected++;
                 $type = $correction->corrected_type;
                 if ($type === AttendanceLogCorrection::TYPE_IGNORE) {
-                    $roles[$item['id']] = 'not_counted';
+                    $dataRoles[$dataChecada['id']] = 'not_counted';
                 } elseif (isset($dataFijas[$type])) {
-                    $dataFijas[$type][] = $item;
+                    $dataFijas[$type][] = $dataChecada;
                 } else {
-                    $lstComidas[] = $item;
+                    $lstComidas[] = $dataChecada;
                 }
-                $previous = $type === AttendanceLogCorrection::TYPE_IGNORE ? $previous : $item['at'];
+                $previous = $type === AttendanceLogCorrection::TYPE_IGNORE ? $previous : $dataChecada['at'];
 
                 continue;
             }
 
             // 1. Repetidas
-            if ($previous !== null && $threshold > 0 && $previous->diffInSeconds($item['at'], true) < $threshold) {
-                $note(self::INCIDENT_REPEATED, $item);
+            if ($previous !== null && $threshold > 0 && $previous->diffInSeconds($dataChecada['at'], true) < $threshold) {
+                $note(self::INCIDENT_REPEATED, $dataChecada);
 
                 continue;
             }
-            $previous = $item['at'];
-            $at = $item['at'];
+            $previous = $dataChecada['at'];
+            $at = $dataChecada['at'];
 
             // 2 a 5. Clasificación por ventana
             if ($key === AttendanceLog::EVENT_BREAK_OUT || $key === AttendanceLog::EVENT_BREAK_IN) {
-                $lstComidas[] = $item;
+                $lstComidas[] = $dataChecada;
             } elseif ($at->betweenIncluded($entryStart, $entryEnd)) {
-                $lstEntradas[] = $item;
+                $lstEntradas[] = $dataChecada;
             } elseif ($at->betweenIncluded($exitStart, $exitEnd)) {
-                $lstSalidas[] = $item;
+                $lstSalidas[] = $dataChecada;
             } elseif ($at->greaterThan($entryEnd) && $at->lessThan($exitStart)) {
                 if ($key === AttendanceLog::EVENT_CHECK_OUT) {
-                    $lstSalidas[] = $item;
+                    $lstSalidas[] = $dataChecada;
                 } elseif ($lstEntradas === [] && $lstComidas === [] && $dataFijas[AttendanceLog::EVENT_CHECK_IN] === []) {
-                    $lstEntradas[] = $item;
+                    $lstEntradas[] = $dataChecada;
                 } else {
-                    $lstComidas[] = $item;
+                    $lstComidas[] = $dataChecada;
                 }
             } elseif ($at->lessThan($entryStart)) {
-                $incidents[] = ['code' => self::INCIDENT_OUT_OF_WINDOW, 'at' => $at->format('Y-m-d H:i:s')];
+                $lstIncidencias[] = ['code' => self::INCIDENT_OUT_OF_WINDOW, 'at' => $at->format('Y-m-d H:i:s')];
                 if ($key === AttendanceLog::EVENT_CHECK_OUT) {
-                    $lstSalidas[] = $item;
+                    $lstSalidas[] = $dataChecada;
                 } else {
-                    $lstEntradas[] = $item;
+                    $lstEntradas[] = $dataChecada;
                 }
             } else {
-                $incidents[] = ['code' => self::INCIDENT_OUT_OF_WINDOW, 'at' => $at->format('Y-m-d H:i:s')];
+                $lstIncidencias[] = ['code' => self::INCIDENT_OUT_OF_WINDOW, 'at' => $at->format('Y-m-d H:i:s')];
                 if ($key === AttendanceLog::EVENT_CHECK_IN && $lstEntradas === []) {
-                    $lstEntradas[] = $item;
+                    $lstEntradas[] = $dataChecada;
                 } else {
-                    $lstSalidas[] = $item;
+                    $lstSalidas[] = $dataChecada;
                 }
             }
         }
@@ -152,8 +152,8 @@ class PunchClassifier
             $checkIn = array_shift($lstEntradas);
             $lstSobran = $lstEntradas;
         }
-        foreach ($lstSobran as $item) {
-            $note(self::INCIDENT_EXTRA_ENTRY, $item);
+        foreach ($lstSobran as $dataChecada) {
+            $note(self::INCIDENT_EXTRA_ENTRY, $dataChecada);
         }
 
         // Salida: la corregida si la hay; si no, la última. Las anteriores son repetidas
@@ -164,8 +164,8 @@ class PunchClassifier
             $checkOut = array_pop($lstSalidas);
             $lstSobran = $lstSalidas;
         }
-        foreach ($lstSobran as $item) {
-            $note(self::INCIDENT_EXTRA_EXIT, $item);
+        foreach ($lstSobran as $dataChecada) {
+            $note(self::INCIDENT_EXTRA_EXIT, $dataChecada);
         }
 
         // 6. Jornada cerrada sin salida y comida impar: la última checada fue la salida
@@ -176,12 +176,12 @@ class PunchClassifier
 
         $breakOut = $lstComidas[0] ?? null;
         $breakIn = count($lstComidas) >= 2 ? $lstComidas[count($lstComidas) - 1] : null;
-        foreach (array_slice($lstComidas, 1, max(0, count($lstComidas) - 2)) as $item) {
-            $note(self::INCIDENT_EXTRA_MEAL, $item);
+        foreach (array_slice($lstComidas, 1, max(0, count($lstComidas) - 2)) as $dataChecada) {
+            $note(self::INCIDENT_EXTRA_MEAL, $dataChecada);
         }
 
         if ($checkOut !== null && $checkIn === null) {
-            $incidents[] = ['code' => self::INCIDENT_EXIT_WITHOUT_ENTRY, 'at' => $checkOut['at']->format('Y-m-d H:i:s')];
+            $lstIncidencias[] = ['code' => self::INCIDENT_EXIT_WITHOUT_ENTRY, 'at' => $checkOut['at']->format('Y-m-d H:i:s')];
         }
 
         foreach ([
@@ -189,21 +189,21 @@ class PunchClassifier
             AttendanceLog::EVENT_BREAK_OUT => $breakOut,
             AttendanceLog::EVENT_BREAK_IN => $breakIn,
             AttendanceLog::EVENT_CHECK_OUT => $checkOut,
-        ] as $role => $item) {
-            if ($item !== null) {
-                $roles[$item['id']] = $role;
+        ] as $role => $dataChecada) {
+            if ($dataChecada !== null) {
+                $dataRoles[$dataChecada['id']] = $role;
             }
         }
 
-        usort($incidents, fn (array $a, array $b): int => strcmp($a['at'], $b['at']));
+        usort($lstIncidencias, fn (array $a, array $b): int => strcmp($a['at'], $b['at']));
 
         return [
             'check_in' => $checkIn['at'] ?? null,
             'break_out' => $breakOut['at'] ?? null,
             'break_in' => $breakIn['at'] ?? null,
             'check_out' => $checkOut['at'] ?? null,
-            'incidents' => $incidents,
-            'roles' => $roles,
+            'incidents' => $lstIncidencias,
+            'roles' => $dataRoles,
             'corrected' => $corrected,
         ];
     }

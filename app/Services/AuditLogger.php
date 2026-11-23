@@ -38,15 +38,15 @@ class AuditLogger
     ];
 
     /**
-     * @param  array<string, mixed>  $oldValues
-     * @param  array<string, mixed>  $newValues
+     * @param  array<string, mixed>  $dataValoresAnteriores
+     * @param  array<string, mixed>  $dataValoresNuevos
      */
     public function record(
         string $action,
         ?Model $subject,
         string $description,
-        array $oldValues = [],
-        array $newValues = [],
+        array $dataValoresAnteriores = [],
+        array $dataValoresNuevos = [],
     ): ?AuditLog {
         try {
             // Petición web si hay una ruta en curso; en comandos de consola no la hay
@@ -58,8 +58,8 @@ class AuditLogger
                 'auditable_type' => $subject !== null ? $subject->getMorphClass() : null,
                 'auditable_id' => $subject?->getKey(),
                 'description' => Str::limit($description, 250, '…'),
-                'old_values' => $this->sanitize($oldValues) ?: null,
-                'new_values' => $this->sanitize($newValues) ?: null,
+                'old_values' => $this->sanitize($dataValoresAnteriores) ?: null,
+                'new_values' => $this->sanitize($dataValoresNuevos) ?: null,
                 'ip_address' => $request?->ip(),
                 'user_agent' => $request !== null ? Str::limit((string) $request->userAgent(), 250, '') : 'consola',
             ]);
@@ -77,44 +77,44 @@ class AuditLogger
     /**
      * Valores antes y después solo de los campos que cambiaron.
      *
-     * @param  array<string, mixed>  $before
-     * @param  array<string, mixed>  $after
+     * @param  array<string, mixed>  $dataAntes
+     * @param  array<string, mixed>  $dataDespues
      * @return array{0: array<string, mixed>, 1: array<string, mixed>}
      */
-    public function diff(array $before, array $after): array
+    public function diff(array $dataAntes, array $dataDespues): array
     {
-        $old = [];
-        $new = [];
+        $dataAnterior = [];
+        $dataNuevo = [];
 
-        foreach ($after as $key => $value) {
-            $previous = $before[$key] ?? null;
+        foreach ($dataDespues as $key => $value) {
+            $previous = $dataAntes[$key] ?? null;
             if ((string) json_encode($previous) !== (string) json_encode($value)) {
-                $old[$key] = $previous;
-                $new[$key] = $value;
+                $dataAnterior[$key] = $previous;
+                $dataNuevo[$key] = $value;
             }
         }
 
-        return [$old, $new];
+        return [$dataAnterior, $dataNuevo];
     }
 
     /**
-     * @param  array<string, mixed>  $values
+     * @param  array<string, mixed>  $dataValores
      * @return array<string, mixed>
      */
-    private function sanitize(array $values): array
+    private function sanitize(array $dataValores): array
     {
-        $clean = [];
+        $dataLimpio = [];
 
-        foreach ($values as $key => $value) {
+        foreach ($dataValores as $key => $value) {
             if (in_array($key, self::EXCLUDED_FIELDS, true)) {
                 continue;
             }
 
-            $clean[$key] = in_array($key, self::PROTECTED_FIELDS, true) && $value !== null && $value !== ''
+            $dataLimpio[$key] = in_array($key, self::PROTECTED_FIELDS, true) && $value !== null && $value !== ''
                 ? '[protegido]'
                 : $value;
         }
 
-        return $clean;
+        return $dataLimpio;
     }
 }

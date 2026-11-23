@@ -12,6 +12,7 @@ Los documentos vivos (contexto, arquitectura) van sueltos en `docs/` con nombre 
 docs/
 ├── README.md                          Este índice
 ├── CONTEXTO_SISTEMA_CHECADOR.md       Qué es el sistema, stack, base de datos y cómo levantarlo
+├── NOMENCLATURA_COMPONENTES_Y_ESTRUCTURAS.md   Prefijos de ids y variables (txt, cb, md, lst, data…)
 ├── auditorias/
 │   └── 2026-11-17/
 │       └── 11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md
@@ -39,7 +40,8 @@ docs/
 │       ├── 09-50_merge-permisos-con-o1-o2-o3.md
 │       ├── 10-25_ventanas-tipos-evento-y-validaciones.md
 │       ├── 10-50_correccion-de-checadas-e-incidencias-en-dashboard.md
-│       └── 10-58_foto-y-tipo-de-sangre.md
+│       ├── 10-58_foto-y-tipo-de-sangre.md
+│       └── 11-20_nomenclatura-en-todo-el-codigo.md
 ├── despliegue/
 │   └── 2026-11-22/
 │       └── 20-00_GUIA_DESPLIEGUE_PRODUCCION.md

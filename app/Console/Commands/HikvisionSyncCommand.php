@@ -24,8 +24,8 @@ class HikvisionSyncCommand extends Command
         try {
             if ($this->option('from') === null && $this->option('to') === null) {
                 // Modo de la tarea programada: solo lo nuevo (auditoría OP-01)
-                $stats = $coordinator->runIncremental();
-                $this->info("Sincronización incremental desde {$stats['from']}.");
+                $dataResultado = $coordinator->runIncremental();
+                $this->info("Sincronización incremental desde {$dataResultado['from']}.");
             } else {
                 $start = $this->option('from')
                     ? Carbon::parse((string) $this->option('from'))->startOfDay()
@@ -36,7 +36,7 @@ class HikvisionSyncCommand extends Command
                     : now();
 
                 $this->info("Consultando eventos ISAPI ({$start->toDateTimeString()} -> {$end->toDateTimeString()})...");
-                $stats = $coordinator->run($start, $end);
+                $dataResultado = $coordinator->run($start, $end);
             }
         } catch (SyncInProgressException $e) {
             $this->warn($e->getMessage());
@@ -50,10 +50,10 @@ class HikvisionSyncCommand extends Command
 
         $this->info(sprintf(
             'Sincronización finalizada. Eventos recibidos: %d | Nuevos: %d | Duplicados omitidos: %d | Sin empleado local: %d',
-            $stats['received'],
-            $stats['inserted'],
-            $stats['skipped'],
-            $stats['unmatched']
+            $dataResultado['received'],
+            $dataResultado['inserted'],
+            $dataResultado['skipped'],
+            $dataResultado['unmatched']
         ));
 
         return self::SUCCESS;

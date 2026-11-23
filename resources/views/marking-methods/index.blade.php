@@ -26,7 +26,7 @@
     </div>
 
     <div class="row g-3">
-        @foreach($methods as $method)
+        @foreach($lstMedios as $method)
             @php
                 $blockedByPrivacy = $method->isBlockedByPrivacyNotice();
                 $icon = match ($method->code) {
@@ -129,7 +129,7 @@
 <section class="surface-card p-3 p-md-4">
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
         <div>
-            <h2 id="verify-modes-heading" class="h6 fw-semibold mb-0">Valores reales de <code>currentVerifyMode</code> y <code>minor</code> observados</h2>
+            <h2 id="lblModosVerificacion" class="h6 fw-semibold mb-0">Valores reales de <code>currentVerifyMode</code> y <code>minor</code> observados</h2>
             <small class="text-secondary">
                 Resumen de eventos almacenados en <code>attendance_logs</code> y mapeo aplicado por <code>HikvisionIsapiService::mapVerificationMode</code>
             </small>
@@ -139,7 +139,7 @@
         </span>
     </div>
 
-    <div tabindex="0" role="region" aria-labelledby="verify-modes-heading" class="shifts-table-wrapper">
+    <div tabindex="0" role="region" aria-labelledby="lblModosVerificacion" class="shifts-table-wrapper">
         <table class="table table-dark table-hover align-middle mb-0 shifts-table">
             <thead>
                 <tr class="text-secondary small text-uppercase">
@@ -150,7 +150,7 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse($observedModes as $row)
+                @forelse($lstModosObservados as $row)
                     <tr>
                         <th scope="row" class="font-mono-tabular">{{ $row['current_verify_mode'] }}</th>
                         <td data-label="Código minor" class="font-mono-tabular">{{ $row['minor'] }}</td>

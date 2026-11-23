@@ -98,7 +98,7 @@ class UserController extends Controller
             ]);
         }
 
-        $before = ['name' => $user->name, 'email' => $user->email, 'profile' => $user->profile?->name, 'is_active' => $user->is_active];
+        $dataAntes = ['name' => $user->name, 'email' => $user->email, 'profile' => $user->profile?->name, 'is_active' => $user->is_active];
 
         $user->fill([
             'name' => $dataValidado['name'],
@@ -121,8 +121,8 @@ class UserController extends Controller
             ? UserSessions::closeAll($user)
             : 0;
 
-        $after = ['name' => $user->name, 'email' => $user->email, 'profile' => $user->profile?->name, 'is_active' => $user->is_active];
-        [$old, $new] = $this->audit->diff($before, $after);
+        $dataDespues = ['name' => $user->name, 'email' => $user->email, 'profile' => $user->profile?->name, 'is_active' => $user->is_active];
+        [$old, $new] = $this->audit->diff($dataAntes, $dataDespues);
         if ($passwordChanged) {
             $new['password'] = '[cambiada]';
         }
@@ -151,13 +151,13 @@ class UserController extends Controller
             ->mapWithKeys(fn (string $mode, $id): array => [(int) $id => ['is_denied' => $mode === 'deny']])
             ->all();
 
-        $before = $this->exceptionKeys($user);
+        $dataAntes = $this->exceptionKeys($user);
 
         DB::transaction(fn () => $user->permissionExceptions()->sync($dataNuevas));
 
-        $after = $this->exceptionKeys($user->fresh());
-        if ($before !== $after) {
-            $this->audit->record('user.permissions_updated', $user, "Excepciones de permisos de {$user->email}", $before, $after);
+        $dataDespues = $this->exceptionKeys($user->fresh());
+        if ($dataAntes !== $dataDespues) {
+            $this->audit->record('user.permissions_updated', $user, "Excepciones de permisos de {$user->email}", $dataAntes, $dataDespues);
         }
 
         return redirect()->route('admin.users.edit', $user)->with('status', 'Excepciones de permisos guardadas.');

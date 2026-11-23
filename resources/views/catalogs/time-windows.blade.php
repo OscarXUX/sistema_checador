@@ -12,9 +12,9 @@
         se ignora y queda como incidencia. Al guardar se recalculan los resúmenes del turno.
     </p>
 
-    <div tabindex="0" role="region" aria-labelledby="lbl-ventanas" class="table-responsive">
-        <h2 id="lbl-ventanas" class="visually-hidden">Ventanas por turno</h2>
-        <table id="grid-ventanas" class="table table-dark align-middle mb-0">
+    <div tabindex="0" role="region" aria-labelledby="lblVentanas" class="table-responsive">
+        <h2 id="lblVentanas" class="visually-hidden">Ventanas por turno</h2>
+        <table id="gridVentanas" class="table table-dark align-middle mb-0">
             <thead>
                 <tr class="text-secondary small text-uppercase">
                     <th scope="col">Turno</th>
@@ -28,39 +28,39 @@
             <tbody>
                 @forelse($lstTurnos as $turno)
                     @php($dataHoras = $turno->windowTimes())
-                    @php($strForm = 'frm-ventana-'.$turno->id)
+                    @php($idFormulario = 'frmVentana'.$turno->id)
                     <tr>
                         <th scope="row">
                             <div class="fw-semibold">{{ $turno->name }}</div>
                             <small class="text-secondary font-mono-tabular">{{ $turno->schedule_label }}</small>
                         </th>
-                        @foreach(['entry' => 'entrada', 'exit' => 'salida'] as $strCampo => $strTipo)
+                        @foreach(['entry' => 'entrada', 'exit' => 'salida'] as $campo => $tipo)
                             <td>
                                 <div class="d-flex align-items-center gap-1">
-                                    <label for="txt-{{ $strCampo }}-inicio-{{ $turno->id }}" class="visually-hidden">{{ ucfirst($strTipo) }} desde, {{ $turno->name }}</label>
-                                    <input id="txt-{{ $strCampo }}-inicio-{{ $turno->id }}" form="{{ $strForm }}" name="{{ $strCampo }}_window_start" type="time" class="form-control form-control-sm font-mono-tabular" value="{{ $dataHoras[$strTipo][0] }}" @cannot('catalogos.administrar') disabled @endcannot>
+                                    <label for="dt{{ ucfirst($tipo) }}Inicio{{ $turno->id }}" class="visually-hidden">{{ ucfirst($tipo) }} desde, {{ $turno->name }}</label>
+                                    <input id="dt{{ ucfirst($tipo) }}Inicio{{ $turno->id }}" form="{{ $idFormulario }}" name="{{ $campo }}_window_start" type="time" class="form-control form-control-sm font-mono-tabular" value="{{ $dataHoras[$tipo][0] }}" @cannot('catalogos.administrar') disabled @endcannot>
                                     <span class="text-secondary">–</span>
-                                    <label for="txt-{{ $strCampo }}-fin-{{ $turno->id }}" class="visually-hidden">{{ ucfirst($strTipo) }} hasta, {{ $turno->name }}</label>
-                                    <input id="txt-{{ $strCampo }}-fin-{{ $turno->id }}" form="{{ $strForm }}" name="{{ $strCampo }}_window_end" type="time" class="form-control form-control-sm font-mono-tabular" value="{{ $dataHoras[$strTipo][1] }}" @cannot('catalogos.administrar') disabled @endcannot>
+                                    <label for="dt{{ ucfirst($tipo) }}Fin{{ $turno->id }}" class="visually-hidden">{{ ucfirst($tipo) }} hasta, {{ $turno->name }}</label>
+                                    <input id="dt{{ ucfirst($tipo) }}Fin{{ $turno->id }}" form="{{ $idFormulario }}" name="{{ $campo }}_window_end" type="time" class="form-control form-control-sm font-mono-tabular" value="{{ $dataHoras[$tipo][1] }}" @cannot('catalogos.administrar') disabled @endcannot>
                                 </div>
                             </td>
                         @endforeach
                         <td style="max-width: 6rem;">
-                            <label for="txt-repetida-{{ $turno->id }}" class="visually-hidden">Minutos para considerar repetida, {{ $turno->name }}</label>
-                            <input id="txt-repetida-{{ $turno->id }}" form="{{ $strForm }}" name="repeat_threshold_minutes" type="number" min="0" max="30" class="form-control form-control-sm font-mono-tabular" value="{{ $turno->repeat_threshold_minutes }}" @cannot('catalogos.administrar') disabled @endcannot>
+                            <label for="txtRepetida{{ $turno->id }}" class="visually-hidden">Minutos para considerar repetida, {{ $turno->name }}</label>
+                            <input id="txtRepetida{{ $turno->id }}" form="{{ $idFormulario }}" name="repeat_threshold_minutes" type="number" min="0" max="30" class="form-control form-control-sm font-mono-tabular" value="{{ $turno->repeat_threshold_minutes }}" @cannot('catalogos.administrar') disabled @endcannot>
                         </td>
                         <td>
                             <div class="form-check mb-0">
-                                <input id="ck-omision-{{ $turno->id }}" form="{{ $strForm }}" name="use_defaults" type="checkbox" class="form-check-input" value="1" @checked(! $turno->hasCustomWindows()) @cannot('catalogos.administrar') disabled @endcannot>
-                                <label for="ck-omision-{{ $turno->id }}" class="form-check-label small">Usar valores por omisión</label>
+                                <input id="ckOmision{{ $turno->id }}" form="{{ $idFormulario }}" name="use_defaults" type="checkbox" class="form-check-input" value="1" @checked(! $turno->hasCustomWindows()) @cannot('catalogos.administrar') disabled @endcannot>
+                                <label for="ckOmision{{ $turno->id }}" class="form-check-label small">Usar valores por omisión</label>
                             </div>
                         </td>
                         @can('catalogos.administrar')
                             <td class="text-end">
-                                <form id="{{ $strForm }}" method="POST" action="{{ route('catalogs.windows.update', $turno) }}">
+                                <form id="{{ $idFormulario }}" method="POST" action="{{ route('catalogs.windows.update', $turno) }}">
                                     @csrf
                                     @method('PUT')
-                                    <button id="btn-guardar-ventana-{{ $turno->id }}" type="submit" class="btn btn-outline-light btn-sm">Guardar</button>
+                                    <button id="btnGuardarVentana{{ $turno->id }}" type="submit" class="btn btn-outline-light btn-sm">Guardar</button>
                                 </form>
                             </td>
                         @endcan

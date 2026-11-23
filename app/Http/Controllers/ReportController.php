@@ -28,26 +28,26 @@ class ReportController extends Controller
 
     public function kardex(Request $request): View
     {
-        $filters = $this->resolveFilters($request);
-        $records = $this->queryKardexRows($filters);
+        $dataFiltros = $this->resolveFilters($request);
+        $lstFilas = $this->queryKardexRows($dataFiltros);
 
         return view('reports.kardex', [
-            'filters' => $filters,
-            'departments' => Employee::select('department')->distinct()->orderBy('department')->pluck('department'),
-            'employees' => Employee::orderBy('full_name')->get(['id', 'hikvision_employee_no', 'full_name', 'department']),
-            'kardexRows' => $records,
-            'auditLogs' => $this->queryAuditLogs($filters),
+            'dataFiltros' => $dataFiltros,
+            'lstDepartamentos' => Employee::select('department')->distinct()->orderBy('department')->pluck('department'),
+            'lstEmpleados' => Employee::orderBy('full_name')->get(['id', 'hikvision_employee_no', 'full_name', 'department']),
+            'lstFilasKardex' => $lstFilas,
+            'lstBitacora' => $this->queryAuditLogs($dataFiltros),
         ]);
     }
 
     public function kardexData(Request $request): JsonResponse
     {
-        $filters = $this->resolveFilters($request);
+        $dataFiltros = $this->resolveFilters($request);
 
         return response()->json([
-            'filters' => $filters,
-            'kardex_rows' => $this->queryKardexRows($filters),
-            'audit_logs' => $this->queryAuditLogs($filters),
+            'filters' => $dataFiltros,
+            'kardex_rows' => $this->queryKardexRows($dataFiltros),
+            'audit_logs' => $this->queryAuditLogs($dataFiltros),
         ]);
     }
 
@@ -176,42 +176,42 @@ class ReportController extends Controller
     }
 
     /**
-     * @param  array<string, mixed>  $filters
+     * @param  array<string, mixed>  $dataFiltros
      * @return array<int, array<string, mixed>>
      */
-    private function queryKardexRows(array $filters): array
+    private function queryKardexRows(array $dataFiltros): array
     {
         $query = DailySummary::with(['employee.workShift', 'entryEventType', 'exitEventType', 'mealEventType'])
-            ->whereBetween('work_date', [$filters['start_date'], $filters['end_date']])
-            ->whereHas('employee', function ($q) use ($filters): void {
-                if ($filters['department'] !== '') {
-                    $q->where('department', $filters['department']);
+            ->whereBetween('work_date', [$dataFiltros['start_date'], $dataFiltros['end_date']])
+            ->whereHas('employee', function ($q) use ($dataFiltros): void {
+                if ($dataFiltros['department'] !== '') {
+                    $q->where('department', $dataFiltros['department']);
                 }
-                if ($filters['employee_id'] !== null) {
-                    $q->where('id', $filters['employee_id']);
+                if ($dataFiltros['employee_id'] !== null) {
+                    $q->where('id', $dataFiltros['employee_id']);
                 }
             })
             ->orderBy('employee_id')
             ->orderBy('work_date');
 
-        $summaries = $query->get();
+        $lstResumenes = $query->get();
 
-        if ($summaries->isEmpty()) {
+        if ($lstResumenes->isEmpty()) {
             return [];
         }
 
         $resolver = app(ShiftScheduleResolver::class);
-        $employees = $summaries->pluck('employee')->filter()->unique('id')->values();
-        $minDate = $summaries->min('work_date');
-        $maxDate = $summaries->max('work_date');
-        $scheduleContext = $resolver->loadBatchContext($employees, $minDate, $maxDate);
+        $lstEmpleados = $lstResumenes->pluck('employee')->filter()->unique('id')->values();
+        $minDate = $lstResumenes->min('work_date');
+        $maxDate = $lstResumenes->max('work_date');
+        $dataContextoTurnos = $resolver->loadBatchContext($lstEmpleados, $minDate, $maxDate);
 
-        return $summaries->map(function (DailySummary $summary) use ($resolver, $scheduleContext): array {
+        return $lstResumenes->map(function (DailySummary $summary) use ($resolver, $dataContextoTurnos): array {
             $emp = $summary->employee;
-            $resolved = $emp !== null
-                ? $resolver->resolveDetailFromContext($emp, CarbonImmutable::instance($summary->work_date)->startOfDay(), $scheduleContext)
+            $dataResuelto = $emp !== null
+                ? $resolver->resolveDetailFromContext($emp, CarbonImmutable::instance($summary->work_date)->startOfDay(), $dataContextoTurnos)
                 : ['shift' => null];
-            $shift = $resolved['shift'] ?? $emp?->workShift;
+            $shift = $dataResuelto['shift'] ?? $emp?->workShift;
             $ordinaryMinutes = max(0, $summary->worked_minutes - $summary->overtime_minutes);
 
             return [
@@ -264,24 +264,24 @@ class ReportController extends Controller
     /**
      * Listado ligero de bitácora sin raw_payload para evitar cargar hasta 250 JSONs en memoria (auditoría OP-08).
      *
-     * @param  array<string, mixed>  $filters
+     * @param  array<string, mixed>  $dataFiltros
      * @return array<int, array<string, mixed>>
      */
-    private function queryAuditLogs(array $filters): array
+    private function queryAuditLogs(array $dataFiltros): array
     {
-        $startDt = Carbon::parse($filters['start_date'])->startOfDay();
-        $endDt = Carbon::parse($filters['end_date'])->endOfDay();
+        $startDt = Carbon::parse($dataFiltros['start_date'])->startOfDay();
+        $endDt = Carbon::parse($dataFiltros['end_date'])->endOfDay();
 
         return AttendanceLog::query()
             ->select(['id', 'employee_id', 'device_ip', 'punched_at', 'event_type', 'verification_mode'])
             ->with('employee:id,hikvision_employee_no,full_name,department')
             ->whereBetween('punched_at', [$startDt, $endDt])
-            ->whereHas('employee', function ($q) use ($filters): void {
-                if ($filters['department'] !== '') {
-                    $q->where('department', $filters['department']);
+            ->whereHas('employee', function ($q) use ($dataFiltros): void {
+                if ($dataFiltros['department'] !== '') {
+                    $q->where('department', $dataFiltros['department']);
                 }
-                if ($filters['employee_id'] !== null) {
-                    $q->where('id', $filters['employee_id']);
+                if ($dataFiltros['employee_id'] !== null) {
+                    $q->where('id', $dataFiltros['employee_id']);
                 }
             })
             ->orderByDesc('punched_at')

@@ -21,21 +21,21 @@ class InspectVerifyModesCommand extends Command
     {
         $limit = max(1, (int) $this->option('limit'));
 
-        $logs = AttendanceLog::query()
+        $lstChecadas = AttendanceLog::query()
             ->orderByDesc('punched_at')
             ->limit($limit)
             ->get(['id', 'punched_at', 'verification_mode', 'raw_payload']);
 
-        $summary = [];
-        foreach ($logs as $log) {
+        $dataResumen = [];
+        foreach ($lstChecadas as $log) {
             $payload = is_array($log->raw_payload) ? $log->raw_payload : [];
             $rawVerifyMode = (string) ($payload['currentVerifyMode'] ?? '(ausente)');
             $minor = isset($payload['minor']) ? (string) $payload['minor'] : '(ausente)';
             $mapped = $isapi->mapVerificationMode($payload);
             $key = "{$rawVerifyMode}|{$minor}|{$log->verification_mode}|{$mapped}";
 
-            if (! isset($summary[$key])) {
-                $summary[$key] = [
+            if (! isset($dataResumen[$key])) {
+                $dataResumen[$key] = [
                     'currentVerifyMode' => $rawVerifyMode,
                     'minor' => $minor,
                     'stored' => (string) $log->verification_mode,
@@ -43,16 +43,16 @@ class InspectVerifyModesCommand extends Command
                     'count' => 0,
                 ];
             }
-            $summary[$key]['count']++;
+            $dataResumen[$key]['count']++;
         }
 
-        $this->info("Registros revisados en attendance_logs: {$logs->count()}");
-        if ($summary === []) {
+        $this->info("Registros revisados en attendance_logs: {$lstChecadas->count()}");
+        if ($dataResumen === []) {
             $this->warn('No hay registros en attendance_logs.');
         } else {
             $this->table(
                 ['currentVerifyMode', 'minor', 'Guardado BD', 'Mapeo actual', 'Eventos'],
-                array_values($summary)
+                array_values($dataResumen)
             );
         }
 
@@ -76,22 +76,22 @@ class InspectVerifyModesCommand extends Command
 
             try {
                 $events = $isapi->fetchAttendanceEvents(now()->subDays(7), now());
-                $liveModes = [];
+                $dataModosEnVivo = [];
                 foreach ($events as $ev) {
                     $raw = $ev['raw_payload'] ?? [];
                     $cvm = (string) ($raw['currentVerifyMode'] ?? '(ausente)');
                     $min = isset($raw['minor']) ? (string) $raw['minor'] : '(ausente)';
                     $k = "{$cvm}|{$min}|{$ev['verification_mode']}";
-                    $liveModes[$k] = [
+                    $dataModosEnVivo[$k] = [
                         'currentVerifyMode' => $cvm,
                         'minor' => $min,
                         'mapped' => $ev['verification_mode'],
-                        'count' => ($liveModes[$k]['count'] ?? 0) + 1,
+                        'count' => ($dataModosEnVivo[$k]['count'] ?? 0) + 1,
                     ];
                 }
                 $this->info('Eventos en vivo últimos 7 días: '.count($events));
-                if ($liveModes !== []) {
-                    $this->table(['currentVerifyMode', 'minor', 'Mapeo', 'Eventos'], array_values($liveModes));
+                if ($dataModosEnVivo !== []) {
+                    $this->table(['currentVerifyMode', 'minor', 'Mapeo', 'Eventos'], array_values($dataModosEnVivo));
                 }
             } catch (\Throwable $e) {
                 $this->warn('No se pudieron descargar eventos AcsEvent en vivo: '.$e->getMessage());

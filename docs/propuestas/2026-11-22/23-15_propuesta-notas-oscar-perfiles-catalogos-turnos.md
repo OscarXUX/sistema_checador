@@ -222,7 +222,7 @@ Respuestas de Oscar del 23/11/2026.
 |---|---|---|
 | P2 | "Para la nota 16 es solo la foto y el tipo de sangre" | ✅ Resuelto: `docs/parches/2026-11-23/10-58_foto-y-tipo-de-sangre.md`. Falta el aviso de privacidad (TE-02). Dos campos nuevos en la ficha del empleado. **El tipo de sangre es un dato de salud (sensible, LFPDPPP)**: se guarda cifrado como RFC, CURP y NSS, solo lo ve quien tenga un permiso propio y entra en el aviso de privacidad (TE-02). La foto se guarda fuera de la carpeta pública y se sirve con una ruta que revisa el permiso |
 | P3 | "Está bien así como lo propone" | ✅ Resuelto: "Perfiles" para usuarios del sistema y "Puestos" para empleados. Detalle en `docs/parches/2026-11-23/09-10_perfiles-y-permisos.md` |
-| P4 | "A todo el código" (opción B) | ❌ Por programar. Se migra pantalla por pantalla (ids en Blade, variables en JS y PHP), con pruebas después de cada una. Administración ya la usa. Corrige lo que este documento decía antes ("opción A") |
+| P4 | "A todo el código" (opción B) | ✅ Resuelto: `docs/parches/2026-11-23/11-20_nomenclatura-en-todo-el-codigo.md` y la guía `docs/NOMENCLATURA_COMPONENTES_Y_ESTRUCTURAS.md`. |
 | P5 | "Está bien" (opción A) | ✅ Resuelto: pantalla 93 días y Excel hasta 12 meses. Detalle en `docs/parches/2026-11-23/09-22_o1-o2-o3-excel-rotaciones-medios.md` |
 | P6 | "Se podrán aplicar por turnos con un catálogo" (opción A) | ✅ Resuelto: catálogo de ventanas por turno con valores por omisión; reemplaza la regla de 90 minutos. Detalle en `docs/parches/2026-11-23/10-25_ventanas-tipos-evento-y-validaciones.md` |
 | P7 | "Esos los creamos nosotros" | ✅ Resuelto: catálogo editable con minutos desde/hasta, cargado con A tiempo, Retardo, Retardo mayor, Salida anticipada y Comida excedida. Mismo parche |

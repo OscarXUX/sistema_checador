@@ -42,8 +42,8 @@
             @csrf
 
             <div class="mb-3">
-                <label for="email" class="form-label small fw-medium">Correo</label>
-                <input id="email"
+                <label for="txtCorreo" class="form-label small fw-medium">Correo</label>
+                <input id="txtCorreo"
                        name="email"
                        type="email"
                        class="form-control"
@@ -58,26 +58,26 @@
             </div>
 
             <div class="mb-4">
-                <label for="password" class="form-label small fw-medium">Contraseña</label>
+                <label for="txtContrasena" class="form-label small fw-medium">Contraseña</label>
                 <div class="input-group">
-                    <input id="password"
+                    <input id="txtContrasena"
                            name="password"
                            type="password"
                            class="form-control"
                            autocomplete="current-password"
                            maxlength="255"
                            required>
-                    <button id="toggle-password"
+                    <button id="btnVerContrasena"
                             type="button"
                             class="btn btn-outline-secondary border-secondary-subtle"
                             aria-pressed="false"
                             aria-label="Mostrar contraseña"
-                            aria-controls="password"
-                            aria-describedby="toggle-password-warning">
-                        <i id="toggle-password-icon" class="bi bi-eye" aria-hidden="true"></i>
+                            aria-controls="txtContrasena"
+                            aria-describedby="lblAvisoContrasena">
+                        <i id="iconoVerContrasena" class="bi bi-eye" aria-hidden="true"></i>
                     </button>
                 </div>
-                <span id="toggle-password-warning" class="visually-hidden">Advertencia: esto mostrará tu contraseña en la pantalla.</span>
+                <span id="lblAvisoContrasena" class="visually-hidden">Advertencia: esto mostrará tu contraseña en la pantalla.</span>
             </div>
 
             <button type="submit" class="btn btn-primary w-100">
@@ -92,25 +92,25 @@
 </main>
 <script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
-    const passwordInput = document.getElementById('password');
-    const toggleBtn = document.getElementById('toggle-password');
-    const toggleIcon = document.getElementById('toggle-password-icon');
-    const loginForm = passwordInput?.closest('form');
-    if (!passwordInput || !toggleBtn || !toggleIcon) return;
+    const txtContrasena = document.getElementById('txtContrasena');
+    const btnVerContrasena = document.getElementById('btnVerContrasena');
+    const iconoVerContrasena = document.getElementById('iconoVerContrasena');
+    const frmLogin = txtContrasena?.closest('form');
+    if (!txtContrasena || !btnVerContrasena || !iconoVerContrasena) return;
 
     const setVisible = (visible) => {
-        passwordInput.type = visible ? 'text' : 'password';
-        toggleBtn.setAttribute('aria-pressed', visible ? 'true' : 'false');
-        toggleBtn.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
-        toggleIcon.className = visible ? 'bi bi-eye-slash' : 'bi bi-eye';
+        txtContrasena.type = visible ? 'text' : 'password';
+        btnVerContrasena.setAttribute('aria-pressed', visible ? 'true' : 'false');
+        btnVerContrasena.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+        iconoVerContrasena.className = visible ? 'bi bi-eye-slash' : 'bi bi-eye';
     };
 
-    toggleBtn.addEventListener('click', () => {
-        setVisible(passwordInput.type === 'password');
+    btnVerContrasena.addEventListener('click', () => {
+        setVisible(txtContrasena.type === 'password');
     });
 
-    loginForm?.addEventListener('submit', () => {
-        if (passwordInput.type === 'text') {
+    frmLogin?.addEventListener('submit', () => {
+        if (txtContrasena.type === 'text') {
             setVisible(false);
         }
     });

@@ -17,12 +17,12 @@ class MarkingMethodController extends Controller
 
     public function index(HikvisionIsapiService $isapi): View
     {
-        $methods = MarkingMethod::orderBy('id')->get();
-        $observedModes = $this->summarizeObservedVerifyModes($isapi);
+        $lstMedios = MarkingMethod::orderBy('id')->get();
+        $lstModosObservados = $this->summarizeObservedVerifyModes($isapi);
 
         return view('marking-methods.index', [
-            'methods' => $methods,
-            'observedModes' => $observedModes,
+            'lstMedios' => $lstMedios,
+            'lstModosObservados' => $lstModosObservados,
             'deviceIp' => $isapi->getDeviceIp(),
         ]);
     }
@@ -49,7 +49,7 @@ class MarkingMethodController extends Controller
         }
 
         $now = now();
-        $detectedSummary = [];
+        $dataDetectados = [];
 
         foreach ($result['methods'] as $code => $info) {
             $method = MarkingMethod::where('code', $code)->first();
@@ -68,7 +68,7 @@ class MarkingMethodController extends Controller
                 ],
             ])->save();
 
-            $detectedSummary[$code] = $supported;
+            $dataDetectados[$code] = $supported;
         }
 
         $this->audit->record(
@@ -76,7 +76,7 @@ class MarkingMethodController extends Controller
             null,
             'Detección ISAPI de medios de marcaje en terminal Hikvision',
             [],
-            $detectedSummary
+            $dataDetectados
         );
 
         if ($request->expectsJson()) {
@@ -161,14 +161,14 @@ class MarkingMethodController extends Controller
      */
     private function summarizeObservedVerifyModes(HikvisionIsapiService $isapi): array
     {
-        $logs = AttendanceLog::query()
+        $lstChecadas = AttendanceLog::query()
             ->orderByDesc('punched_at')
             ->limit(250)
             ->get(['id', 'verification_mode', 'raw_payload']);
 
-        $grouped = [];
+        $dataAgrupados = [];
 
-        foreach ($logs as $log) {
+        foreach ($lstChecadas as $log) {
             $payload = is_array($log->raw_payload) ? $log->raw_payload : [];
             $cvm = isset($payload['currentVerifyMode']) && $payload['currentVerifyMode'] !== ''
                 ? (string) $payload['currentVerifyMode']
@@ -177,8 +177,8 @@ class MarkingMethodController extends Controller
             $mapped = $isapi->mapVerificationMode($payload);
             $key = "{$cvm}|{$minor}|{$mapped}";
 
-            if (! isset($grouped[$key])) {
-                $grouped[$key] = [
+            if (! isset($dataAgrupados[$key])) {
+                $dataAgrupados[$key] = [
                     'current_verify_mode' => $cvm,
                     'minor' => $minor,
                     'mapped' => AttendanceLog::verificationModeLabel($mapped)." ({$mapped})",
@@ -186,9 +186,9 @@ class MarkingMethodController extends Controller
                 ];
             }
 
-            $grouped[$key]['count']++;
+            $dataAgrupados[$key]['count']++;
         }
 
-        return array_values($grouped);
+        return array_values($dataAgrupados);
     }
 }

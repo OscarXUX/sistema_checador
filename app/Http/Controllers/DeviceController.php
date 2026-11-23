@@ -45,19 +45,19 @@ class DeviceController extends Controller
     public function sync(AttendanceSyncCoordinator $coordinator, AuditLogger $audit): JsonResponse
     {
         try {
-            $stats = $coordinator->run(now()->startOfDay(), now());
+            $dataResultado = $coordinator->run(now()->startOfDay(), now());
 
-            $audit->record('device.sync', null, "Sincronización manual: {$stats['inserted']} checadas nuevas", [], [
-                'received' => $stats['received'],
-                'inserted' => $stats['inserted'],
-                'skipped' => $stats['skipped'],
-                'unmatched' => $stats['unmatched'],
+            $audit->record('device.sync', null, "Sincronización manual: {$dataResultado['inserted']} checadas nuevas", [], [
+                'received' => $dataResultado['received'],
+                'inserted' => $dataResultado['inserted'],
+                'skipped' => $dataResultado['skipped'],
+                'unmatched' => $dataResultado['unmatched'],
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => "Sincronización completada: {$stats['inserted']} eventos nuevos, {$stats['skipped']} omitidos.",
-                'stats' => $stats,
+                'message' => "Sincronización completada: {$dataResultado['inserted']} eventos nuevos, {$dataResultado['skipped']} omitidos.",
+                'stats' => $dataResultado,
             ]);
         } catch (SyncInProgressException $e) {
             return response()->json([

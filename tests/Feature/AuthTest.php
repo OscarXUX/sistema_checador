@@ -52,7 +52,7 @@ class AuthTest extends TestCase
         $response = $this->get('/login')
             ->assertOk()
             ->assertSee('Iniciar sesión')
-            ->assertSee('id="toggle-password"', false)
+            ->assertSee('id="btnVerContrasena"', false)
             ->assertSee('aria-pressed="false"', false)
             ->assertSee('aria-label="Mostrar contraseña"', false)
             ->assertDontSee('Registrarse');

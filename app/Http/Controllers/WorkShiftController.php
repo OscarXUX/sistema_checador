@@ -40,13 +40,13 @@ class WorkShiftController extends Controller
 
         $previewDepartment = trim((string) $request->query('preview_department', ''));
 
-        $shifts = WorkShift::withCount('employees')->orderBy('entry_time')->get();
-        $rotations = ShiftRotation::with(['steps.workShift'])->withCount('assignments')->orderBy('name')->get();
-        $groups = EmployeeGroup::with(['employees:id,hikvision_employee_no,full_name,department'])
+        $lstTurnos = WorkShift::withCount('employees')->orderBy('entry_time')->get();
+        $lstRotaciones = ShiftRotation::with(['steps.workShift'])->withCount('assignments')->orderBy('name')->get();
+        $lstGrupos = EmployeeGroup::with(['employees:id,hikvision_employee_no,full_name,department'])
             ->withCount('employees')
             ->orderBy('name')
             ->get();
-        $assignments = ShiftRotationAssignment::with([
+        $lstAsignaciones = ShiftRotationAssignment::with([
             'rotation',
             'employee:id,hikvision_employee_no,full_name,department',
             'group:id,name',
@@ -54,7 +54,7 @@ class WorkShiftController extends Controller
             ->orderByDesc('starts_on')
             ->orderByDesc('id')
             ->get();
-        $exceptions = ShiftException::with([
+        $lstExcepciones = ShiftException::with([
             'employee:id,hikvision_employee_no,full_name,department',
             'workShift:id,name,entry_time,exit_time',
         ])
@@ -62,38 +62,38 @@ class WorkShiftController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        $allEmployees = Employee::with(['workShift', 'groups:id'])
+        $lstEmpleados = Employee::with(['workShift', 'groups:id'])
             ->orderBy('full_name')
             ->get();
 
-        $departments = $allEmployees->pluck('department')
+        $lstDepartamentos = $lstEmpleados->pluck('department')
             ->filter(fn ($d): bool => is_string($d) && trim($d) !== '')
             ->unique()
             ->sort()
             ->values();
 
-        $previewEmployees = $previewDepartment !== ''
-            ? $allEmployees->where('department', $previewDepartment)->values()
-            : $allEmployees->where('is_active', true)->values();
+        $lstEmpleadosVista = $previewDepartment !== ''
+            ? $lstEmpleados->where('department', $previewDepartment)->values()
+            : $lstEmpleados->where('is_active', true)->values();
 
-        if ($previewEmployees->isEmpty() && $previewDepartment === '') {
-            $previewEmployees = $allEmployees;
+        if ($lstEmpleadosVista->isEmpty() && $previewDepartment === '') {
+            $lstEmpleadosVista = $lstEmpleados;
         }
 
-        $preview = $resolver->previewForRange($previewEmployees->take(50), $previewStart, 14);
+        $dataVistaPrevia = $resolver->previewForRange($lstEmpleadosVista->take(50), $previewStart, 14);
 
         return view('shifts.index', [
             'activeTab' => $activeTab,
-            'shifts' => $shifts,
-            'rotations' => $rotations,
-            'groups' => $groups,
-            'assignments' => $assignments,
-            'exceptions' => $exceptions,
-            'employees' => $allEmployees,
-            'departments' => $departments,
+            'lstTurnos' => $lstTurnos,
+            'lstRotaciones' => $lstRotaciones,
+            'lstGrupos' => $lstGrupos,
+            'lstAsignaciones' => $lstAsignaciones,
+            'lstExcepciones' => $lstExcepciones,
+            'lstEmpleados' => $lstEmpleados,
+            'lstDepartamentos' => $lstDepartamentos,
             'previewStart' => $previewStart->toDateString(),
             'previewDepartment' => $previewDepartment,
-            'preview' => $preview,
+            'dataVistaPrevia' => $dataVistaPrevia,
         ]);
     }
 
@@ -110,10 +110,10 @@ class WorkShiftController extends Controller
 
     public function update(Request $request, WorkShift $shift, AttendanceCalculatorService $calculator): RedirectResponse
     {
-        $before = $shift->only(self::AUDITED_FIELDS);
+        $dataAntes = $shift->only(self::AUDITED_FIELDS);
         $shift->update($this->validateShift($request));
 
-        [$old, $new] = $this->audit->diff($before, $shift->only(self::AUDITED_FIELDS));
+        [$old, $new] = $this->audit->diff($dataAntes, $shift->only(self::AUDITED_FIELDS));
         if ($new !== []) {
             // Cambiar horarios o tolerancia cambia retardos y horas extra: queda registrado y recalcula resúmenes
             $this->audit->record('shift.updated', $shift, "Cambio en el turno {$shift->name}", $old, $new);
@@ -133,7 +133,7 @@ class WorkShiftController extends Controller
      */
     private function validateShift(Request $request): array
     {
-        $validated = $request->validate([
+        $dataValidado = $request->validate([
             'name' => ['required', 'string', 'max:100'],
             'entry_time' => ['required', 'date_format:H:i'],
             'exit_time' => ['required', 'date_format:H:i'],
@@ -142,9 +142,9 @@ class WorkShiftController extends Controller
             'max_weekly_hours' => ['required', 'integer', 'min:20', 'max:60'],
         ]);
 
-        $validated['entry_time'] .= ':00';
-        $validated['exit_time'] .= ':00';
+        $dataValidado['entry_time'] .= ':00';
+        $dataValidado['exit_time'] .= ':00';
 
-        return $validated;
+        return $dataValidado;
     }
 }

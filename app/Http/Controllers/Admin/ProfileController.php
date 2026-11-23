@@ -28,7 +28,7 @@ class ProfileController extends Controller
     {
         return view('admin.profiles.index', [
             'lstPerfiles' => Profile::withCount(['users', 'permissions'])->orderByDesc('is_admin')->orderBy('name')->get(),
-            'intTotalPermisos' => Permission::active()->count(),
+            'totalPermisos' => Permission::active()->count(),
         ]);
     }
 
@@ -77,7 +77,7 @@ class ProfileController extends Controller
             return back()->withInput()->withErrors(['is_active' => 'El perfil de administrador no se puede desactivar.']);
         }
 
-        $before = $this->snapshot($profile);
+        $dataAntes = $this->snapshot($profile);
 
         DB::transaction(function () use ($profile, $dataValidado): void {
             $profile->update([
@@ -92,7 +92,7 @@ class ProfileController extends Controller
             }
         });
 
-        [$old, $new] = $this->audit->diff($before, $this->snapshot($profile->fresh('permissions')));
+        [$old, $new] = $this->audit->diff($dataAntes, $this->snapshot($profile->fresh('permissions')));
         if ($new !== []) {
             $this->audit->record('profile.updated', $profile, "Cambio en el perfil {$profile->name}", $old, $new);
         }

@@ -48,14 +48,14 @@ class AttendanceCalculatorService
     ): array {
         $events = $isapi->fetchAttendanceEvents($start, $end);
 
-        /** @var Collection<string, Employee> $knownEmployees */
-        $knownEmployees = Employee::with('workShift')->get()->keyBy('hikvision_employee_no');
+        /** @var Collection<string, Employee> $dataEmpleadosPorNumero */
+        $dataEmpleadosPorNumero = Employee::with('workShift')->get()->keyBy('hikvision_employee_no');
 
         $unmatched = 0;
-        $candidates = [];
+        $dataCandidatas = [];
 
         foreach ($events as $event) {
-            $employee = $knownEmployees->get((string) ($event['employee_no'] ?? ''));
+            $employee = $dataEmpleadosPorNumero->get((string) ($event['employee_no'] ?? ''));
 
             if ($employee === null) {
                 $unmatched++;
@@ -68,32 +68,32 @@ class AttendanceCalculatorService
                 : Carbon::parse((string) $event['punched_at']);
 
             // La misma checada puede venir repetida en la misma descarga
-            $candidates[$employee->id.'|'.$punchedAt->format('Y-m-d H:i:s')] = [$employee, $punchedAt, $event];
+            $dataCandidatas[$employee->id.'|'.$punchedAt->format('Y-m-d H:i:s')] = [$employee, $punchedAt, $event];
         }
 
-        $existing = $this->existingPunchKeys($candidates);
+        $existing = $this->existingPunchKeys($dataCandidatas);
         $now = now();
-        $rows = [];
-        $touchedDays = [];
-        $newCandidates = [];
+        $lstFilas = [];
+        $dataDiasAfectados = [];
+        $lstNuevas = [];
 
-        foreach ($candidates as $key => [$employee, $punchedAt, $event]) {
+        foreach ($dataCandidatas as $key => [$employee, $punchedAt, $event]) {
             if (! isset($existing[$key])) {
-                $newCandidates[] = [$employee, $punchedAt, $event];
+                $lstNuevas[] = [$employee, $punchedAt, $event];
             }
         }
 
-        $scheduleContext = null;
-        if ($newCandidates !== []) {
-            $touchedEmployees = collect(array_column($newCandidates, 0))->unique('id')->values();
-            $times = array_map(fn (array $c): Carbon => $c[1], $newCandidates);
-            $minDay = CarbonImmutable::instance(min($times))->subDay()->startOfDay();
-            $maxDay = CarbonImmutable::instance(max($times))->addDay()->startOfDay();
-            $scheduleContext = $this->resolver()->loadBatchContext($touchedEmployees, $minDay, $maxDay);
+        $dataContextoTurnos = null;
+        if ($lstNuevas !== []) {
+            $lstEmpleadosAfectados = collect(array_column($lstNuevas, 0))->unique('id')->values();
+            $lstHoras = array_map(fn (array $c): Carbon => $c[1], $lstNuevas);
+            $minDay = CarbonImmutable::instance(min($lstHoras))->subDay()->startOfDay();
+            $maxDay = CarbonImmutable::instance(max($lstHoras))->addDay()->startOfDay();
+            $dataContextoTurnos = $this->resolver()->loadBatchContext($lstEmpleadosAfectados, $minDay, $maxDay);
         }
 
-        foreach ($newCandidates as [$employee, $punchedAt, $event]) {
-            $rows[] = [
+        foreach ($lstNuevas as [$employee, $punchedAt, $event]) {
+            $lstFilas[] = [
                 'employee_id' => $employee->id,
                 'device_ip' => (string) ($event['device_ip'] ?? $isapi->getDeviceIp()),
                 'punched_at' => $punchedAt->format('Y-m-d H:i:s'),
@@ -104,18 +104,18 @@ class AttendanceCalculatorService
                 'updated_at' => $now,
             ];
 
-            $workDay = $this->resolveWorkDateForEmployeePunch($employee, $punchedAt, $scheduleContext);
-            $touchedDays[$employee->id.'|'.$workDay->toDateString()] = [$employee, $workDay];
+            $workDay = $this->resolveWorkDateForEmployeePunch($employee, $punchedAt, $dataContextoTurnos);
+            $dataDiasAfectados[$employee->id.'|'.$workDay->toDateString()] = [$employee, $workDay];
         }
 
         $inserted = 0;
-        foreach (array_chunk($rows, self::INSERT_CHUNK) as $chunk) {
+        foreach (array_chunk($lstFilas, self::INSERT_CHUNK) as $chunk) {
             // insertOrIgnore respeta el índice único si otra sincronización ya insertó la checada
             $inserted += DB::table('attendance_logs')->insertOrIgnore($chunk);
         }
 
-        foreach ($touchedDays as [$employee, $workDate]) {
-            $this->recalculateForEmployeeDate($employee, $workDate, $scheduleContext);
+        foreach ($dataDiasAfectados as [$employee, $workDate]) {
+            $this->recalculateForEmployeeDate($employee, $workDate, $dataContextoTurnos);
         }
 
         $matched = count($events) - $unmatched;
@@ -132,43 +132,43 @@ class AttendanceCalculatorService
     /**
      * Llaves "empleado|fecha y hora" que ya existen en la bitácora para los candidatos, en una sola consulta.
      *
-     * @param  array<string, array{0: Employee, 1: Carbon, 2: array<string, mixed>}>  $candidates
+     * @param  array<string, array{0: Employee, 1: Carbon, 2: array<string, mixed>}>  $dataCandidatas
      * @return array<string, true>
      */
-    private function existingPunchKeys(array $candidates): array
+    private function existingPunchKeys(array $dataCandidatas): array
     {
-        if ($candidates === []) {
+        if ($dataCandidatas === []) {
             return [];
         }
 
-        $times = array_map(fn (array $c): string => $c[1]->format('Y-m-d H:i:s'), $candidates);
-        $employeeIds = array_values(array_unique(array_map(fn (array $c): int => $c[0]->id, $candidates)));
+        $lstHoras = array_map(fn (array $c): string => $c[1]->format('Y-m-d H:i:s'), $dataCandidatas);
+        $lstIdsEmpleados = array_values(array_unique(array_map(fn (array $c): int => $c[0]->id, $dataCandidatas)));
 
-        $keys = [];
+        $dataLlaves = [];
         AttendanceLog::query()
-            ->whereBetween('punched_at', [min($times), max($times)])
-            ->whereIn('employee_id', $employeeIds)
+            ->whereBetween('punched_at', [min($lstHoras), max($lstHoras)])
+            ->whereIn('employee_id', $lstIdsEmpleados)
             ->toBase()
             ->select(['employee_id', 'punched_at'])
             ->orderBy('id')
-            ->chunk(5000, function ($logs) use (&$keys): void {
-                foreach ($logs as $log) {
-                    $keys[$log->employee_id.'|'.Carbon::parse($log->punched_at)->format('Y-m-d H:i:s')] = true;
+            ->chunk(5000, function ($lstChecadas) use (&$dataLlaves): void {
+                foreach ($lstChecadas as $log) {
+                    $dataLlaves[$log->employee_id.'|'.Carbon::parse($log->punched_at)->format('Y-m-d H:i:s')] = true;
                 }
             });
 
-        return $keys;
+        return $dataLlaves;
     }
 
     /**
      * Registra un evento de checada en la bitácora inmutable evitando duplicados
      * y recalcula automáticamente el Kardex diario cuando es un registro nuevo.
      *
-     * @param  array<string, mixed>  $eventData
+     * @param  array<string, mixed>  $dataEvento
      */
-    public function ingestEvent(array $eventData): ?AttendanceLog
+    public function ingestEvent(array $dataEvento): ?AttendanceLog
     {
-        $employeeNo = (string) ($eventData['employee_no'] ?? '');
+        $employeeNo = (string) ($dataEvento['employee_no'] ?? '');
         if ($employeeNo === '') {
             return null;
         }
@@ -178,9 +178,9 @@ class AttendanceCalculatorService
             return null;
         }
 
-        $punchedAt = $eventData['punched_at'] instanceof CarbonInterface
-            ? Carbon::instance($eventData['punched_at'])
-            : Carbon::parse((string) $eventData['punched_at']);
+        $punchedAt = $dataEvento['punched_at'] instanceof CarbonInterface
+            ? Carbon::instance($dataEvento['punched_at'])
+            : Carbon::parse((string) $dataEvento['punched_at']);
 
         try {
             $existing = AttendanceLog::where('employee_id', $employee->id)
@@ -191,14 +191,14 @@ class AttendanceCalculatorService
                 return null;
             }
 
-            $log = AttendanceLog::withoutEvents(function () use ($employee, $eventData, $punchedAt): AttendanceLog {
+            $log = AttendanceLog::withoutEvents(function () use ($employee, $dataEvento, $punchedAt): AttendanceLog {
                 return AttendanceLog::create([
                     'employee_id' => $employee->id,
-                    'device_ip' => (string) ($eventData['device_ip'] ?? '192.168.0.69'),
+                    'device_ip' => (string) ($dataEvento['device_ip'] ?? '192.168.0.69'),
                     'punched_at' => $punchedAt,
-                    'event_type' => (string) ($eventData['event_type'] ?? AttendanceLog::EVENT_UNCLASSIFIED),
-                    'verification_mode' => mb_substr((string) ($eventData['verification_mode'] ?? 'fingerprint'), 0, 32),
-                    'raw_payload' => $eventData['raw_payload'] ?? $eventData,
+                    'event_type' => (string) ($dataEvento['event_type'] ?? AttendanceLog::EVENT_UNCLASSIFIED),
+                    'verification_mode' => mb_substr((string) ($dataEvento['verification_mode'] ?? 'fingerprint'), 0, 32),
+                    'raw_payload' => $dataEvento['raw_payload'] ?? $dataEvento,
                 ]);
             });
         } catch (UniqueConstraintViolationException) {
@@ -223,20 +223,20 @@ class AttendanceCalculatorService
     /**
      * Recalcula el DailySummary de un empleado para una fecha de inicio de jornada específica.
      *
-     * @param  array<string, mixed>|null  $scheduleContext
+     * @param  array<string, mixed>|null  $dataContextoTurnos
      */
     public function recalculateForEmployeeDate(
         Employee $employee,
         CarbonInterface $workDate,
-        ?array $scheduleContext = null
+        ?array $dataContextoTurnos = null
     ): DailySummary {
         $date = CarbonImmutable::instance($workDate)->startOfDay();
-        ['shift' => $shift, 'logs' => $logs, 'slots' => $slots, 'active' => $isActiveShiftWindow] = $this->classifyDay($employee, $date, $scheduleContext);
+        ['shift' => $shift, 'logs' => $lstChecadas, 'slots' => $dataMarcas, 'active' => $isActiveShiftWindow] = $this->classifyDay($employee, $date, $dataContextoTurnos);
 
-        $firstCheckIn = $slots['check_in'];
-        $breakOut = $slots['break_out'];
-        $breakIn = $slots['break_in'];
-        $lastCheckOut = $slots['check_out'];
+        $firstCheckIn = $dataMarcas['check_in'];
+        $breakOut = $dataMarcas['break_out'];
+        $breakIn = $dataMarcas['break_in'];
+        $lastCheckOut = $dataMarcas['check_out'];
 
         $lateMinutes = 0;
         if ($firstCheckIn !== null && $shift !== null) {
@@ -276,7 +276,7 @@ class AttendanceCalculatorService
         $mealExceededMinutes = $breakIn !== null ? max(0, $mealMinutes - ($shift?->meal_duration_minutes ?? 60)) : 0;
 
         $status = $this->determineDailyStatus(
-            logsCount: $logs->count(),
+            logsCount: $lstChecadas->count(),
             isActiveShiftWindow: $isActiveShiftWindow,
             firstCheckIn: $firstCheckIn,
             breakOut: $breakOut,
@@ -287,7 +287,7 @@ class AttendanceCalculatorService
             allowedMealMinutes: $shift?->meal_duration_minutes ?? 60,
         );
 
-        $attributes = [
+        $dataResumen = [
             'first_check_in' => $firstCheckIn,
             'break_out' => $breakOut,
             'break_in' => $breakIn,
@@ -299,8 +299,8 @@ class AttendanceCalculatorService
             'early_exit_minutes' => $earlyExitMinutes,
             'meal_exceeded_minutes' => $mealExceededMinutes,
             'status' => $status,
-            'incidents' => $slots['incidents'] === [] ? null : $slots['incidents'],
-            'corrected_punches' => $slots['corrected'],
+            'incidents' => $dataMarcas['incidents'] === [] ? null : $dataMarcas['incidents'],
+            'corrected_punches' => $dataMarcas['corrected'],
             // Tipos de evento del catálogo (nota 4): solo con turno, porque se miden contra su horario
             ...app(EventTypeClassifier::class)->idsFor(
                 $firstCheckIn !== null && $shift !== null,
@@ -316,29 +316,29 @@ class AttendanceCalculatorService
         // updateOrCreate dentro de una transacción evita duplicar el resumen si dos procesos coinciden (SE-13).
         return DB::transaction(fn (): DailySummary => DailySummary::updateOrCreate(
             ['employee_id' => $employee->id, 'work_date' => $date->toDateString()],
-            $attributes,
+            $dataResumen,
         ));
     }
 
     /**
      * Turno, checadas y clasificación de una jornada (lo usan el recálculo y la pantalla de corrección).
      *
-     * @param  array<string, mixed>|null  $scheduleContext
+     * @param  array<string, mixed>|null  $dataContextoTurnos
      * @return array{shift: ?WorkShift, logs: Collection<int, AttendanceLog>, slots: array<string, mixed>, active: bool}
      */
-    public function classifyDay(Employee $employee, CarbonInterface $workDate, ?array $scheduleContext = null): array
+    public function classifyDay(Employee $employee, CarbonInterface $workDate, ?array $dataContextoTurnos = null): array
     {
         $employee->loadMissing('workShift');
         $date = CarbonImmutable::instance($workDate)->startOfDay();
-        $shift = $scheduleContext !== null
-            ? $this->resolver()->resolveDetailFromContext($employee, $date, $scheduleContext)['shift']
+        $shift = $dataContextoTurnos !== null
+            ? $this->resolver()->resolveDetailFromContext($employee, $date, $dataContextoTurnos)['shift']
             : $this->resolver()->resolveForEmployeeOnDate($employee, $date);
         [$windowStart, $windowEnd] = $shift !== null
             ? $shift->shiftWindowForDate($date)
             : [$date->startOfDay(), $date->endOfDay()];
 
-        /** @var Collection<int, AttendanceLog> $logs */
-        $logs = AttendanceLog::with('correction')
+        /** @var Collection<int, AttendanceLog> $lstChecadas */
+        $lstChecadas = AttendanceLog::with('correction')
             ->where('employee_id', $employee->id)
             ->whereBetween('punched_at', [$windowStart, $windowEnd])
             ->orderBy('punched_at')
@@ -348,10 +348,10 @@ class AttendanceCalculatorService
 
         // Con turno: clasificación por ventanas de horario e incidencias (paquete 3); sin turno, la de siempre
         if ($shift !== null) {
-            $slots = app(PunchClassifier::class)->classify($logs, $shift, $date, $isActiveShiftWindow);
+            $dataMarcas = app(PunchClassifier::class)->classify($lstChecadas, $shift, $date, $isActiveShiftWindow);
         } else {
             // Sin turno, las correcciones se aplican sobre la tecla (en memoria; la checada no se guarda)
-            $lstUsables = $logs->reject(fn (AttendanceLog $log): bool => $log->correction?->corrected_type === \App\Models\AttendanceLogCorrection::TYPE_IGNORE)
+            $lstUsables = $lstChecadas->reject(fn (AttendanceLog $log): bool => $log->correction?->corrected_type === \App\Models\AttendanceLogCorrection::TYPE_IGNORE)
                 ->map(function (AttendanceLog $log): AttendanceLog {
                     if ($log->correction !== null) {
                         $copy = clone $log;
@@ -362,13 +362,13 @@ class AttendanceCalculatorService
 
                     return $log;
                 })->values();
-            $slots = $this->resolveDailyPunchSlots($lstUsables, null, $date, $isActiveShiftWindow);
-            $slots['incidents'] = [];
-            $slots['roles'] = [];
-            $slots['corrected'] = $logs->filter(fn (AttendanceLog $log): bool => $log->correction !== null)->count();
+            $dataMarcas = $this->resolveDailyPunchSlots($lstUsables, null, $date, $isActiveShiftWindow);
+            $dataMarcas['incidents'] = [];
+            $dataMarcas['roles'] = [];
+            $dataMarcas['corrected'] = $lstChecadas->filter(fn (AttendanceLog $log): bool => $log->correction !== null)->count();
         }
 
-        return ['shift' => $shift, 'logs' => $logs, 'slots' => $slots, 'active' => $isActiveShiftWindow];
+        return ['shift' => $shift, 'logs' => $lstChecadas, 'slots' => $dataMarcas, 'active' => $isActiveShiftWindow];
     }
 
     /**
@@ -376,43 +376,43 @@ class AttendanceCalculatorService
      */
     public function recalculateAllForShift(WorkShift $shift): int
     {
-        $directEmployeeIds = Employee::where('work_shift_id', $shift->id)->pluck('id');
-        $exceptionEmployeeIds = ShiftException::where('work_shift_id', $shift->id)->pluck('employee_id');
+        $lstIdsDirectos = Employee::where('work_shift_id', $shift->id)->pluck('id');
+        $lstIdsConExcepcion = ShiftException::where('work_shift_id', $shift->id)->pluck('employee_id');
 
         $rotationAssignments = ShiftRotationAssignment::query()
             ->whereHas('rotation.steps', fn ($q) => $q->where('work_shift_id', $shift->id))
             ->get();
 
-        $rotationEmpIds = $rotationAssignments
+        $lstIdsRotacion = $rotationAssignments
             ->where('target_type', ShiftRotationAssignment::TARGET_EMPLOYEE)
             ->pluck('employee_id')
             ->filter();
-        $rotationGroupIds = $rotationAssignments
+        $lstIdsGrupoRotacion = $rotationAssignments
             ->where('target_type', ShiftRotationAssignment::TARGET_GROUP)
             ->pluck('employee_group_id')
             ->filter();
-        $rotationDepts = $rotationAssignments
+        $lstDeptosRotacion = $rotationAssignments
             ->where('target_type', ShiftRotationAssignment::TARGET_DEPARTMENT)
             ->pluck('department')
             ->filter();
 
-        $allEmployeeIds = collect()
-            ->merge($directEmployeeIds)
-            ->merge($exceptionEmployeeIds)
-            ->merge($rotationEmpIds);
+        $lstIdsTodos = collect()
+            ->merge($lstIdsDirectos)
+            ->merge($lstIdsConExcepcion)
+            ->merge($lstIdsRotacion);
 
         $employees = Employee::with(['workShift', 'groups:id'])
-            ->where(function ($q) use ($allEmployeeIds, $rotationGroupIds, $rotationDepts): void {
-                if ($allEmployeeIds->isNotEmpty()) {
-                    $q->whereIn('id', $allEmployeeIds->unique()->values());
+            ->where(function ($q) use ($lstIdsTodos, $lstIdsGrupoRotacion, $lstDeptosRotacion): void {
+                if ($lstIdsTodos->isNotEmpty()) {
+                    $q->whereIn('id', $lstIdsTodos->unique()->values());
                 } else {
                     $q->whereRaw('1 = 0');
                 }
-                if ($rotationGroupIds->isNotEmpty()) {
-                    $q->orWhereHas('groups', fn ($g) => $g->whereIn('employee_groups.id', $rotationGroupIds));
+                if ($lstIdsGrupoRotacion->isNotEmpty()) {
+                    $q->orWhereHas('groups', fn ($g) => $g->whereIn('employee_groups.id', $lstIdsGrupoRotacion));
                 }
-                if ($rotationDepts->isNotEmpty()) {
-                    $q->orWhereIn('department', $rotationDepts);
+                if ($lstDeptosRotacion->isNotEmpty()) {
+                    $q->orWhereIn('department', $lstDeptosRotacion);
                 }
             })
             ->get();
@@ -453,9 +453,9 @@ class AttendanceCalculatorService
             [$fromDay, $toDay] = [$toDay, $fromDay];
         }
 
-        $byId = $employees->keyBy('id');
+        $dataEmpleadosPorId = $employees->keyBy('id');
 
-        $logsQuery = AttendanceLog::whereIn('employee_id', $byId->keys())
+        $logsQuery = AttendanceLog::whereIn('employee_id', $dataEmpleadosPorId->keys())
             ->orderBy('punched_at');
 
         if ($fromDay !== null) {
@@ -465,50 +465,50 @@ class AttendanceCalculatorService
             $logsQuery->where('punched_at', '<=', $toDay->addDay()->endOfDay());
         }
 
-        $logs = $logsQuery->get(['id', 'employee_id', 'punched_at']);
+        $lstChecadas = $logsQuery->get(['id', 'employee_id', 'punched_at']);
 
-        $summaryQuery = DailySummary::whereIn('employee_id', $byId->keys());
+        $summaryQuery = DailySummary::whereIn('employee_id', $dataEmpleadosPorId->keys());
         if ($fromDay !== null) {
             $summaryQuery->where('work_date', '>=', $fromDay->toDateString());
         }
         if ($toDay !== null) {
             $summaryQuery->where('work_date', '<=', $toDay->toDateString());
         }
-        $summaries = $summaryQuery->get(['id', 'employee_id', 'work_date']);
+        $lstResumenes = $summaryQuery->get(['id', 'employee_id', 'work_date']);
 
-        if ($logs->isEmpty() && $summaries->isEmpty()) {
+        if ($lstChecadas->isEmpty() && $lstResumenes->isEmpty()) {
             return 0;
         }
 
-        $dateBounds = [];
+        $lstFechasLimite = [];
         if ($fromDay !== null) {
-            $dateBounds[] = $fromDay->subDay();
+            $lstFechasLimite[] = $fromDay->subDay();
         }
         if ($toDay !== null) {
-            $dateBounds[] = $toDay->addDay();
+            $lstFechasLimite[] = $toDay->addDay();
         }
-        foreach ($logs as $log) {
-            $dateBounds[] = CarbonImmutable::instance($log->punched_at)->startOfDay();
+        foreach ($lstChecadas as $log) {
+            $lstFechasLimite[] = CarbonImmutable::instance($log->punched_at)->startOfDay();
         }
-        foreach ($summaries as $summary) {
+        foreach ($lstResumenes as $summary) {
             if ($summary->work_date !== null) {
-                $dateBounds[] = CarbonImmutable::instance($summary->work_date)->startOfDay();
+                $lstFechasLimite[] = CarbonImmutable::instance($summary->work_date)->startOfDay();
             }
         }
 
-        $minDate = collect($dateBounds)->min()->subDay();
-        $maxDate = collect($dateBounds)->max()->addDay();
-        $scheduleContext = $this->resolver()->loadBatchContext($employees, $minDate, $maxDate);
+        $minDate = collect($lstFechasLimite)->min()->subDay();
+        $maxDate = collect($lstFechasLimite)->max()->addDay();
+        $dataContextoTurnos = $this->resolver()->loadBatchContext($employees, $minDate, $maxDate);
 
-        $targets = [];
+        $dataObjetivos = [];
 
-        foreach ($logs as $log) {
-            $employee = $byId->get($log->employee_id);
+        foreach ($lstChecadas as $log) {
+            $employee = $dataEmpleadosPorId->get($log->employee_id);
             if ($employee === null) {
                 continue;
             }
 
-            $workDate = $this->resolveWorkDateForEmployeePunch($employee, $log->punched_at, $scheduleContext);
+            $workDate = $this->resolveWorkDateForEmployeePunch($employee, $log->punched_at, $dataContextoTurnos);
             if ($fromDay !== null && $workDate->lessThan($fromDay)) {
                 continue;
             }
@@ -516,24 +516,24 @@ class AttendanceCalculatorService
                 continue;
             }
 
-            $targets[$employee->id.'|'.$workDate->toDateString()] = [$employee, $workDate];
+            $dataObjetivos[$employee->id.'|'.$workDate->toDateString()] = [$employee, $workDate];
         }
 
-        foreach ($summaries as $summary) {
-            $employee = $byId->get($summary->employee_id);
+        foreach ($lstResumenes as $summary) {
+            $employee = $dataEmpleadosPorId->get($summary->employee_id);
             if ($employee === null || $summary->work_date === null) {
                 continue;
             }
 
             $workDate = CarbonImmutable::instance($summary->work_date)->startOfDay();
-            $targets[$employee->id.'|'.$workDate->toDateString()] ??= [$employee, $workDate];
+            $dataObjetivos[$employee->id.'|'.$workDate->toDateString()] ??= [$employee, $workDate];
         }
 
-        foreach ($targets as [$employee, $workDate]) {
-            $this->recalculateForEmployeeDate($employee, $workDate, $scheduleContext);
+        foreach ($dataObjetivos as [$employee, $workDate]) {
+            $this->recalculateForEmployeeDate($employee, $workDate, $dataContextoTurnos);
         }
 
-        return count($targets);
+        return count($dataObjetivos);
     }
 
     /**
@@ -541,83 +541,83 @@ class AttendanceCalculatorService
      * normalizando comidas invertidas o huérfanas y aplicando respaldo cronológico
      * cuando existen checadas sin clasificar.
      *
-     * @param  Collection<int, AttendanceLog>  $logs
+     * @param  Collection<int, AttendanceLog>  $lstChecadas
      * @return array<string, CarbonImmutable|null>
      */
     private function resolveDailyPunchSlots(
-        Collection $logs,
+        Collection $lstChecadas,
         ?WorkShift $shift = null,
         ?CarbonImmutable $workDate = null,
         bool $isActiveShiftWindow = false,
     ): array {
-        $slots = [
+        $dataMarcas = [
             'check_in' => null,
             'break_out' => null,
             'break_in' => null,
             'check_out' => null,
         ];
 
-        if ($logs->isEmpty()) {
-            return $slots;
+        if ($lstChecadas->isEmpty()) {
+            return $dataMarcas;
         }
 
         // 1. Mapeo explícito desde attendanceStatus / statusValue del reloj
-        $breakLogs = [];
-        foreach ($logs as $log) {
+        $lstComidas = [];
+        foreach ($lstChecadas as $log) {
             $punchedAt = CarbonImmutable::instance($log->punched_at);
 
-            if ($log->event_type === AttendanceLog::EVENT_CHECK_IN && $slots['check_in'] === null) {
-                $slots['check_in'] = $punchedAt;
+            if ($log->event_type === AttendanceLog::EVENT_CHECK_IN && $dataMarcas['check_in'] === null) {
+                $dataMarcas['check_in'] = $punchedAt;
             } elseif ($log->event_type === AttendanceLog::EVENT_BREAK_OUT) {
-                $breakLogs[] = $punchedAt;
-                if ($slots['break_out'] === null) {
-                    $slots['break_out'] = $punchedAt;
+                $lstComidas[] = $punchedAt;
+                if ($dataMarcas['break_out'] === null) {
+                    $dataMarcas['break_out'] = $punchedAt;
                 }
             } elseif ($log->event_type === AttendanceLog::EVENT_BREAK_IN) {
-                $breakLogs[] = $punchedAt;
-                if ($slots['break_in'] === null) {
-                    $slots['break_in'] = $punchedAt;
+                $lstComidas[] = $punchedAt;
+                if ($dataMarcas['break_in'] === null) {
+                    $dataMarcas['break_in'] = $punchedAt;
                 }
             } elseif ($log->event_type === AttendanceLog::EVENT_CHECK_OUT) {
-                $slots['check_out'] = $punchedAt;
+                $dataMarcas['check_out'] = $punchedAt;
             }
         }
 
         // 1b. Normalizar marcas de comida invertidas (ej. breakIn/breakOut del DS-K1T804AEF) o huérfanas
-        $breakCount = count($breakLogs);
+        $breakCount = count($lstComidas);
         if ($breakCount === 1) {
             // Una sola marca de comida siempre corresponde al inicio de comida en curso
-            $slots['break_out'] = $breakLogs[0];
-            $slots['break_in'] = null;
+            $dataMarcas['break_out'] = $lstComidas[0];
+            $dataMarcas['break_in'] = null;
         } elseif ($breakCount >= 2) {
             // Con dos o más marcas en orden cronológico, la primera es salida y la última regreso
-            if ($slots['break_out'] === null || $slots['break_in'] === null || $slots['break_in']->lessThan($slots['break_out'])) {
-                $slots['break_out'] = $breakLogs[0];
-                $slots['break_in'] = $breakLogs[$breakCount - 1];
+            if ($dataMarcas['break_out'] === null || $dataMarcas['break_in'] === null || $dataMarcas['break_in']->lessThan($dataMarcas['break_out'])) {
+                $dataMarcas['break_out'] = $lstComidas[0];
+                $dataMarcas['break_in'] = $lstComidas[$breakCount - 1];
             }
         }
 
         // 2. Respaldo cronológico sobre las checadas sin tecla de estado
-        $orderedLogs = $logs->values();
-        $totalCount = $orderedLogs->count();
-        $unclassifiedLogs = $orderedLogs->filter(
+        $lstChecadasOrdenadas = $lstChecadas->values();
+        $totalCount = $lstChecadasOrdenadas->count();
+        $lstSinClasificar = $lstChecadasOrdenadas->filter(
             fn (AttendanceLog $log): bool => $log->event_type === AttendanceLog::EVENT_UNCLASSIFIED
         )->values();
 
-        if ($unclassifiedLogs->isNotEmpty()) {
+        if ($lstSinClasificar->isNotEmpty()) {
             $scheduledExit = null;
             if ($shift !== null && $workDate !== null) {
                 $exitDate = $shift->crossesMidnight() ? $workDate->addDay() : $workDate;
                 $scheduledExit = CarbonImmutable::parse($exitDate->toDateString().' '.$shift->exit_time);
             }
 
-            $chronologicalMap = [
+            $dataOrdenCronologico = [
                 0 => 'check_in',
                 1 => 'break_out',
                 2 => 'break_in',
             ];
 
-            foreach ($orderedLogs as $index => $log) {
+            foreach ($lstChecadasOrdenadas as $index => $log) {
                 if ($log->event_type !== AttendanceLog::EVENT_UNCLASSIFIED) {
                     continue;
                 }
@@ -625,46 +625,46 @@ class AttendanceCalculatorService
                 $punchedAt = CarbonImmutable::instance($log->punched_at);
 
                 // Si solo hubo 2 checadas y la 2ª parece salida de jornada (cerca de exit_time o día cerrado), es check_out
-                if ($index === 1 && $totalCount === 2 && $slots['check_out'] === null && $slots['break_out'] === null) {
+                if ($index === 1 && $totalCount === 2 && $dataMarcas['check_out'] === null && $dataMarcas['break_out'] === null) {
                     $isLikelyExit = ! $isActiveShiftWindow
                         || ($scheduledExit !== null && $punchedAt->greaterThanOrEqualTo($scheduledExit->subMinutes(90)));
 
                     $targetSlot = $isLikelyExit ? 'check_out' : 'break_out';
-                    $slots[$targetSlot] = $punchedAt;
+                    $dataMarcas[$targetSlot] = $punchedAt;
 
                     continue;
                 }
 
-                if (isset($chronologicalMap[$index])) {
-                    $targetSlot = $chronologicalMap[$index];
-                    if ($slots[$targetSlot] === null) {
-                        $slots[$targetSlot] = $punchedAt;
+                if (isset($dataOrdenCronologico[$index])) {
+                    $targetSlot = $dataOrdenCronologico[$index];
+                    if ($dataMarcas[$targetSlot] === null) {
+                        $dataMarcas[$targetSlot] = $punchedAt;
                     }
                 } elseif ($index === $totalCount - 1 && $index >= 3) {
-                    if ($slots['check_out'] === null) {
-                        $slots['check_out'] = $punchedAt;
+                    if ($dataMarcas['check_out'] === null) {
+                        $dataMarcas['check_out'] = $punchedAt;
                     }
                 }
             }
         }
 
-        return $slots;
+        return $dataMarcas;
     }
 
     /**
-     * @param  array<string, mixed>|null  $scheduleContext
+     * @param  array<string, mixed>|null  $dataContextoTurnos
      */
     private function resolveWorkDateForEmployeePunch(
         Employee $employee,
         CarbonInterface $punchedAt,
-        ?array $scheduleContext = null
+        ?array $dataContextoTurnos = null
     ): CarbonImmutable {
         $instant = CarbonImmutable::instance($punchedAt);
         $baseDay = $instant->startOfDay();
 
-        $resolveShift = function (CarbonImmutable $day) use ($employee, $scheduleContext): ?WorkShift {
-            if ($scheduleContext !== null) {
-                return $this->resolver()->resolveDetailFromContext($employee, $day, $scheduleContext)['shift'];
+        $resolveShift = function (CarbonImmutable $day) use ($employee, $dataContextoTurnos): ?WorkShift {
+            if ($dataContextoTurnos !== null) {
+                return $this->resolver()->resolveDetailFromContext($employee, $day, $dataContextoTurnos)['shift'];
             }
 
             return $this->resolver()->resolveForEmployeeOnDate($employee, $day);

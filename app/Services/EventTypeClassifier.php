@@ -53,7 +53,7 @@ class EventTypeClassifier
             ->where(fn ($q) => $q->whereNotNull('first_check_in')->orWhereNotNull('last_check_out')->orWhereNotNull('break_in'))
             ->chunkById(500, function (Collection $lstResumenes) use (&$count): void {
                 foreach ($lstResumenes as $summary) {
-                    $ids = $this->idsFor(
+                    $dataIds = $this->idsFor(
                         $summary->first_check_in !== null,
                         (int) $summary->late_minutes,
                         $summary->last_check_out !== null,
@@ -61,7 +61,7 @@ class EventTypeClassifier
                         $summary->break_in !== null,
                         (int) $summary->meal_exceeded_minutes,
                     );
-                    $summary->forceFill($ids);
+                    $summary->forceFill($dataIds);
                     if ($summary->isDirty()) {
                         $summary->saveQuietly();
                         $count++;

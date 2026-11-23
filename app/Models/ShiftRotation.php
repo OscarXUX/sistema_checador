@@ -45,11 +45,11 @@ class ShiftRotation extends Model
         CarbonInterface $startsOn,
         int $startStepOrder = 1
     ): ?WorkShift {
-        $steps = $this->relationLoaded('steps')
+        $lstPasos = $this->relationLoaded('steps')
             ? $this->steps->sortBy('step_order')->values()
             : $this->steps()->with('workShift')->get()->values();
 
-        if ($steps->isEmpty()) {
+        if ($lstPasos->isEmpty()) {
             return null;
         }
 
@@ -64,21 +64,21 @@ class ShiftRotation extends Model
         $cycleDays = max(1, (int) $this->cycle_days);
         $cyclesElapsed = intdiv($daysElapsed, $cycleDays);
         $offset = max(0, $startStepOrder - 1);
-        $stepIndex = ($offset + $cyclesElapsed) % $steps->count();
+        $stepIndex = ($offset + $cyclesElapsed) % $lstPasos->count();
 
         /** @var ShiftRotationStep|null $step */
-        $step = $steps->get($stepIndex);
+        $step = $lstPasos->get($stepIndex);
 
         return $step?->workShift;
     }
 
     public function sequenceLabel(): string
     {
-        $steps = $this->relationLoaded('steps')
+        $lstPasos = $this->relationLoaded('steps')
             ? $this->steps->sortBy('step_order')
             : $this->steps()->with('workShift')->get();
 
-        return $steps
+        return $lstPasos
             ->map(fn (ShiftRotationStep $s): string => $s->workShift?->name ?? "Turno #{$s->work_shift_id}")
             ->implode(' → ');
     }

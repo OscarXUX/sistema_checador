@@ -672,7 +672,7 @@ XML;
         $body = $this->parseResponseBody($response);
 
         if (! $response->successful() || (($body['statusCode'] ?? 1) !== 1 && ($body['subStatusCode'] ?? '') === 'badJsonFormat')) {
-            $legacyPayload = [
+            $dataPayloadAnterior = [
                 'FingerPrintData' => [
                     'employeeNo' => $employeeNo,
                     'fingerPrintID' => $fingerNo,
@@ -680,7 +680,7 @@ XML;
                     'fingerData' => $fingerData,
                 ],
             ];
-            $response = $this->sendRequest('post', $endpoint, $legacyPayload);
+            $response = $this->sendRequest('post', $endpoint, $dataPayloadAnterior);
             $body = $this->parseResponseBody($response);
         }
 
@@ -737,9 +737,9 @@ XML;
      */
     private function parseResponseBody(Response $response): array
     {
-        $json = $response->json();
-        if (is_array($json)) {
-            return $json;
+        $dataJson = $response->json();
+        if (is_array($dataJson)) {
+            return $dataJson;
         }
 
         $raw = trim($response->body());
@@ -752,9 +752,9 @@ XML;
             if ($xml !== false) {
                 $encoded = json_encode($xml);
                 if (is_string($encoded)) {
-                    $decoded = json_decode($encoded, true);
-                    if (is_array($decoded)) {
-                        return $decoded;
+                    $dataDecodificado = json_decode($encoded, true);
+                    if (is_array($dataDecodificado)) {
+                        return $dataDecodificado;
                     }
                 }
             }
@@ -1062,9 +1062,9 @@ XML;
      */
     private function extractVerifyModeValues(array $bodies): array
     {
-        $found = [];
+        $dataEncontrados = [];
 
-        $walker = function (array $node) use (&$walker, &$found): void {
+        $walker = function (array $node) use (&$walker, &$dataEncontrados): void {
             foreach ($node as $key => $value) {
                 $keyLower = strtolower((string) $key);
                 if (in_array($keyLower, ['verifymode', 'currentverifymode', 'supportverifymode', 'opt', 'enum'], true)) {
@@ -1072,16 +1072,16 @@ XML;
                         foreach (preg_split('/[\s,|]+/', $value) ?: [] as $part) {
                             $part = trim($part);
                             if ($part !== '') {
-                                $found[$part] = true;
+                                $dataEncontrados[$part] = true;
                             }
                         }
                     } elseif (is_array($value)) {
-                        array_walk_recursive($value, function ($leaf) use (&$found): void {
+                        array_walk_recursive($value, function ($leaf) use (&$dataEncontrados): void {
                             if (is_string($leaf) || is_numeric($leaf)) {
                                 foreach (preg_split('/[\s,|]+/', (string) $leaf) ?: [] as $part) {
                                     $part = trim($part);
                                     if ($part !== '') {
-                                        $found[$part] = true;
+                                        $dataEncontrados[$part] = true;
                                     }
                                 }
                             }
@@ -1099,7 +1099,7 @@ XML;
             }
         }
 
-        return array_values(array_keys($found));
+        return array_values(array_keys($dataEncontrados));
     }
 
     /**
@@ -1114,12 +1114,12 @@ XML;
         array $verifyModes,
         array $modeNeedles,
     ): bool {
-        $lowerKeys = array_map('strtolower', $keys);
+        $lstLlavesMinusculas = array_map('strtolower', $keys);
         $explicitValue = null;
 
-        $inspect = function (array $node) use (&$inspect, $lowerKeys, &$explicitValue): void {
+        $inspect = function (array $node) use (&$inspect, $lstLlavesMinusculas, &$explicitValue): void {
             foreach ($node as $k => $v) {
-                if (in_array(strtolower((string) $k), $lowerKeys, true)) {
+                if (in_array(strtolower((string) $k), $lstLlavesMinusculas, true)) {
                     if (is_bool($v)) {
                         $explicitValue = $v;
 

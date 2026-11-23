@@ -231,10 +231,10 @@ class ShiftScheduleTest extends TestCase
 
         $response = $this->get('/shifts?tab=rotaciones')->assertOk();
 
-        $response->assertSee('id="tab-turnos"', false);
-        $response->assertSee('id="tab-rotaciones"', false);
-        $response->assertSee('id="tab-asignaciones"', false);
-        $response->assertSee('id="tab-excepciones"', false);
+        $response->assertSee('id="btnTabTurnos"', false);
+        $response->assertSee('id="btnTabRotaciones"', false);
+        $response->assertSee('id="btnTabAsignaciones"', false);
+        $response->assertSee('id="btnTabExcepciones"', false);
         $response->assertSee('Vista Previa de 14 Días');
     }
 

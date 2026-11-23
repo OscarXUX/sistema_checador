@@ -64,7 +64,8 @@ tests/                                          95 pruebas (Feature y Unit)
 
 | Tema | Convención |
 |---|---|
-| Código | En inglés (`work_shifts`, `punched_at`); textos de pantalla y mensajes en español |
+| Código | Clases, funciones, tablas y columnas en inglés (`work_shifts`, `punched_at`); textos de pantalla y mensajes en español |
+| Nomenclatura | Ids y variables con prefijo + PascalCase en español (`txtCorreo`, `mdEmpleado`, `lstEmpleados`, `$dataValidado`): `docs/NOMENCLATURA_COMPONENTES_Y_ESTRUCTURAS.md` |
 | Respuestas | Los controladores responden JSON cuando la petición lo pide (`expectsJson()`) y redirección en formularios |
 | Validación | Form Requests (`StoreEmployeeRequest`, `UpdateEmployeeRequest`) y `$request->validated()` |
 | Zona horaria | `APP_TIMEZONE=America/Mexico_City` |

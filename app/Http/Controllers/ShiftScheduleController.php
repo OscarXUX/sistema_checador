@@ -19,17 +19,17 @@ class ShiftScheduleController extends Controller
 
     public function storeRotation(Request $request): RedirectResponse
     {
-        $validated = $this->validateRotation($request);
+        $dataValidado = $this->validateRotation($request);
 
-        $rotation = DB::transaction(function () use ($validated): ShiftRotation {
+        $rotation = DB::transaction(function () use ($dataValidado): ShiftRotation {
             $rotation = ShiftRotation::create([
-                'name' => $validated['name'],
-                'description' => $validated['description'] ?? null,
-                'cycle_days' => (int) $validated['cycle_days'],
-                'is_active' => $validated['is_active'],
+                'name' => $dataValidado['name'],
+                'description' => $dataValidado['description'] ?? null,
+                'cycle_days' => (int) $dataValidado['cycle_days'],
+                'is_active' => $dataValidado['is_active'],
             ]);
 
-            foreach (array_values($validated['steps']) as $index => $shiftId) {
+            foreach (array_values($dataValidado['steps']) as $index => $shiftId) {
                 $rotation->steps()->create([
                     'work_shift_id' => (int) $shiftId,
                     'step_order' => $index + 1,
@@ -44,7 +44,7 @@ class ShiftScheduleController extends Controller
             $rotation,
             "Alta de rotación {$rotation->name} (ciclo {$rotation->cycle_days} días)",
             [],
-            ['name' => $rotation->name, 'cycle_days' => $rotation->cycle_days, 'steps' => $validated['steps']]
+            ['name' => $rotation->name, 'cycle_days' => $rotation->cycle_days, 'steps' => $dataValidado['steps']]
         );
 
         return redirect()
@@ -54,22 +54,22 @@ class ShiftScheduleController extends Controller
 
     public function updateRotation(Request $request, ShiftRotation $rotation): RedirectResponse
     {
-        $validated = $this->validateRotation($request);
+        $dataValidado = $this->validateRotation($request);
 
-        $beforeSteps = $rotation->steps()->pluck('work_shift_id')->all();
+        $lstPasosAntes = $rotation->steps()->pluck('work_shift_id')->all();
         $beforeCycle = $rotation->cycle_days;
         $beforeActive = $rotation->is_active;
 
-        DB::transaction(function () use ($rotation, $validated): void {
+        DB::transaction(function () use ($rotation, $dataValidado): void {
             $rotation->update([
-                'name' => $validated['name'],
-                'description' => $validated['description'] ?? null,
-                'cycle_days' => (int) $validated['cycle_days'],
-                'is_active' => $validated['is_active'],
+                'name' => $dataValidado['name'],
+                'description' => $dataValidado['description'] ?? null,
+                'cycle_days' => (int) $dataValidado['cycle_days'],
+                'is_active' => $dataValidado['is_active'],
             ]);
 
             $rotation->steps()->delete();
-            foreach (array_values($validated['steps']) as $index => $shiftId) {
+            foreach (array_values($dataValidado['steps']) as $index => $shiftId) {
                 $rotation->steps()->create([
                     'work_shift_id' => (int) $shiftId,
                     'step_order' => $index + 1,
@@ -81,8 +81,8 @@ class ShiftScheduleController extends Controller
             'shift_rotation.updated',
             $rotation,
             "Actualización de rotación {$rotation->name}",
-            ['cycle_days' => $beforeCycle, 'is_active' => $beforeActive, 'steps' => $beforeSteps],
-            ['cycle_days' => (int) $validated['cycle_days'], 'is_active' => $validated['is_active'], 'steps' => $validated['steps']]
+            ['cycle_days' => $beforeCycle, 'is_active' => $beforeActive, 'steps' => $lstPasosAntes],
+            ['cycle_days' => (int) $dataValidado['cycle_days'], 'is_active' => $dataValidado['is_active'], 'steps' => $dataValidado['steps']]
         );
 
         $recalculated = $this->recalculateForRotation($rotation);
@@ -95,13 +95,13 @@ class ShiftScheduleController extends Controller
     public function destroyRotation(ShiftRotation $rotation): RedirectResponse
     {
         $name = $rotation->name;
-        $assignments = $rotation->assignments()->get();
+        $lstAsignaciones = $rotation->assignments()->get();
 
         $rotation->delete();
 
         $this->audit->record('shift_rotation.deleted', null, "Eliminación de rotación {$name}", ['name' => $name]);
 
-        foreach ($assignments as $assignment) {
+        foreach ($lstAsignaciones as $assignment) {
             $this->recalculateForAssignment($assignment);
         }
 
@@ -112,20 +112,20 @@ class ShiftScheduleController extends Controller
 
     public function storeGroup(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $dataValidado = $request->validate([
             'name' => ['required', 'string', 'max:120', 'unique:employee_groups,name'],
             'description' => ['nullable', 'string', 'max:255'],
             'employee_ids' => ['nullable', 'array'],
             'employee_ids.*' => ['integer', 'exists:employees,id'],
         ]);
 
-        $group = DB::transaction(function () use ($validated): EmployeeGroup {
+        $group = DB::transaction(function () use ($dataValidado): EmployeeGroup {
             $group = EmployeeGroup::create([
-                'name' => $validated['name'],
-                'description' => $validated['description'] ?? null,
+                'name' => $dataValidado['name'],
+                'description' => $dataValidado['description'] ?? null,
             ]);
 
-            $group->employees()->sync($validated['employee_ids'] ?? []);
+            $group->employees()->sync($dataValidado['employee_ids'] ?? []);
 
             return $group;
         });
@@ -135,7 +135,7 @@ class ShiftScheduleController extends Controller
             $group,
             "Alta de grupo de empleados {$group->name}",
             [],
-            ['name' => $group->name, 'employee_count' => count($validated['employee_ids'] ?? [])]
+            ['name' => $group->name, 'employee_count' => count($dataValidado['employee_ids'] ?? [])]
         );
 
         return redirect()
@@ -145,36 +145,36 @@ class ShiftScheduleController extends Controller
 
     public function updateGroup(Request $request, EmployeeGroup $group): RedirectResponse
     {
-        $validated = $request->validate([
+        $dataValidado = $request->validate([
             'name' => ['required', 'string', 'max:120', Rule::unique('employee_groups', 'name')->ignore($group->id)],
             'description' => ['nullable', 'string', 'max:255'],
             'employee_ids' => ['nullable', 'array'],
             'employee_ids.*' => ['integer', 'exists:employees,id'],
         ]);
 
-        $beforeIds = $group->employees()->pluck('employees.id')->all();
-        $afterIds = array_map('intval', $validated['employee_ids'] ?? []);
+        $lstIdsAntes = $group->employees()->pluck('employees.id')->all();
+        $lstIdsDespues = array_map('intval', $dataValidado['employee_ids'] ?? []);
 
-        DB::transaction(function () use ($group, $validated, $afterIds): void {
+        DB::transaction(function () use ($group, $dataValidado, $lstIdsDespues): void {
             $group->update([
-                'name' => $validated['name'],
-                'description' => $validated['description'] ?? null,
+                'name' => $dataValidado['name'],
+                'description' => $dataValidado['description'] ?? null,
             ]);
-            $group->employees()->sync($afterIds);
+            $group->employees()->sync($lstIdsDespues);
         });
 
         $this->audit->record(
             'employee_group.updated',
             $group,
             "Actualización del grupo {$group->name}",
-            ['employee_ids' => $beforeIds],
-            ['employee_ids' => $afterIds]
+            ['employee_ids' => $lstIdsAntes],
+            ['employee_ids' => $lstIdsDespues]
         );
 
-        $affectedIds = array_values(array_unique(array_merge($beforeIds, $afterIds)));
+        $lstIdsAfectados = array_values(array_unique(array_merge($lstIdsAntes, $lstIdsDespues)));
         $earliestStart = $group->assignments()->min('starts_on');
-        if ($affectedIds !== [] && $earliestStart !== null) {
-            foreach ($affectedIds as $empId) {
+        if ($lstIdsAfectados !== [] && $earliestStart !== null) {
+            foreach ($lstIdsAfectados as $empId) {
                 Artisan::call('attendance:recalculate', [
                     '--employee' => $empId,
                     '--from' => $earliestStart,
@@ -190,15 +190,15 @@ class ShiftScheduleController extends Controller
     public function destroyGroup(EmployeeGroup $group): RedirectResponse
     {
         $name = $group->name;
-        $memberIds = $group->employees()->pluck('employees.id')->all();
+        $lstIdsMiembros = $group->employees()->pluck('employees.id')->all();
         $earliestStart = $group->assignments()->min('starts_on');
 
         $group->delete();
 
         $this->audit->record('employee_group.deleted', null, "Eliminación del grupo {$name}", ['name' => $name]);
 
-        if ($memberIds !== [] && $earliestStart !== null) {
-            foreach ($memberIds as $empId) {
+        if ($lstIdsMiembros !== [] && $earliestStart !== null) {
+            foreach ($lstIdsMiembros as $empId) {
                 Artisan::call('attendance:recalculate', [
                     '--employee' => $empId,
                     '--from' => $earliestStart,
@@ -213,7 +213,7 @@ class ShiftScheduleController extends Controller
 
     public function storeAssignment(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $dataValidado = $request->validate([
             'shift_rotation_id' => ['required', 'integer', 'exists:shift_rotations,id'],
             'target_type' => ['required', Rule::in(ShiftRotationAssignment::TARGETS)],
             'employee_id' => [
@@ -240,14 +240,14 @@ class ShiftScheduleController extends Controller
         ]);
 
         $assignment = ShiftRotationAssignment::create([
-            'shift_rotation_id' => (int) $validated['shift_rotation_id'],
-            'target_type' => $validated['target_type'],
-            'employee_id' => $validated['target_type'] === ShiftRotationAssignment::TARGET_EMPLOYEE ? (int) $validated['employee_id'] : null,
-            'employee_group_id' => $validated['target_type'] === ShiftRotationAssignment::TARGET_GROUP ? (int) $validated['employee_group_id'] : null,
-            'department' => $validated['target_type'] === ShiftRotationAssignment::TARGET_DEPARTMENT ? trim((string) $validated['department']) : null,
-            'starts_on' => $validated['starts_on'],
-            'ends_on' => $validated['ends_on'] ?? null,
-            'start_step_order' => (int) ($validated['start_step_order'] ?? 1),
+            'shift_rotation_id' => (int) $dataValidado['shift_rotation_id'],
+            'target_type' => $dataValidado['target_type'],
+            'employee_id' => $dataValidado['target_type'] === ShiftRotationAssignment::TARGET_EMPLOYEE ? (int) $dataValidado['employee_id'] : null,
+            'employee_group_id' => $dataValidado['target_type'] === ShiftRotationAssignment::TARGET_GROUP ? (int) $dataValidado['employee_group_id'] : null,
+            'department' => $dataValidado['target_type'] === ShiftRotationAssignment::TARGET_DEPARTMENT ? trim((string) $dataValidado['department']) : null,
+            'starts_on' => $dataValidado['starts_on'],
+            'ends_on' => $dataValidado['ends_on'] ?? null,
+            'start_step_order' => (int) ($dataValidado['start_step_order'] ?? 1),
             'is_active' => true,
         ]);
 
@@ -296,7 +296,7 @@ class ShiftScheduleController extends Controller
 
     public function storeException(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $dataValidado = $request->validate([
             'employee_id' => ['required', 'integer', 'exists:employees,id'],
             'work_shift_id' => ['required', 'integer', 'exists:work_shifts,id'],
             'starts_on' => ['required', 'date'],
@@ -304,7 +304,7 @@ class ShiftScheduleController extends Controller
             'reason' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $exception = ShiftException::create($validated);
+        $exception = ShiftException::create($dataValidado);
         $exception->load(['employee', 'workShift']);
 
         $this->audit->record(
@@ -365,7 +365,7 @@ class ShiftScheduleController extends Controller
      */
     private function validateRotation(Request $request): array
     {
-        $validated = $request->validate([
+        $dataValidado = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:255'],
             'cycle_days' => ['required', 'integer', 'min:1', 'max:365'],
@@ -374,51 +374,51 @@ class ShiftScheduleController extends Controller
             'steps.*' => ['required', 'integer', 'exists:work_shifts,id'],
         ]);
 
-        $validated['is_active'] = $request->boolean('is_active', true);
+        $dataValidado['is_active'] = $request->boolean('is_active', true);
 
-        return $validated;
+        return $dataValidado;
     }
 
     private function recalculateForAssignment(ShiftRotationAssignment $assignment): int
     {
-        $params = [
+        $dataParametros = [
             '--from' => $assignment->starts_on?->toDateString(),
         ];
 
         if ($assignment->ends_on !== null) {
-            $params['--to'] = $assignment->ends_on->toDateString();
+            $dataParametros['--to'] = $assignment->ends_on->toDateString();
         }
 
         if ($assignment->target_type === ShiftRotationAssignment::TARGET_EMPLOYEE && $assignment->employee_id !== null) {
-            $params['--employee'] = $assignment->employee_id;
+            $dataParametros['--employee'] = $assignment->employee_id;
         } elseif ($assignment->target_type === ShiftRotationAssignment::TARGET_GROUP && $assignment->employee_group_id !== null) {
-            $params['--group'] = $assignment->employee_group_id;
+            $dataParametros['--group'] = $assignment->employee_group_id;
         } elseif ($assignment->target_type === ShiftRotationAssignment::TARGET_DEPARTMENT && $assignment->department !== null) {
-            $params['--department'] = $assignment->department;
+            $dataParametros['--department'] = $assignment->department;
         } else {
             return 0;
         }
 
-        Artisan::call('attendance:recalculate', array_filter($params, fn ($v): bool => $v !== null));
+        Artisan::call('attendance:recalculate', array_filter($dataParametros, fn ($v): bool => $v !== null));
 
         return 1;
     }
 
     private function recalculateForRotation(ShiftRotation $rotation): int
     {
-        $assignments = $rotation->assignments()->get();
-        if ($assignments->isEmpty()) {
+        $lstAsignaciones = $rotation->assignments()->get();
+        if ($lstAsignaciones->isEmpty()) {
             return 0;
         }
 
-        $earliestStart = $assignments->min(fn (ShiftRotationAssignment $a): ?string => $a->starts_on?->toDateString());
-        $params = ['--rotation' => $rotation->id];
+        $earliestStart = $lstAsignaciones->min(fn (ShiftRotationAssignment $a): ?string => $a->starts_on?->toDateString());
+        $dataParametros = ['--rotation' => $rotation->id];
         if ($earliestStart !== null) {
-            $params['--from'] = $earliestStart;
+            $dataParametros['--from'] = $earliestStart;
         }
 
-        Artisan::call('attendance:recalculate', $params);
+        Artisan::call('attendance:recalculate', $dataParametros);
 
-        return $assignments->count();
+        return $lstAsignaciones->count();
     }
 }
