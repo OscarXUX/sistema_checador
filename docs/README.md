@@ -35,6 +35,9 @@ docs/
 ├── despliegue/
 │   └── 2026-11-22/
 │       └── 20-00_GUIA_DESPLIEGUE_PRODUCCION.md
+├── propuestas/
+│   └── 2026-11-22/
+│       └── 23-15_propuesta-notas-oscar-perfiles-catalogos-turnos.md
 └── pendientes/
     ├── README.md                      Resumen y reglas de los pendientes
     ├── seguridad/                     SE-NN
@@ -44,4 +47,4 @@ docs/
 
 Ejemplo de ruta: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
 
-Las carpetas `propuestas/` se crean cuando haga falta, con el mismo esquema, y se agregan a este árbol.
+Las carpetas nuevas (por ejemplo `handoffs/`) se crean cuando haga falta, con el mismo esquema, y se agregan a este árbol.
