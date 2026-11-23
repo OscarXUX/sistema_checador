@@ -248,6 +248,7 @@ class ReportController extends Controller
                 'status_label' => DailySummary::statusLabel($summary->status),
                 // Paquete 3: tipos de evento del catálogo e incidencias de la jornada
                 'early_exit_minutes' => $summary->early_exit_minutes,
+                'corrected_punches' => $summary->corrected_punches,
                 'events' => collect([$summary->entryEventType, $summary->mealEventType, $summary->exitEventType])
                     ->filter()
                     ->map(fn ($type): array => ['name' => $type->name, 'color' => $type->color])

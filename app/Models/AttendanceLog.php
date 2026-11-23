@@ -65,6 +65,14 @@ class AttendanceLog extends Model
         });
     }
 
+    /**
+     * Corrección manual (la checada sigue igual; la corrección dice cómo debe contar).
+     */
+    public function correction(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(AttendanceLogCorrection::class);
+    }
+
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);

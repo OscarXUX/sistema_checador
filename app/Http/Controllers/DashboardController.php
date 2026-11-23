@@ -59,6 +59,17 @@ class DashboardController extends Controller
             })
             ->values();
 
+        // Incidencias de las jornadas en curso (paquete 3: checadas repetidas o fuera de orden)
+        $incidentAlerts = $activeWindowDates
+            ->flatMap(fn (DailySummary $summary): array => array_map(fn (array $incident): array => [
+                'employee_name' => $summary->employee?->full_name ?? 'N/D',
+                'employee_no' => $summary->employee?->hikvision_employee_no ?? '-',
+                'label' => $incident['label'],
+                'at' => $incident['at'],
+            ], $summary->incidentList()))
+            ->sortByDesc('at')
+            ->values();
+
         $todaySummaries = $activeWindowDates->filter(
             fn (DailySummary $summary): bool => $summary->work_date?->toDateString() === $todayStr
         );
@@ -233,6 +244,8 @@ class DashboardController extends Controller
                 'in_meal' => $currentlyInMeal->count(),
                 'meal_exceeded_count' => count($mealAlerts),
                 'meal_alerts' => $mealAlerts,
+                'incidents_today' => $incidentAlerts->count(),
+                'incident_alerts' => $incidentAlerts->take(30)->all(),
                 'late_today' => $lateTodayCount,
                 'late_today_minutes' => $lateTodayMinutes,
                 'weekly_overtime_hours' => round($weeklyOvertimeMinutes / 60, 1),

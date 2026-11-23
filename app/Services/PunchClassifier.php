@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\AttendanceLog;
+use App\Models\AttendanceLogCorrection;
 use App\Models\WorkShift;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -13,6 +14,7 @@ use Illuminate\Support\Collection;
  * cuentan solo quedan anotadas como incidencia en el resumen diario.
  *
  * Reglas, en este orden:
+ * 0. Una corrección manual manda: "No cuenta" la quita y un tipo la fija (gana a las ventanas).
  * 1. Una checada a menos de N minutos de la anterior (N = repeat_threshold_minutes del turno) es repetida y se ignora.
  * 2. Teclas de comida del reloj (break_out / break_in) cuentan como comida.
  * 3. Dentro de la ventana de entrada es entrada; dentro de la de salida, salida.
@@ -46,108 +48,163 @@ class PunchClassifier
         self::INCIDENT_EXTRA_MEAL => 'Checada de comida de más',
     ];
 
+    /** Qué fue cada checada (para la pantalla de corrección) */
+    public const ROLE_LABELS = [
+        AttendanceLog::EVENT_CHECK_IN => 'Entrada',
+        AttendanceLog::EVENT_BREAK_OUT => 'Salida a comer',
+        AttendanceLog::EVENT_BREAK_IN => 'Regreso de comer',
+        AttendanceLog::EVENT_CHECK_OUT => 'Salida',
+        'not_counted' => 'No cuenta',
+    ];
+
     /**
-     * @param  Collection<int, AttendanceLog>  $logs  ordenadas por hora
-     * @return array{check_in: ?CarbonImmutable, break_out: ?CarbonImmutable, break_in: ?CarbonImmutable, check_out: ?CarbonImmutable, incidents: list<array{code: string, at: string}>}
+     * @param  Collection<int, AttendanceLog>  $logs  ordenadas por hora (con la relación correction cargada si existe)
+     * @return array{check_in: ?CarbonImmutable, break_out: ?CarbonImmutable, break_in: ?CarbonImmutable, check_out: ?CarbonImmutable, incidents: list<array{code: string, at: string}>, roles: array<int, string>, corrected: int}
      */
     public function classify(Collection $logs, WorkShift $shift, CarbonImmutable $workDate, bool $isActiveShiftWindow): array
     {
         $incidents = [];
-        $note = function (string $code, CarbonImmutable $at) use (&$incidents): void {
-            $incidents[] = ['code' => $code, 'at' => $at->format('Y-m-d H:i:s')];
+        $roles = [];
+        $note = function (string $code, array $item) use (&$incidents, &$roles): void {
+            $incidents[] = ['code' => $code, 'at' => $item['at']->format('Y-m-d H:i:s')];
+            $roles[$item['id']] = 'not_counted';
         };
 
-        // 1. Repetidas
-        $threshold = max(0, (int) ($shift->repeat_threshold_minutes ?? 3)) * 60;
-        $lstKept = [];
-        $previous = null;
-        foreach ($logs as $log) {
-            $at = CarbonImmutable::instance($log->punched_at);
-            if ($previous !== null && $threshold > 0 && $previous->diffInSeconds($at, true) < $threshold) {
-                $note(self::INCIDENT_REPEATED, $at);
-
-                continue;
-            }
-            $previous = $at;
-            $lstKept[] = [$at, (string) $log->event_type];
-        }
-
-        // 2 a 5. Clasificación por ventana
         $windows = $shift->classificationWindows($workDate);
         [$entryStart, $entryEnd] = $windows['entrada'];
         [$exitStart, $exitEnd] = $windows['salida'];
+
+        $threshold = max(0, (int) ($shift->repeat_threshold_minutes ?? 3)) * 60;
         $lstEntradas = [];
         $lstSalidas = [];
         $lstComidas = [];
+        $dataFijas = [AttendanceLog::EVENT_CHECK_IN => [], AttendanceLog::EVENT_CHECK_OUT => []];
+        $corrected = 0;
+        $previous = null;
 
-        foreach ($lstKept as [$at, $key]) {
+        foreach ($logs as $log) {
+            $item = ['at' => CarbonImmutable::instance($log->punched_at), 'id' => (int) $log->id];
+            $key = (string) $log->event_type;
+            $correction = $log->relationLoaded('correction') ? $log->correction : null;
+
+            // 0. Corrección manual
+            if ($correction !== null) {
+                $corrected++;
+                $type = $correction->corrected_type;
+                if ($type === AttendanceLogCorrection::TYPE_IGNORE) {
+                    $roles[$item['id']] = 'not_counted';
+                } elseif (isset($dataFijas[$type])) {
+                    $dataFijas[$type][] = $item;
+                } else {
+                    $lstComidas[] = $item;
+                }
+                $previous = $type === AttendanceLogCorrection::TYPE_IGNORE ? $previous : $item['at'];
+
+                continue;
+            }
+
+            // 1. Repetidas
+            if ($previous !== null && $threshold > 0 && $previous->diffInSeconds($item['at'], true) < $threshold) {
+                $note(self::INCIDENT_REPEATED, $item);
+
+                continue;
+            }
+            $previous = $item['at'];
+            $at = $item['at'];
+
+            // 2 a 5. Clasificación por ventana
             if ($key === AttendanceLog::EVENT_BREAK_OUT || $key === AttendanceLog::EVENT_BREAK_IN) {
-                $lstComidas[] = $at;
+                $lstComidas[] = $item;
             } elseif ($at->betweenIncluded($entryStart, $entryEnd)) {
-                $lstEntradas[] = $at;
+                $lstEntradas[] = $item;
             } elseif ($at->betweenIncluded($exitStart, $exitEnd)) {
-                $lstSalidas[] = $at;
+                $lstSalidas[] = $item;
             } elseif ($at->greaterThan($entryEnd) && $at->lessThan($exitStart)) {
                 if ($key === AttendanceLog::EVENT_CHECK_OUT) {
-                    $lstSalidas[] = $at;
-                } elseif ($lstEntradas === [] && $lstComidas === []) {
-                    $lstEntradas[] = $at;
+                    $lstSalidas[] = $item;
+                } elseif ($lstEntradas === [] && $lstComidas === [] && $dataFijas[AttendanceLog::EVENT_CHECK_IN] === []) {
+                    $lstEntradas[] = $item;
                 } else {
-                    $lstComidas[] = $at;
+                    $lstComidas[] = $item;
                 }
             } elseif ($at->lessThan($entryStart)) {
-                $note(self::INCIDENT_OUT_OF_WINDOW, $at);
+                $incidents[] = ['code' => self::INCIDENT_OUT_OF_WINDOW, 'at' => $at->format('Y-m-d H:i:s')];
                 if ($key === AttendanceLog::EVENT_CHECK_OUT) {
-                    $lstSalidas[] = $at;
+                    $lstSalidas[] = $item;
                 } else {
-                    $lstEntradas[] = $at;
+                    $lstEntradas[] = $item;
                 }
             } else {
-                $note(self::INCIDENT_OUT_OF_WINDOW, $at);
+                $incidents[] = ['code' => self::INCIDENT_OUT_OF_WINDOW, 'at' => $at->format('Y-m-d H:i:s')];
                 if ($key === AttendanceLog::EVENT_CHECK_IN && $lstEntradas === []) {
-                    $lstEntradas[] = $at;
+                    $lstEntradas[] = $item;
                 } else {
-                    $lstSalidas[] = $at;
+                    $lstSalidas[] = $item;
                 }
             }
         }
 
-        // Entrada: la primera; las demás son repetidas
-        $checkIn = $lstEntradas[0] ?? null;
-        foreach (array_slice($lstEntradas, 1) as $at) {
-            $note(self::INCIDENT_EXTRA_ENTRY, $at);
+        // Entrada: la corregida si la hay; si no, la primera. Las demás son repetidas
+        if ($dataFijas[AttendanceLog::EVENT_CHECK_IN] !== []) {
+            $checkIn = array_shift($dataFijas[AttendanceLog::EVENT_CHECK_IN]);
+            $lstSobran = [...$dataFijas[AttendanceLog::EVENT_CHECK_IN], ...$lstEntradas];
+        } else {
+            $checkIn = array_shift($lstEntradas);
+            $lstSobran = $lstEntradas;
+        }
+        foreach ($lstSobran as $item) {
+            $note(self::INCIDENT_EXTRA_ENTRY, $item);
         }
 
-        // Salida: la última; las anteriores son repetidas
-        $checkOut = $lstSalidas === [] ? null : $lstSalidas[count($lstSalidas) - 1];
-        foreach (array_slice($lstSalidas, 0, -1) as $at) {
-            $note(self::INCIDENT_EXTRA_EXIT, $at);
+        // Salida: la corregida si la hay; si no, la última. Las anteriores son repetidas
+        if ($dataFijas[AttendanceLog::EVENT_CHECK_OUT] !== []) {
+            $checkOut = array_pop($dataFijas[AttendanceLog::EVENT_CHECK_OUT]);
+            $lstSobran = [...$dataFijas[AttendanceLog::EVENT_CHECK_OUT], ...$lstSalidas];
+        } else {
+            $checkOut = array_pop($lstSalidas);
+            $lstSobran = $lstSalidas;
+        }
+        foreach ($lstSobran as $item) {
+            $note(self::INCIDENT_EXTRA_EXIT, $item);
         }
 
         // 6. Jornada cerrada sin salida y comida impar: la última checada fue la salida
+        usort($lstComidas, fn (array $a, array $b): int => $a['at'] <=> $b['at']);
         if ($checkOut === null && ! $isActiveShiftWindow && count($lstComidas) % 2 === 1) {
             $checkOut = array_pop($lstComidas);
         }
 
-        sort($lstComidas);
         $breakOut = $lstComidas[0] ?? null;
         $breakIn = count($lstComidas) >= 2 ? $lstComidas[count($lstComidas) - 1] : null;
-        foreach (array_slice($lstComidas, 1, max(0, count($lstComidas) - 2)) as $at) {
-            $note(self::INCIDENT_EXTRA_MEAL, $at);
+        foreach (array_slice($lstComidas, 1, max(0, count($lstComidas) - 2)) as $item) {
+            $note(self::INCIDENT_EXTRA_MEAL, $item);
         }
 
         if ($checkOut !== null && $checkIn === null) {
-            $note(self::INCIDENT_EXIT_WITHOUT_ENTRY, $checkOut);
+            $incidents[] = ['code' => self::INCIDENT_EXIT_WITHOUT_ENTRY, 'at' => $checkOut['at']->format('Y-m-d H:i:s')];
+        }
+
+        foreach ([
+            AttendanceLog::EVENT_CHECK_IN => $checkIn,
+            AttendanceLog::EVENT_BREAK_OUT => $breakOut,
+            AttendanceLog::EVENT_BREAK_IN => $breakIn,
+            AttendanceLog::EVENT_CHECK_OUT => $checkOut,
+        ] as $role => $item) {
+            if ($item !== null) {
+                $roles[$item['id']] = $role;
+            }
         }
 
         usort($incidents, fn (array $a, array $b): int => strcmp($a['at'], $b['at']));
 
         return [
-            'check_in' => $checkIn,
-            'break_out' => $breakOut,
-            'break_in' => $breakIn,
-            'check_out' => $checkOut,
+            'check_in' => $checkIn['at'] ?? null,
+            'break_out' => $breakOut['at'] ?? null,
+            'break_in' => $breakIn['at'] ?? null,
+            'check_out' => $checkOut['at'] ?? null,
             'incidents' => $incidents,
+            'roles' => $roles,
+            'corrected' => $corrected,
         ];
     }
 }

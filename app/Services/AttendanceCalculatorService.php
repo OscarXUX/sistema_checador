@@ -230,30 +230,8 @@ class AttendanceCalculatorService
         CarbonInterface $workDate,
         ?array $scheduleContext = null
     ): DailySummary {
-        $employee->loadMissing('workShift');
         $date = CarbonImmutable::instance($workDate)->startOfDay();
-        $shift = $scheduleContext !== null
-            ? $this->resolver()->resolveDetailFromContext($employee, $date, $scheduleContext)['shift']
-            : $this->resolver()->resolveForEmployeeOnDate($employee, $date);
-        [$windowStart, $windowEnd] = $shift !== null
-            ? $shift->shiftWindowForDate($date)
-            : [$date->startOfDay(), $date->endOfDay()];
-
-        /** @var Collection<int, AttendanceLog> $logs */
-        $logs = AttendanceLog::where('employee_id', $employee->id)
-            ->whereBetween('punched_at', [$windowStart, $windowEnd])
-            ->orderBy('punched_at')
-            ->get();
-
-        $isActiveShiftWindow = CarbonImmutable::now()->betweenIncluded($windowStart, $windowEnd);
-
-        // Con turno: clasificación por ventanas de horario e incidencias (paquete 3); sin turno, la de siempre
-        if ($shift !== null) {
-            $slots = app(PunchClassifier::class)->classify($logs, $shift, $date, $isActiveShiftWindow);
-        } else {
-            $slots = $this->resolveDailyPunchSlots($logs, null, $date, $isActiveShiftWindow);
-            $slots['incidents'] = [];
-        }
+        ['shift' => $shift, 'logs' => $logs, 'slots' => $slots, 'active' => $isActiveShiftWindow] = $this->classifyDay($employee, $date, $scheduleContext);
 
         $firstCheckIn = $slots['check_in'];
         $breakOut = $slots['break_out'];
@@ -322,6 +300,7 @@ class AttendanceCalculatorService
             'meal_exceeded_minutes' => $mealExceededMinutes,
             'status' => $status,
             'incidents' => $slots['incidents'] === [] ? null : $slots['incidents'],
+            'corrected_punches' => $slots['corrected'],
             // Tipos de evento del catálogo (nota 4): solo con turno, porque se miden contra su horario
             ...app(EventTypeClassifier::class)->idsFor(
                 $firstCheckIn !== null && $shift !== null,
@@ -339,6 +318,57 @@ class AttendanceCalculatorService
             ['employee_id' => $employee->id, 'work_date' => $date->toDateString()],
             $attributes,
         ));
+    }
+
+    /**
+     * Turno, checadas y clasificación de una jornada (lo usan el recálculo y la pantalla de corrección).
+     *
+     * @param  array<string, mixed>|null  $scheduleContext
+     * @return array{shift: ?WorkShift, logs: Collection<int, AttendanceLog>, slots: array<string, mixed>, active: bool}
+     */
+    public function classifyDay(Employee $employee, CarbonInterface $workDate, ?array $scheduleContext = null): array
+    {
+        $employee->loadMissing('workShift');
+        $date = CarbonImmutable::instance($workDate)->startOfDay();
+        $shift = $scheduleContext !== null
+            ? $this->resolver()->resolveDetailFromContext($employee, $date, $scheduleContext)['shift']
+            : $this->resolver()->resolveForEmployeeOnDate($employee, $date);
+        [$windowStart, $windowEnd] = $shift !== null
+            ? $shift->shiftWindowForDate($date)
+            : [$date->startOfDay(), $date->endOfDay()];
+
+        /** @var Collection<int, AttendanceLog> $logs */
+        $logs = AttendanceLog::with('correction')
+            ->where('employee_id', $employee->id)
+            ->whereBetween('punched_at', [$windowStart, $windowEnd])
+            ->orderBy('punched_at')
+            ->get();
+
+        $isActiveShiftWindow = CarbonImmutable::now()->betweenIncluded($windowStart, $windowEnd);
+
+        // Con turno: clasificación por ventanas de horario e incidencias (paquete 3); sin turno, la de siempre
+        if ($shift !== null) {
+            $slots = app(PunchClassifier::class)->classify($logs, $shift, $date, $isActiveShiftWindow);
+        } else {
+            // Sin turno, las correcciones se aplican sobre la tecla (en memoria; la checada no se guarda)
+            $lstUsables = $logs->reject(fn (AttendanceLog $log): bool => $log->correction?->corrected_type === \App\Models\AttendanceLogCorrection::TYPE_IGNORE)
+                ->map(function (AttendanceLog $log): AttendanceLog {
+                    if ($log->correction !== null) {
+                        $copy = clone $log;
+                        $copy->event_type = $log->correction->corrected_type;
+
+                        return $copy;
+                    }
+
+                    return $log;
+                })->values();
+            $slots = $this->resolveDailyPunchSlots($lstUsables, null, $date, $isActiveShiftWindow);
+            $slots['incidents'] = [];
+            $slots['roles'] = [];
+            $slots['corrected'] = $logs->filter(fn (AttendanceLog $log): bool => $log->correction !== null)->count();
+        }
+
+        return ['shift' => $shift, 'logs' => $logs, 'slots' => $slots, 'active' => $isActiveShiftWindow];
     }
 
     /**

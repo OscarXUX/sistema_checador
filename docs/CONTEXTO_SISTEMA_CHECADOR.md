@@ -77,6 +77,7 @@ tests/                                          95 pruebas (Feature y Unit)
 | Tabla | Para qué | Notas |
 |---|---|---|
 | `work_shifts` | Turnos: entrada, salida, minutos de comida, tolerancia, horas por semana, ventanas de entrada y salida, minutos para checada repetida | Requerido para crear empleados; ventanas vacías = por omisión |
+| `attendance_log_corrections` | Corrección manual de una checada: cómo debe contar o que no cuenta, motivo y quién | Una por checada; la checada original no se modifica |
 | `attendance_event_types` | Catálogo de tipos de evento (A tiempo, Retardo, Retardo mayor, Salida anticipada…) con rango de minutos | Los iniciales (`is_system`) no se borran |
 | `shift_rotations`, `shift_rotation_steps`, `employee_groups`, `shift_rotation_assignments`, `shift_exceptions` | Rotaciones por ciclo, grupos de empleados, asignaciones (empleado/grupo/depto) y excepciones por fechas | Prioridad: excepción > empleado > grupo > depto > base |
 | `marking_methods` | Catálogo de medios de marcaje (huella, rostro, tarjeta, PIN) y capacidades ISAPI | `face` bloqueado por aviso de privacidad `TE-02` |
@@ -100,7 +101,7 @@ tests/                                          95 pruebas (Feature y Unit)
 | Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | `dashboard.consultar` |
 | Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | `terminal.sincronizar`; el estado solo pide sesión |
 | Empleados y huellas | Listado paginado de 50 con búsqueda y orden por columna en el servidor; RFC, CURP y NSS enmascarados (completos solo al editar); alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj, capturar huella remota, tarjeta y PIN | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint`, `/employees/{id}/enroll-card`, `/employees/{id}/enroll-pin` | `empleados.*`, `terminal.usuarios`, `terminal.huellas` (huella y rostro) |
-| Kardex | Resumen diario por rango de fechas en pantalla (máximo 93 días), exportación mensual a Excel (.xlsx en servidor con PhpSpreadsheet hasta 12 meses), bitácora JSON bajo demanda | `GET /reports/kardex`, `GET /reports/kardex/data`, `GET /reports/kardex/export/xlsx`, `GET /reports/kardex/logs/{id}/payload` | `kardex.consultar`, `kardex.exportar` |
+| Kardex | Resumen diario por rango de fechas en pantalla (máximo 93 días), checadas de cada día con su corrección manual, exportación mensual a Excel (.xlsx en servidor con PhpSpreadsheet hasta 12 meses), bitácora JSON bajo demanda | `GET /reports/kardex`, `GET /reports/kardex/data`, `GET /reports/kardex/export/xlsx`, `GET /reports/kardex/logs/{id}/payload` | `kardex.consultar`, `kardex.exportar` |
 | Turnos | Turnos base, rotaciones con pasos en orden, grupos, asignaciones, excepciones y vista previa de 14 días | `/shifts`, `/shifts/rotations`, `/shifts/groups`, `/shifts/assignments`, `/shifts/exceptions` | `turnos.consultar`, `turnos.administrar` (turnos base), `turnos.programar` (rotaciones, grupos, asignaciones, excepciones) |
 | Catálogos | Ventanas de horario por turno y tipos de evento | `/catalogos/ventanas`, `/catalogos/tipos-evento` | `catalogos.consultar`, `catalogos.administrar` |
 | Medios de marcaje | Detección de capacidades ISAPI, catálogo de empresa y alta remota de tarjeta RFID / PIN (rostro en espera de `TE-02`) | `/marking-methods`, `/marking-methods/detect` | `medios.consultar`, `medios.administrar` |
@@ -125,6 +126,7 @@ tests/                                          95 pruebas (Feature y Unit)
 | Mostrar **por qué** sale una persona | ❌ No existe; falta definirlo (TE-01) |
 | Perfiles y permisos con estructura de tickets | ✅ Implementado (SE-02) |
 | Clasificación por hora, checadas repetidas o fuera de orden y tipos de evento | ✅ Implementado (paquete 3) |
+| Corrección manual de checadas con motivo e incidencias en el dashboard | ✅ Implementado (`kardex.corregir`) |
 | Monitor que se actualice solo | ❌ Solo se actualiza con el botón "Refrescar"; lo automático es el estado de la terminal (cada 30 s) |
 | Turnos que cruzan la medianoche | ✅ Implementado en `WorkShift` y `AttendanceCalculatorService` (SE-11); pendiente confirmar con cliente si aplica (TE-07) |
 

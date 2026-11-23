@@ -53,6 +53,7 @@ class DailySummary extends Model
         'exit_event_type_id',
         'meal_event_type_id',
         'incidents',
+        'corrected_punches',
     ];
 
     protected function casts(): array
@@ -74,6 +75,7 @@ class DailySummary extends Model
             'exit_event_type_id' => 'integer',
             'meal_event_type_id' => 'integer',
             'incidents' => 'array',
+            'corrected_punches' => 'integer',
         ];
     }
 

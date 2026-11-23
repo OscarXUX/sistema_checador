@@ -238,6 +238,39 @@
         </div>
     </div>
 </dialog>
+
+<!-- Modal nativo <dialog>: checadas del día y corrección manual (paquete 3) -->
+<dialog id="md-checadas" class="app-dialog" closedby="any" aria-labelledby="lbl-checadas-titulo" style="max-width: 980px; width: 96vw;">
+    <div class="surface-card overflow-hidden">
+        <div class="p-3 border-bottom border-secondary-subtle d-flex justify-content-between align-items-center">
+            <div>
+                <h2 id="lbl-checadas-titulo" class="h6 mb-0 fw-semibold">Checadas del día</h2>
+                <div id="lbl-checadas-meta" class="small text-secondary"></div>
+            </div>
+            <button type="button" class="btn-close" id="btn-checadas-cerrar-x" aria-label="Cerrar ventana"></button>
+        </div>
+        <div class="p-3 p-md-4 app-dialog-body">
+            <p class="small text-secondary mb-3">La checada original no se modifica: la corrección se guarda aparte con quién, cuándo y por qué, y el día se recalcula.</p>
+            <div class="table-responsive">
+                <table id="grid-checadas" class="table table-dark table-sm align-middle mb-0">
+                    <thead>
+                        <tr class="text-secondary small text-uppercase">
+                            <th scope="col">Hora</th>
+                            <th scope="col">Tecla del reloj</th>
+                            <th scope="col">Cuenta como</th>
+                            <th scope="col">Incidencias / corrección</th>
+                            <th scope="col" class="col-corregir">Corregir</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lst-checadas"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="p-3 border-top border-secondary-subtle d-flex justify-content-end">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-checadas-cerrar">Cerrar</button>
+        </div>
+    </div>
+</dialog>
 @endsection
 
 @push('scripts')
@@ -266,6 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showGroups: true,
         columns: [
             { binding: 'work_date', header: 'Fecha', width: 110, cssClass: 'font-mono-tabular' },
+            { binding: 'id', header: 'Checadas', width: 105, allowSorting: false },
             { binding: 'shift_name', header: 'Turno', width: 165 },
             { binding: 'first_check_in', header: 'Entrada', width: 95, cssClass: 'font-mono-tabular' },
             { binding: 'break_out', header: 'Sal. Comida', width: 105, cssClass: 'font-mono-tabular' },
@@ -318,6 +352,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const color = lstColores.includes(ev.color) ? ev.color : 'secondary';
                     return `<span class="badge bg-dark border border-${color} text-${color} me-1">${escapeHtml(ev.name)}</span>`;
                 }).join('');
+            } else if (col.binding === 'id') {
+                e.cell.innerHTML = `<button type="button" class="btn btn-outline-info btn-sm py-0 px-2" data-day-summary="${Number(item.id)}">Ver${item.corrected_punches ? ' <i class="bi bi-pencil-square" aria-label="Con correcciones"></i>' : ''}</button>`;
             } else if (col.binding === 'incidents_label') {
                 const lstIncidencias = item.incidents || [];
                 e.cell.innerHTML = lstIncidencias.length
@@ -564,6 +600,94 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             jsonEl.textContent = '{}';
             showToast(err.message || 'No se pudo cargar el payload de la checada.', 'danger');
+        }
+    });
+
+    // Checadas del día y corrección manual (paquete 3)
+    const mdChecadas = document.getElementById('md-checadas');
+    const lstChecadasEl = document.getElementById('lst-checadas');
+    const punchesBaseUrl = '{{ url("/reports/kardex") }}';
+    let intResumenActual = null;
+    const cerrarChecadas = () => mdChecadas.close();
+    document.getElementById('btn-checadas-cerrar-x').addEventListener('click', cerrarChecadas);
+    document.getElementById('btn-checadas-cerrar').addEventListener('click', cerrarChecadas);
+
+    async function refrescarKardex() {
+        const params = new URLSearchParams({ start_date: initial.filters.start_date, end_date: initial.filters.end_date });
+        if (initial.filters.department) params.set('department', initial.filters.department);
+        if (initial.filters.employee_id) params.set('employee_id', initial.filters.employee_id);
+        const data = await apiFetch(`{{ route('reports.kardex.data') }}?${params}`, { method: 'GET' });
+        kardexView.sourceCollection = data.kardex_rows || [];
+    }
+
+    async function abrirChecadas(intResumen) {
+        intResumenActual = intResumen;
+        lstChecadasEl.innerHTML = '<tr><td colspan="5" class="text-secondary">Cargando checadas...</td></tr>';
+        if (!mdChecadas.open) mdChecadas.showModal();
+        try {
+            const data = await apiFetch(`${punchesBaseUrl}/summaries/${intResumen}/punches`, { method: 'GET' });
+            document.getElementById('lbl-checadas-meta').textContent = `${data.employee} · ${data.work_date} · Turno: ${data.shift || 'sin turno'}`;
+            mdChecadas.querySelectorAll('.col-corregir').forEach((el) => el.classList.toggle('d-none', !data.can_correct));
+            const strOpciones = Object.entries(data.types).map(([k, v]) => `<option value="${escapeHtml(k)}">${escapeHtml(v)}</option>`).join('');
+            lstChecadasEl.innerHTML = data.punches.length ? data.punches.map((p) => {
+                const strRol = p.role_label
+                    ? `<span class="badge bg-dark border ${p.role === 'not_counted' ? 'border-secondary text-secondary' : 'border-info text-info'}">${escapeHtml(p.role_label)}</span>`
+                    : '<span class="text-secondary small">—</span>';
+                const strCorreccion = p.correction
+                    ? `<div class="small"><span class="badge text-bg-primary">Corregida: ${escapeHtml(p.correction.label)}</span> <span class="text-secondary">${escapeHtml(p.correction.user)} · ${escapeHtml(p.correction.at || '')}</span><div class="text-secondary">Motivo: ${escapeHtml(p.correction.reason)}</div></div>`
+                    : '';
+                const strIncidencias = p.incidents.map((i) => `<span class="badge text-bg-warning me-1">${escapeHtml(i)}</span>`).join('');
+                const strCorregir = data.can_correct ? `
+                    <td class="col-corregir" style="min-width: 22rem;">
+                        <div class="d-flex flex-wrap gap-1">
+                            <label class="visually-hidden" for="cb-tipo-${p.id}">Cómo debe contar la checada de las ${escapeHtml(p.time)}</label>
+                            <select id="cb-tipo-${p.id}" class="form-select form-select-sm" style="max-width: 10rem;">${strOpciones}</select>
+                            <label class="visually-hidden" for="txt-motivo-${p.id}">Motivo</label>
+                            <input id="txt-motivo-${p.id}" type="text" class="form-control form-control-sm" style="max-width: 14rem;" maxlength="255" placeholder="Motivo (obligatorio)">
+                            <button type="button" class="btn btn-primary btn-sm" data-guardar-correccion="${p.id}">Guardar</button>
+                            ${p.correction ? `<button type="button" class="btn btn-outline-danger btn-sm" data-quitar-correccion="${p.id}">Quitar</button>` : ''}
+                        </div>
+                    </td>` : '';
+                return `<tr>
+                    <td class="font-mono-tabular">${escapeHtml(p.punched_at)}</td>
+                    <td class="small">${escapeHtml(p.device_key)}</td>
+                    <td>${strRol}</td>
+                    <td>${strIncidencias}${strCorreccion}</td>
+                    ${strCorregir}
+                </tr>`;
+            }).join('') : '<tr><td colspan="5" class="text-secondary">No hay checadas en esta jornada.</td></tr>';
+            data.punches.forEach((p) => {
+                const cb = document.getElementById(`cb-tipo-${p.id}`);
+                if (cb) cb.value = p.correction ? p.correction.type : (p.role && p.role !== 'not_counted' ? p.role : 'ignore');
+            });
+        } catch (err) {
+            lstChecadasEl.innerHTML = '<tr><td colspan="5" class="text-danger">No se pudieron cargar las checadas.</td></tr>';
+            showToast(err.message || 'No se pudieron cargar las checadas.', 'danger');
+        }
+    }
+
+    document.getElementById('kardex-grid').addEventListener('click', (event) => {
+        const btn = event.target.closest('button[data-day-summary]');
+        if (btn) abrirChecadas(Number(btn.getAttribute('data-day-summary')));
+    });
+
+    lstChecadasEl.addEventListener('click', async (event) => {
+        const btnGuardar = event.target.closest('button[data-guardar-correccion]');
+        const btnQuitar = event.target.closest('button[data-quitar-correccion]');
+        if (!btnGuardar && !btnQuitar) return;
+        const intChecada = Number((btnGuardar || btnQuitar).getAttribute(btnGuardar ? 'data-guardar-correccion' : 'data-quitar-correccion'));
+        try {
+            const result = btnGuardar
+                ? await apiFetch(`${punchesBaseUrl}/punches/${intChecada}/correction`, {
+                    method: 'POST',
+                    body: { corrected_type: document.getElementById(`cb-tipo-${intChecada}`).value, reason: document.getElementById(`txt-motivo-${intChecada}`).value },
+                })
+                : await apiFetch(`${punchesBaseUrl}/punches/${intChecada}/correction`, { method: 'DELETE' });
+            showToast(result.message, 'success');
+            await abrirChecadas(intResumenActual);
+            await refrescarKardex();
+        } catch (err) {
+            showToast(err.message || 'No se pudo guardar la corrección.', 'danger');
         }
     });
 });

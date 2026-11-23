@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\MarkingMethodController;
+use App\Http\Controllers\PunchCorrectionController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ShiftScheduleController;
 use App\Http\Controllers\WorkShiftController;
@@ -61,6 +62,10 @@ Route::middleware('auth')->group(function (): void {
         Route::get('/kardex/data', [ReportController::class, 'kardexData'])->name('kardex.data');
         Route::get('/kardex/export/xlsx', [ReportController::class, 'exportXlsx'])->middleware('can:kardex.exportar')->name('kardex.export.xlsx');
         Route::get('/kardex/logs/{attendanceLog}/payload', [ReportController::class, 'logPayload'])->name('kardex.payload');
+        // Checadas de un día y su corrección manual (la checada original no se modifica)
+        Route::get('/kardex/summaries/{dailySummary}/punches', [PunchCorrectionController::class, 'day'])->name('kardex.punches');
+        Route::post('/kardex/punches/{attendanceLog}/correction', [PunchCorrectionController::class, 'store'])->middleware('can:kardex.corregir')->name('kardex.correction.store');
+        Route::delete('/kardex/punches/{attendanceLog}/correction', [PunchCorrectionController::class, 'destroy'])->middleware('can:kardex.corregir')->name('kardex.correction.destroy');
     });
 
     // Administración: usuarios, perfiles y catálogo de permisos (solo el perfil administrador)

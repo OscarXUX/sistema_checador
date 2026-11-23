@@ -230,4 +230,6 @@ Respuestas de Oscar del 23/11/2026.
 
 Para las tareas de Oscar (sección 7.4): ya existen `kardex.exportar`, `turnos.programar` y `terminal.usuarios`, y las rutas nuevas **deben** llevar su `can:` desde el inicio (lo exige `RouteProtectionTest`).
 
+Corrección manual (3.3): ✅ Resuelto con el permiso `kardex.corregir`. Detalle en `docs/parches/2026-11-23/10-50_correccion-de-checadas-e-incidencias-en-dashboard.md`.
+
 Siguen abiertas: P1 (nota 14: validación de turnos con check obligatorio) y P9 (reparto con Oscar; O1–O3 ya están entregadas).

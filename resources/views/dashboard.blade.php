@@ -120,6 +120,31 @@
     </div>
 </section>
 
+<!-- Incidencias de checadas de las jornadas en curso (paquete 3) -->
+<section id="incident-alerts-banner" class="mb-4 {{ $kpis['incidents_today'] === 0 ? 'd-none' : '' }}" aria-live="polite">
+    <div class="alert alert-warning border-warning-subtle bg-warning bg-opacity-10 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-0">
+        <div>
+            <div class="fw-semibold text-warning-emphasis">
+                <i class="bi bi-exclamation-diamond-fill me-2" aria-hidden="true"></i>
+                Incidencias de checadas hoy: <span id="lbl-incidencias-total" class="font-mono-tabular">{{ $kpis['incidents_today'] }}</span>
+            </div>
+            <div class="small text-light mt-1" id="lst-incidencias">
+                @foreach($kpis['incident_alerts'] as $incidencia)
+                    <span class="badge text-bg-dark border border-warning me-1 mb-1">
+                        [{{ $incidencia['employee_no'] }}] {{ $incidencia['employee_name'] }}: {{ $incidencia['label'] }} · {{ $incidencia['at'] }}
+                    </span>
+                @endforeach
+            </div>
+            <div id="lbl-incidencias-mas" class="small text-secondary {{ $kpis['incidents_today'] > count($kpis['incident_alerts']) ? '' : 'd-none' }}">Se muestran las 30 más recientes.</div>
+        </div>
+        @can('kardex.consultar')
+        <a href="{{ route('reports.kardex', ['start_date' => now()->toDateString(), 'end_date' => now()->toDateString()]) }}" class="btn btn-sm btn-outline-warning flex-shrink-0">
+            Revisar y corregir en Kardex
+        </a>
+        @endcan
+    </div>
+</section>
+
 <!-- Gráficas con Wijmo FlexChart -->
 <section class="row g-3 mb-4" aria-label="Gráficas analíticas">
     <div class="col-12 col-lg-6">
@@ -357,6 +382,15 @@ document.addEventListener('DOMContentLoaded', () => {
             banner.classList.add('d-none');
             listEl.innerHTML = '';
         }
+
+        const bannerIncidencias = document.getElementById('incident-alerts-banner');
+        const lstIncidencias = document.getElementById('lst-incidencias');
+        document.getElementById('lbl-incidencias-total').textContent = k.incidents_today;
+        document.getElementById('lbl-incidencias-mas').classList.toggle('d-none', k.incidents_today <= k.incident_alerts.length);
+        bannerIncidencias.classList.toggle('d-none', k.incidents_today === 0);
+        lstIncidencias.innerHTML = k.incident_alerts.map((i) => (
+            `<span class="badge text-bg-dark border border-warning me-1 mb-1">[${escapeHtml(i.employee_no)}] ${escapeHtml(i.employee_name)}: ${escapeHtml(i.label)} · ${escapeHtml(i.at)}</span>`
+        )).join('');
 
         punctualityChart.itemsSource = next.charts.punctuality;
         departmentChart.itemsSource = next.charts.departments;

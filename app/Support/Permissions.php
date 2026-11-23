@@ -47,6 +47,7 @@ final class Permissions
         'turnos.programar' => ['turnos', 'Programar turnos', 'Rotaciones, asignaciones por fecha y excepciones de turno (tarea O2 de Oscar).'],
         'kardex.consultar' => ['kardex', 'Consultar el kardex', 'Ver el resumen diario y la bitácora de checadas.'],
         'kardex.exportar' => ['kardex', 'Exportar el kardex', 'Descargar el kardex en Excel (una hoja por mes) o CSV.'],
+        'kardex.corregir' => ['kardex', 'Corregir checadas', 'Indicar cómo debe contar una checada o que no cuenta, con motivo. La checada original no se modifica.'],
         'medios.consultar' => ['medios', 'Consultar medios de marcaje', 'Ver qué medios (huella, rostro, tarjeta, PIN) acepta la terminal.'],
         'medios.administrar' => ['medios', 'Administrar medios de marcaje', 'Detectar los medios de la terminal y activar o desactivar cada uno.'],
         'catalogos.consultar' => ['catalogos', 'Consultar catálogos', 'Ver las ventanas de horario por turno y los tipos de evento.'],

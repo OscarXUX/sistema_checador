@@ -96,6 +96,6 @@ Los empleados sin turno siguen con la clasificación anterior.
 
 | Prioridad | Pendiente | Detalle |
 |---|---|---|
-| 🟡 Media | Corrección manual de una checada | La propuesta (3.3) incluye que alguien con permiso pueda reclasificar una checada con motivo; queda para otro parche |
-| 🟡 Media | Excel del servidor (O1) | El Excel por mes de Oscar todavía no trae "Eventos" ni "Incidencias"; el CSV sí |
-| 🟢 Baja | Dashboard | El monitor no muestra incidencias todavía |
+| ✅ Resuelto | Corrección manual de una checada | `docs/parches/2026-11-23/10-50_correccion-de-checadas-e-incidencias-en-dashboard.md` |
+| 🟡 Media | Excel del servidor (O1) | El Excel por mes de Oscar todavía no trae "Eventos" ni "Incidencias"; el CSV sí. Lo hace Oscar |
+| ✅ Resuelto | Dashboard | Mismo parche: aviso de incidencias de hoy |
