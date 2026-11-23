@@ -18,7 +18,14 @@
 
     --scrollbar-track: #0b101b;
     --scrollbar-thumb: #334155;
+    --target-size: 24px;
     scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+@media (pointer: coarse) {
+    :root {
+        --target-size: 44px;
+    }
 }
 
 @supports not (scrollbar-color: auto) {
@@ -41,6 +48,44 @@ body {
     color: var(--text-primary);
     font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     min-height: 100dvh;
+    overflow-wrap: break-word;
+}
+
+html {
+    scroll-padding-top: calc(4.5rem + env(safe-area-inset-top, 0px));
+}
+
+h1, h2, h3 {
+    text-wrap: balance;
+}
+
+p, li {
+    text-wrap: pretty;
+}
+
+:where(a, code) {
+    overflow-wrap: anywhere;
+}
+
+.min-w-0 {
+    min-width: 0;
+}
+
+/* Tamaño táctil accesible en controles principales sin comprimir barras de herramientas */
+:where(.app-topbar button, .sidebar-nav a, dialog.app-dialog form button, .form-control, .form-select) {
+    min-block-size: var(--target-size);
+    min-inline-size: var(--target-size);
+}
+
+@media (max-width: 767.98px) {
+    .app-topbar h1.h5 {
+        font-size: clamp(1rem, 0.9rem + 0.6vw, 1.2rem);
+    }
+}
+
+.kpi-value {
+    font-size: clamp(1.5rem, 1.15rem + 1.5vw, 2.25rem);
+    line-height: 1.15;
 }
 
 .app-shell {
@@ -75,6 +120,9 @@ body {
     position: sticky;
     top: 0;
     z-index: 1010;
+    padding-top: max(0.75rem, env(safe-area-inset-top, 0px)) !important;
+    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
 }
 
 .brand-badge {
@@ -196,10 +244,31 @@ dialog.app-dialog {
     border: 0;
     padding: 0;
     margin: auto;
-    width: min(680px, calc(100dvw - 2rem));
+    width: min(680px, calc(100dvw - 1.5rem));
     max-width: 100%;
-    max-height: calc(100dvh - 2rem);
+    max-block-size: calc(100dvh - 1.5rem);
     color: var(--text-primary);
+}
+
+dialog.app-dialog > .surface-card {
+    display: flex;
+    flex-direction: column;
+    max-block-size: calc(100dvh - 1.5rem);
+    overflow: hidden;
+}
+
+dialog.app-dialog form {
+    display: flex;
+    flex-direction: column;
+    min-block-size: 0;
+    flex: 1 1 auto;
+}
+
+dialog.app-dialog .app-dialog-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-block-size: 0;
+    flex: 1 1 auto;
 }
 
 dialog.app-dialog:modal {
@@ -211,6 +280,100 @@ dialog.app-dialog::backdrop {
     backdrop-filter: blur(4px);
     overflow: hidden;
     overscroll-behavior: contain;
+}
+
+.grid-region {
+    max-inline-size: 100%;
+    overflow-x: auto;
+    border-radius: 0.65rem;
+}
+
+/* Tabla responsiva basada en @container para turnos (tarjetas apiladas en pantallas pequeñas) */
+.shifts-table-wrapper {
+    overflow: auto;
+    max-inline-size: 100%;
+    max-block-size: min(70dvh, 640px);
+    container: shifts-table / inline-size;
+}
+
+.shifts-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.shifts-table thead th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background-color: #172033;
+}
+
+@container shifts-table (width < 640px) {
+    .shifts-table,
+    .shifts-table thead,
+    .shifts-table tbody,
+    .shifts-table tr,
+    .shifts-table th,
+    .shifts-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .shifts-table thead {
+        display: none;
+    }
+
+    .shifts-table tbody tr {
+        margin-block-end: 0.875rem;
+        border: 1px solid var(--border-subtle);
+        border-radius: 0.75rem;
+        background-color: var(--bg-surface-elevated);
+        overflow: hidden;
+    }
+
+    .shifts-table tbody tr:last-child {
+        margin-block-end: 0;
+    }
+
+    .shifts-table tbody th[scope="row"] {
+        position: sticky;
+        inset-block-start: 0;
+        z-index: 1;
+        background-color: #172033;
+        border-bottom: 1px solid var(--border-subtle);
+        padding: 0.75rem 0.9rem;
+        font-size: 0.95rem;
+    }
+
+    .shifts-table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.55rem 0.9rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        text-align: end !important;
+    }
+
+    .shifts-table tbody td:last-child {
+        border-bottom: 0;
+    }
+
+    .shifts-table tbody td::before {
+        content: attr(data-label);
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--text-muted);
+        text-align: start;
+        flex-shrink: 0;
+    }
+}
+
+.toast-container {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+    max-inline-size: calc(100dvw - 1rem);
 }
 
 /* Mobile drawer basado en <dialog> nativo */
@@ -263,10 +426,11 @@ dialog.mobile-drawer::backdrop {
 }
 
 .mobile-drawer-sheet {
-    height: 100svh;
+    height: 100dvh;
     background: #0d1322;
     border-inline-end: 1px solid var(--border-subtle);
     overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     scroll-snap-align: start;
     scrollbar-width: none;
     display: flex;

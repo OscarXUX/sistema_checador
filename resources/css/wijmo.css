@@ -14,7 +14,10 @@
     border: 1px solid var(--border-subtle);
     border-radius: 0.65rem;
     overflow: hidden;
-    min-height: 360px;
+    height: clamp(280px, 52dvh, 520px);
+    min-height: 260px;
+    max-inline-size: 100%;
+    touch-action: pan-x pan-y;
 }
 
 .wj-flexgrid .wj-colheaders .wj-header {
@@ -65,7 +68,20 @@
     background-color: transparent;
     border: 0;
     padding: 0.25rem;
-    height: 300px;
+    height: clamp(220px, 34dvh, 320px);
+    max-inline-size: 100%;
+}
+
+@media (max-width: 767.98px) {
+    .wj-flexgrid .wj-colheaders .wj-header,
+    .wj-flexgrid .wj-cell {
+        padding: 0.45rem 0.5rem;
+        font-size: 0.85rem;
+    }
+
+    .wj-flexgrid .btn-group-sm > .btn {
+        padding: 0.3rem 0.45rem;
+    }
 }
 
 .wj-flexchart .wj-label {

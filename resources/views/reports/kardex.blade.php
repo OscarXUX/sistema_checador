@@ -79,31 +79,31 @@
 <!-- Resumen rápido del período filtrado -->
 <section class="row g-3 mb-4" aria-label="Totales fiscales del periodo">
     <div class="col-6 col-lg-3">
-        <div class="kpi-card p-3">
+        <div class="kpi-card p-3 h-100">
             <div class="small text-secondary">Registros Kardex</div>
-            <div class="h4 fw-bold mb-0 font-mono-tabular" id="summary-count">{{ count($kardexRows) }}</div>
+            <div class="kpi-value fw-bold mb-0 font-mono-tabular" id="summary-count">{{ count($kardexRows) }}</div>
         </div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="kpi-card p-3">
+        <div class="kpi-card p-3 h-100">
             <div class="small text-secondary">Horas Netas Trabajadas</div>
-            <div class="h4 fw-bold mb-0 font-mono-tabular text-info" id="summary-worked-hrs">
+            <div class="kpi-value fw-bold mb-0 font-mono-tabular text-info" id="summary-worked-hrs">
                 {{ number_format(collect($kardexRows)->sum('worked_hours'), 2) }} <small class="fs-6 text-secondary">hrs</small>
             </div>
         </div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="kpi-card p-3">
+        <div class="kpi-card p-3 h-100">
             <div class="small text-secondary">Horas Extra Totales</div>
-            <div class="h4 fw-bold mb-0 font-mono-tabular text-warning" id="summary-overtime-hrs">
+            <div class="kpi-value fw-bold mb-0 font-mono-tabular text-warning" id="summary-overtime-hrs">
                 {{ number_format(collect($kardexRows)->sum('overtime_hours'), 2) }} <small class="fs-6 text-secondary">hrs</small>
             </div>
         </div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="kpi-card p-3">
+        <div class="kpi-card p-3 h-100">
             <div class="small text-secondary">Minutos de Retardo</div>
-            <div class="h4 fw-bold mb-0 font-mono-tabular text-danger" id="summary-late-mins">
+            <div class="kpi-value fw-bold mb-0 font-mono-tabular text-danger" id="summary-late-mins">
                 {{ collect($kardexRows)->sum('late_minutes') }} <small class="fs-6 text-secondary">min</small>
             </div>
         </div>
@@ -134,7 +134,9 @@
         </div>
     </div>
 
-    <div id="kardex-grid" aria-label="Tabla Kardex fiscal agrupada por empleado"></div>
+    <div class="grid-region" tabindex="0" role="region" aria-label="Tabla Kardex fiscal agrupada por empleado">
+        <div id="kardex-grid"></div>
+    </div>
 </section>
 
 <!-- Bitácora cruda inmutable para auditoría -->
@@ -144,12 +146,14 @@
             <h2 class="h6 fw-semibold mb-0">Bitácora Cruda Inmutable (Auditoría ISAPI)</h2>
             <small class="text-secondary">Eventos originales recibidos de la terminal DS-K1T804AEF con respaldo JSON</small>
         </div>
-        <span class="badge text-bg-dark border border-secondary-subtle font-mono-tabular">
+        <span class="badge text-bg-dark border border-secondary-subtle font-mono-tabular align-self-start align-self-md-auto">
             {{ count($auditLogs) }} eventos en rango
         </span>
     </div>
 
-    <div id="audit-logs-grid" aria-label="Bitácora inmutable de eventos biométricos"></div>
+    <div class="grid-region" tabindex="0" role="region" aria-label="Bitácora inmutable de eventos biométricos">
+        <div id="audit-logs-grid"></div>
+    </div>
 </section>
 
 <!-- Modal nativo <dialog>: Inspector JSON de carga cruda ISAPI -->
@@ -159,7 +163,7 @@
             <h2 id="payload-dialog-title" class="h6 mb-0 fw-semibold">Payload Crudo ISAPI</h2>
             <button type="button" class="btn-close" id="payload-close-x" aria-label="Cerrar ventana"></button>
         </div>
-        <div class="p-3 p-md-4">
+        <div class="p-3 p-md-4 app-dialog-body">
             <div class="small text-secondary mb-2" id="payload-meta"></div>
             <pre id="payload-json-view" class="p-3 rounded bg-dark border border-secondary-subtle text-info small font-mono-tabular mb-0" style="max-height: 55dvh; overflow: auto;"></pre>
         </div>

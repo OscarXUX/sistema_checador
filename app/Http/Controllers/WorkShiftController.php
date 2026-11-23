@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\WorkShift;
+use App\Services\AttendanceCalculatorService;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -34,15 +35,19 @@ class WorkShiftController extends Controller
         return redirect()->route('shifts.index')->with('status', 'Turno laboral creado correctamente.');
     }
 
-    public function update(Request $request, WorkShift $shift): RedirectResponse
+    public function update(Request $request, WorkShift $shift, AttendanceCalculatorService $calculator): RedirectResponse
     {
         $before = $shift->only(self::AUDITED_FIELDS);
         $shift->update($this->validateShift($request));
 
         [$old, $new] = $this->audit->diff($before, $shift->only(self::AUDITED_FIELDS));
         if ($new !== []) {
-            // Cambiar horarios o tolerancia cambia retardos y horas extra: queda registrado
+            // Cambiar horarios o tolerancia cambia retardos y horas extra: queda registrado y recalcula resúmenes
             $this->audit->record('shift.updated', $shift, "Cambio en el turno {$shift->name}", $old, $new);
+
+            if (array_intersect(array_keys($new), ['entry_time', 'exit_time', 'meal_duration_minutes', 'tolerance_minutes', 'max_weekly_hours']) !== []) {
+                $calculator->recalculateAllForShift($shift);
+            }
         }
 
         return redirect()->route('shifts.index')->with('status', "Turno {$shift->name} actualizado.");

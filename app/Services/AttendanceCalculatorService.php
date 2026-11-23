@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\AttendanceLog;
 use App\Models\DailySummary;
 use App\Models\Employee;
+use App\Models\WorkShift;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -216,7 +217,9 @@ class AttendanceCalculatorService
             ->orderBy('punched_at')
             ->get();
 
-        $slots = $this->resolveDailyPunchSlots($logs);
+        $isActiveShiftWindow = CarbonImmutable::now()->betweenIncluded($windowStart, $windowEnd);
+
+        $slots = $this->resolveDailyPunchSlots($logs, $shift, $date, $isActiveShiftWindow);
 
         $firstCheckIn = $slots['check_in'];
         $breakOut = $slots['break_out'];
@@ -249,8 +252,6 @@ class AttendanceCalculatorService
                 $overtimeMinutes = max(0, $workedMinutes - $ordinaryDaily);
             }
         }
-
-        $isActiveShiftWindow = CarbonImmutable::now()->betweenIncluded($windowStart, $windowEnd);
 
         $status = $this->determineDailyStatus(
             logsCount: $logs->count(),
@@ -285,15 +286,85 @@ class AttendanceCalculatorService
     }
 
     /**
-     * Resuelve las 4 marcas diarias respetando primero el attendanceStatus explícito
-     * y aplicando respaldo cronológico (1ª=check_in, 2ª=break_out, 3ª=break_in, 4ª=check_out)
+     * Recalcula todos los resúmenes diarios vinculados a un turno laboral (ej. tras editar tolerancia o entrada).
+     */
+    public function recalculateAllForShift(WorkShift $shift): int
+    {
+        $employees = Employee::with('workShift')
+            ->where('work_shift_id', $shift->id)
+            ->get();
+
+        return $this->recalculateForEmployees($employees);
+    }
+
+    /**
+     * Recalcula todos los resúmenes diarios a partir de los registros históricos de bitácora.
+     */
+    public function recalculateAll(): int
+    {
+        $employees = Employee::with('workShift')->get();
+
+        return $this->recalculateForEmployees($employees);
+    }
+
+    /**
+     * @param  Collection<int, Employee>  $employees
+     */
+    private function recalculateForEmployees(Collection $employees): int
+    {
+        if ($employees->isEmpty()) {
+            return 0;
+        }
+
+        $byId = $employees->keyBy('id');
+        $targets = [];
+
+        AttendanceLog::whereIn('employee_id', $byId->keys())
+            ->orderBy('punched_at')
+            ->get(['id', 'employee_id', 'punched_at'])
+            ->each(function (AttendanceLog $log) use ($byId, &$targets): void {
+                $employee = $byId->get($log->employee_id);
+                if ($employee === null) {
+                    return;
+                }
+
+                $workDate = $this->resolveWorkDateForEmployeePunch($employee, $log->punched_at);
+                $targets[$employee->id.'|'.$workDate->toDateString()] = [$employee, $workDate];
+            });
+
+        DailySummary::whereIn('employee_id', $byId->keys())
+            ->get(['id', 'employee_id', 'work_date'])
+            ->each(function (DailySummary $summary) use ($byId, &$targets): void {
+                $employee = $byId->get($summary->employee_id);
+                if ($employee === null || $summary->work_date === null) {
+                    return;
+                }
+
+                $workDate = CarbonImmutable::instance($summary->work_date)->startOfDay();
+                $targets[$employee->id.'|'.$workDate->toDateString()] ??= [$employee, $workDate];
+            });
+
+        foreach ($targets as [$employee, $workDate]) {
+            $this->recalculateForEmployeeDate($employee, $workDate);
+        }
+
+        return count($targets);
+    }
+
+    /**
+     * Resuelve las 4 marcas diarias respetando primero el attendanceStatus explícito,
+     * normalizando comidas invertidas o huérfanas y aplicando respaldo cronológico
      * cuando existen checadas sin clasificar.
      *
      * @param  Collection<int, AttendanceLog>  $logs
      * @return array<string, CarbonImmutable|null>
      */
-    private function resolveDailyPunchSlots(Collection $logs): array
-    {
+    private function resolveDailyPunchSlots(
+        Collection $logs,
+        ?WorkShift $shift = null,
+        ?CarbonImmutable $workDate = null,
+        bool $isActiveShiftWindow = false,
+    ): array {
         $slots = [
             'check_in' => null,
             'break_out' => null,
@@ -305,18 +376,39 @@ class AttendanceCalculatorService
             return $slots;
         }
 
-        // 1. Mapeo explícito desde attendanceStatus del reloj
+        // 1. Mapeo explícito desde attendanceStatus / statusValue del reloj
+        $breakLogs = [];
         foreach ($logs as $log) {
             $punchedAt = CarbonImmutable::instance($log->punched_at);
 
             if ($log->event_type === AttendanceLog::EVENT_CHECK_IN && $slots['check_in'] === null) {
                 $slots['check_in'] = $punchedAt;
-            } elseif ($log->event_type === AttendanceLog::EVENT_BREAK_OUT && $slots['break_out'] === null) {
-                $slots['break_out'] = $punchedAt;
-            } elseif ($log->event_type === AttendanceLog::EVENT_BREAK_IN && $slots['break_in'] === null) {
-                $slots['break_in'] = $punchedAt;
+            } elseif ($log->event_type === AttendanceLog::EVENT_BREAK_OUT) {
+                $breakLogs[] = $punchedAt;
+                if ($slots['break_out'] === null) {
+                    $slots['break_out'] = $punchedAt;
+                }
+            } elseif ($log->event_type === AttendanceLog::EVENT_BREAK_IN) {
+                $breakLogs[] = $punchedAt;
+                if ($slots['break_in'] === null) {
+                    $slots['break_in'] = $punchedAt;
+                }
             } elseif ($log->event_type === AttendanceLog::EVENT_CHECK_OUT) {
                 $slots['check_out'] = $punchedAt;
+            }
+        }
+
+        // 1b. Normalizar marcas de comida invertidas (ej. breakIn/breakOut del DS-K1T804AEF) o huérfanas
+        $breakCount = count($breakLogs);
+        if ($breakCount === 1) {
+            // Una sola marca de comida siempre corresponde al inicio de comida en curso
+            $slots['break_out'] = $breakLogs[0];
+            $slots['break_in'] = null;
+        } elseif ($breakCount >= 2) {
+            // Con dos o más marcas en orden cronológico, la primera es salida y la última regreso
+            if ($slots['break_out'] === null || $slots['break_in'] === null || $slots['break_in']->lessThan($slots['break_out'])) {
+                $slots['break_out'] = $breakLogs[0];
+                $slots['break_in'] = $breakLogs[$breakCount - 1];
             }
         }
 
@@ -328,6 +420,12 @@ class AttendanceCalculatorService
         )->values();
 
         if ($unclassifiedLogs->isNotEmpty()) {
+            $scheduledExit = null;
+            if ($shift !== null && $workDate !== null) {
+                $exitDate = $shift->crossesMidnight() ? $workDate->addDay() : $workDate;
+                $scheduledExit = CarbonImmutable::parse($exitDate->toDateString().' '.$shift->exit_time);
+            }
+
             $chronologicalMap = [
                 0 => 'check_in',
                 1 => 'break_out',
@@ -340,6 +438,16 @@ class AttendanceCalculatorService
                 }
 
                 $punchedAt = CarbonImmutable::instance($log->punched_at);
+
+                // Si solo hubo 2 checadas y la 2ª parece salida de jornada (cerca de exit_time o día cerrado), es check_out
+                if ($index === 1 && $totalCount === 2 && $slots['check_out'] === null && $slots['break_out'] === null) {
+                    $isLikelyExit = ! $isActiveShiftWindow
+                        || ($scheduledExit !== null && $punchedAt->greaterThanOrEqualTo($scheduledExit->subMinutes(90)));
+
+                    $targetSlot = $isLikelyExit ? 'check_out' : 'break_out';
+                    $slots[$targetSlot] = $punchedAt;
+                    continue;
+                }
 
                 if (isset($chronologicalMap[$index])) {
                     $targetSlot = $chronologicalMap[$index];

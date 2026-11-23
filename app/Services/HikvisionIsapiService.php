@@ -27,12 +27,15 @@ class HikvisionIsapiService
 
     private int $timeout;
 
+    private bool $useDeviceWallTime;
+
     public function __construct(
         ?string $baseUrl = null,
         ?string $username = null,
         ?string $password = null,
         ?string $deviceSerial = null,
         ?int $timeout = null,
+        ?bool $useDeviceWallTime = null,
     ) {
         $config = config('services.hikvision', []);
 
@@ -41,6 +44,7 @@ class HikvisionIsapiService
         $this->password = (string) ($password ?? $config['password'] ?? '');
         $this->deviceSerial = (string) ($deviceSerial ?? $config['device_serial'] ?? 'DS-K1T804AEF');
         $this->timeout = (int) ($timeout ?? $config['timeout'] ?? 10);
+        $this->useDeviceWallTime = $useDeviceWallTime ?? (bool) ($config['use_device_wall_time'] ?? true);
     }
 
     public function getBaseUrl(): string
@@ -663,24 +667,64 @@ XML;
             return null;
         }
 
-        try {
-            $punchedAt = Carbon::parse($timeRaw)->setTimezone((string) config('app.timezone', 'America/Mexico_City'));
-        } catch (\Throwable) {
+        $punchedAt = $this->parseDeviceTimestamp($timeRaw);
+        if ($punchedAt === null) {
             return null;
         }
+
+        $statusValue = isset($item['statusValue']) && is_numeric($item['statusValue'])
+            ? (int) $item['statusValue']
+            : null;
 
         return [
             'employee_no' => $employeeNo,
             'device_ip' => $this->getDeviceIp(),
             'punched_at' => $punchedAt,
-            'event_type' => $this->mapAttendanceStatus($item['attendanceStatus'] ?? null),
+            'event_type' => $this->mapAttendanceStatus($item['attendanceStatus'] ?? null, $statusValue),
             'verification_mode' => $this->mapVerificationMode($item),
             'raw_payload' => $item,
         ];
     }
 
-    private function mapAttendanceStatus(?string $status): string
+    private function parseDeviceTimestamp(string $timeRaw): ?Carbon
     {
+        $appTimezone = (string) config('app.timezone', 'America/Mexico_City');
+
+        if ($this->useDeviceWallTime && preg_match('/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/', $timeRaw, $matches) === 1) {
+            try {
+                return Carbon::createFromFormat('Y-m-d H:i:s', "{$matches[1]} {$matches[2]}", $appTimezone) ?: null;
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        try {
+            return Carbon::parse($timeRaw)->setTimezone($appTimezone);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * En la terminal DS-K1T804AEF el teclado de comidas reporta statusValue=3 (breakIn) al salir a comer
+     * y statusValue=4 (breakOut) al regresar de comer; se respeta statusValue cuando está presente.
+     */
+    private function mapAttendanceStatus(?string $status, ?int $statusValue = null): string
+    {
+        if ($statusValue !== null) {
+            $byCode = match ($statusValue) {
+                1 => 'check_in',
+                2 => 'check_out',
+                3 => 'break_out',
+                4 => 'break_in',
+                default => null,
+            };
+
+            if ($byCode !== null) {
+                return $byCode;
+            }
+        }
+
         return match ($status) {
             'checkIn' => 'check_in',
             'breakOut' => 'break_out',

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AttendanceLog;
 use App\Models\DailySummary;
 use App\Models\Employee;
+use App\Models\User;
 use App\Models\WorkShift;
 use App\Services\AttendanceCalculatorService;
 use App\Services\HikvisionIsapiService;
@@ -261,5 +262,161 @@ class HikvisionSyncAndCalculatorTest extends TestCase
         $this->assertSame(450, $summary->worked_minutes);
         $this->assertSame(15, $summary->overtime_minutes);
         $this->assertSame(DailySummary::STATUS_LATE, $summary->status);
+    }
+
+    public function test_normalizes_inverted_break_punches_and_single_orphan_break_in(): void
+    {
+        $emp1 = $this->createShiftAndEmployee('1011');
+        $shift = $emp1->workShift;
+
+        $emp2 = Employee::create([
+            'hikvision_employee_no' => '1012',
+            'full_name' => 'María López',
+            'department' => 'Ingeniería',
+            'position' => 'QA',
+            'work_shift_id' => $shift->id,
+            'is_active' => true,
+        ]);
+
+        // Empleado 1 con marcas invertidas (como ocurría antes con breakIn/breakOut del K1T804)
+        AttendanceLog::create([
+            'employee_id' => $emp1->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => '2026-11-12 09:05:00',
+            'event_type' => AttendanceLog::EVENT_CHECK_IN,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['statusValue' => 1],
+        ]);
+        AttendanceLog::create([
+            'employee_id' => $emp1->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => '2026-11-12 14:32:41',
+            'event_type' => AttendanceLog::EVENT_BREAK_IN,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['statusValue' => 3],
+        ]);
+        AttendanceLog::create([
+            'employee_id' => $emp1->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => '2026-11-12 14:45:29',
+            'event_type' => AttendanceLog::EVENT_BREAK_OUT,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['statusValue' => 4],
+        ]);
+
+        $summary1 = DailySummary::where('employee_id', $emp1->id)
+            ->whereDate('work_date', '2026-11-12')
+            ->firstOrFail();
+
+        $this->assertSame(12, $summary1->meal_minutes);
+        $this->assertSame('14:32:41', $summary1->break_out?->format('H:i:s'));
+        $this->assertSame('14:45:29', $summary1->break_in?->format('H:i:s'));
+
+        // Empleado 2 hoy con check_in y una sola marca break_in huérfana -> promovida a break_out (En Comida)
+        $now = now();
+        AttendanceLog::create([
+            'employee_id' => $emp2->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => $now->copy()->subMinutes(20),
+            'event_type' => AttendanceLog::EVENT_CHECK_IN,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['statusValue' => 1],
+        ]);
+        AttendanceLog::create([
+            'employee_id' => $emp2->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => $now->copy()->subMinutes(5),
+            'event_type' => AttendanceLog::EVENT_BREAK_IN,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['statusValue' => 3],
+        ]);
+
+        $summary2 = DailySummary::where('employee_id', $emp2->id)
+            ->whereDate('work_date', $now->toDateString())
+            ->firstOrFail();
+
+        $this->assertNotNull($summary2->break_out);
+        $this->assertNull($summary2->break_in);
+        $this->assertSame(DailySummary::STATUS_IN_MEAL, $summary2->status);
+    }
+
+    public function test_two_unclassified_punches_map_to_check_out_when_shift_closed_or_near_exit(): void
+    {
+        $employee = $this->createShiftAndEmployee('1013');
+
+        AttendanceLog::create([
+            'employee_id' => $employee->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => '2026-11-10 09:02:00',
+            'event_type' => AttendanceLog::EVENT_UNCLASSIFIED,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['attendanceStatus' => ''],
+        ]);
+        AttendanceLog::create([
+            'employee_id' => $employee->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => '2026-11-10 18:05:00',
+            'event_type' => AttendanceLog::EVENT_UNCLASSIFIED,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['attendanceStatus' => ''],
+        ]);
+
+        $summary = DailySummary::where('employee_id', $employee->id)
+            ->whereDate('work_date', '2026-11-10')
+            ->firstOrFail();
+
+        $this->assertNotNull($summary->last_check_out);
+        $this->assertNull($summary->break_out);
+        $this->assertSame(543, $summary->worked_minutes);
+        $this->assertSame(63, $summary->overtime_minutes);
+        $this->assertSame(DailySummary::STATUS_ON_TIME, $summary->status);
+    }
+
+    public function test_recalculate_command_and_shift_update_refresh_daily_summaries(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        $employee = $this->createShiftAndEmployee('1014');
+        $shift = $employee->workShift;
+
+        AttendanceLog::create([
+            'employee_id' => $employee->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => '2026-11-11 09:15:00',
+            'event_type' => AttendanceLog::EVENT_CHECK_IN,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['statusValue' => 1],
+        ]);
+        AttendanceLog::create([
+            'employee_id' => $employee->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => '2026-11-11 18:15:00',
+            'event_type' => AttendanceLog::EVENT_CHECK_OUT,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['statusValue' => 2],
+        ]);
+
+        // Modificamos manualmente el summary a 0 para verificar que attendance:recalculate lo restaura
+        DailySummary::where('employee_id', $employee->id)->update(['late_minutes' => 0, 'worked_minutes' => 0]);
+
+        $this->artisan('attendance:recalculate')->assertSuccessful();
+
+        $summary = DailySummary::where('employee_id', $employee->id)->firstOrFail();
+        $this->assertSame(15, $summary->late_minutes);
+        $this->assertSame(540, $summary->worked_minutes);
+
+        // Actualizar el turno a entrada 09:30 debe recalcular automáticamente el retardo a 0
+        $this->put("/shifts/{$shift->id}", [
+            'name' => $shift->name,
+            'entry_time' => '09:30',
+            'exit_time' => '18:30',
+            'meal_duration_minutes' => 60,
+            'tolerance_minutes' => 10,
+            'max_weekly_hours' => 40,
+        ])->assertRedirect(route('shifts.index'));
+
+        $updated = $summary->fresh();
+        $this->assertSame(0, $updated->late_minutes);
+        $this->assertSame(DailySummary::STATUS_ON_TIME, $updated->status);
     }
 }

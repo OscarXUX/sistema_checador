@@ -56,6 +56,7 @@ class ExampleTest extends TestCase
 
         $this->get('/')
             ->assertOk()
+            ->assertSee('viewport-fit=cover', false)
             ->assertSee('Empleados en Planta')
             ->assertSee('En Hora de Comida')
             ->assertSee('Retardos Hoy')
@@ -67,6 +68,7 @@ class ExampleTest extends TestCase
                 'kpis' => ['active_employees', 'in_plant', 'in_meal', 'meal_exceeded_count', 'late_today', 'weekly_overtime_hours'],
                 'charts' => ['punctuality', 'departments'],
                 'live_logs',
+                'live_logs_scope',
             ]);
 
         $this->get('/reports/kardex?department=Ingenier%C3%ADa')
@@ -79,7 +81,9 @@ class ExampleTest extends TestCase
 
         $this->get('/shifts')
             ->assertOk()
-            ->assertSee('Administrativo Matutino');
+            ->assertSee('shifts-table-wrapper', false)
+            ->assertSee('<th scope="row" class="fw-semibold">Administrativo Matutino</th>', false)
+            ->assertSee('data-label="Horario"', false);
 
         Http::fake([
             'http://192.168.0.69/ISAPI/System/deviceInfo*' => Http::response([
@@ -103,5 +107,49 @@ class ExampleTest extends TestCase
         $this->postJson('/device/sync')
             ->assertOk()
             ->assertJsonPath('success', true);
+    }
+
+    public function test_dashboard_falls_back_to_recent_logs_when_none_today(): void
+    {
+        $shift = WorkShift::create([
+            'name' => 'Matutino',
+            'entry_time' => '09:00:00',
+            'exit_time' => '18:00:00',
+            'meal_duration_minutes' => 60,
+            'tolerance_minutes' => 10,
+            'max_weekly_hours' => 48,
+        ]);
+
+        $employee = Employee::create([
+            'hikvision_employee_no' => '2001',
+            'full_name' => 'Luis Pérez',
+            'department' => 'Operaciones',
+            'position' => 'Técnico',
+            'work_shift_id' => $shift->id,
+            'is_active' => true,
+        ]);
+
+        AttendanceLog::create([
+            'employee_id' => $employee->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => now()->subDays(2)->setTime(9, 15),
+            'event_type' => AttendanceLog::EVENT_CHECK_IN,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['statusValue' => 1],
+        ]);
+        AttendanceLog::create([
+            'employee_id' => $employee->id,
+            'device_ip' => '192.168.0.69',
+            'punched_at' => now()->subDays(2)->setTime(18, 5),
+            'event_type' => AttendanceLog::EVENT_CHECK_OUT,
+            'verification_mode' => 'fingerprint',
+            'raw_payload' => ['statusValue' => 2],
+        ]);
+
+        $this->getJson('/dashboard/data')
+            ->assertOk()
+            ->assertJsonPath('live_logs_scope', 'recent')
+            ->assertJsonCount(2, 'live_logs')
+            ->assertJsonPath('live_logs.0.daily_status', 'late');
     }
 }
