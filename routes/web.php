@@ -47,6 +47,7 @@ Route::middleware('auth')->group(function (): void {
     Route::prefix('reports')->name('reports.')->middleware('throttle:reports')->group(function (): void {
         Route::get('/kardex', [ReportController::class, 'kardex'])->name('kardex');
         Route::get('/kardex/data', [ReportController::class, 'kardexData'])->name('kardex.data');
+        Route::get('/kardex/logs/{attendanceLog}/payload', [ReportController::class, 'logPayload'])->name('kardex.payload');
     });
 
     // Turnos Laborales y Reglas Fiscales

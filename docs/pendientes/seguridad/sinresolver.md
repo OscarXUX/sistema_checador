@@ -1,6 +1,6 @@
 # Seguridad: sin resolver
 
-> Pendientes · actualizado 18/11/2026 · Solo lo abierto (sin resolver y parciales).
+> Pendientes · actualizado 22/11/2026 · Solo lo abierto (sin resolver y parciales).
 
 ---
 
@@ -10,7 +10,7 @@
 |---|---|
 | ✅ Resuelto | 0 |
 | ⚠️ Parcial | 1 |
-| ❌ Sin resolver | 3 |
+| ❌ Sin resolver | 2 |
 
 Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
 
@@ -35,12 +35,10 @@ No hay.
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
 | 🟡 Media | **SE-06** · Comunicación con la terminal sin cifrar | ISAPI por `http://` con Digest Auth. Depende de TE-04 | HTTPS en la terminal o red aislada entre servidor y terminal | ❌ Sin resolver |
-| 🟡 Media | **SE-08** · Configuración de producción y cabeceras | `APP_DEBUG=true`, sin cookie `Secure` ni cabeceras de seguridad | `.env` de producción y middleware de cabeceras (HSTS, nosniff, X-Frame-Options, CSP) | ⚠️ Parcial 18/11/2026 |
+| 🟡 Media | **SE-08** · Configuración de producción y cabeceras | `APP_DEBUG=true`, sin cookie `Secure` ni cabeceras de seguridad | Plantilla `.env.production.example` y middleware listos; falta `.env` definitivo en servidor (TE-06) | ⚠️ Parcial 22/11/2026 |
 
 ---
 
 ## 5. Lógica y errores
 
-| Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
-|---|---|---|---|---|
-| 🟡 Media | **SE-11** · Turnos que cruzan la medianoche | El resumen agrupa por día calendario. Depende de TE-07 | Asignar cada checada a su jornada según el turno | ❌ Sin resolver |
+No hay.

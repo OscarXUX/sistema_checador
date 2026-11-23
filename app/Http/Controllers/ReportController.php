@@ -146,6 +146,8 @@ class ReportController extends Controller
     }
 
     /**
+     * Listado ligero de bitácora sin raw_payload para evitar cargar hasta 250 JSONs en memoria (auditoría OP-08).
+     *
      * @param  array<string, mixed>  $filters
      * @return array<int, array<string, mixed>>
      */
@@ -154,7 +156,9 @@ class ReportController extends Controller
         $startDt = Carbon::parse($filters['start_date'])->startOfDay();
         $endDt = Carbon::parse($filters['end_date'])->endOfDay();
 
-        return AttendanceLog::with('employee')
+        return AttendanceLog::query()
+            ->select(['id', 'employee_id', 'device_ip', 'punched_at', 'event_type', 'verification_mode'])
+            ->with('employee:id,hikvision_employee_no,full_name,department')
             ->whereBetween('punched_at', [$startDt, $endDt])
             ->whereHas('employee', function ($q) use ($filters): void {
                 if ($filters['department'] !== '') {
@@ -177,9 +181,25 @@ class ReportController extends Controller
                 'event_label' => AttendanceLog::eventTypeLabel($log->event_type),
                 'verification_mode' => AttendanceLog::verificationModeLabel($log->verification_mode),
                 'device_ip' => $log->device_ip,
-                'raw_payload' => json_encode($log->raw_payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * Entrega el payload JSON original de una checada solo cuando el usuario abre el modal (auditoría OP-08).
+     */
+    public function logPayload(AttendanceLog $attendanceLog): JsonResponse
+    {
+        $attendanceLog->load('employee:id,hikvision_employee_no,full_name');
+
+        return response()->json([
+            'id' => $attendanceLog->id,
+            'employee_no' => $attendanceLog->employee?->hikvision_employee_no ?? '-',
+            'employee_name' => $attendanceLog->employee?->full_name ?? '-',
+            'punched_at' => $attendanceLog->punched_at->format('Y-m-d H:i:s'),
+            'device_ip' => $attendanceLog->device_ip,
+            'raw_payload' => json_encode($attendanceLog->raw_payload ?? [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+        ]);
     }
 }

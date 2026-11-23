@@ -1,6 +1,6 @@
 # Sistema checador: control de entradas y salidas con terminal Hikvision
 
-> Referencia · actualizado 18/11/2026 · Para quien se integra al proyecto.
+> Referencia · actualizado 22/11/2026 · Para quien se integra al proyecto.
 
 ---
 
@@ -53,7 +53,7 @@ resources/js/wijmo/                             Wijmo por página: grid.js (tabl
 resources/js/csv.js                             Exportación CSV sin fórmulas
 routes/web.php                                  /login abierto; todo lo demás dentro de middleware auth
 routes/console.php                              hikvision:sync cada minuto
-tests/                                          75 pruebas (Feature y Unit)
+tests/                                          78 pruebas (Feature y Unit)
 ```
 
 ---
@@ -93,7 +93,7 @@ tests/                                          75 pruebas (Feature y Unit)
 | Dashboard | Indicadores del día (en planta, en comida, retardos, horas extra de la semana), dos gráficas y el monitor de checadas | `GET /`, `GET /dashboard/data` | Sesión iniciada (sin roles todavía) |
 | Terminal | Estado de conexión y sincronización manual | `GET /device/status`, `POST /device/sync` | Sesión iniciada (sin roles todavía) |
 | Empleados y huellas | Listado paginado de 50 con búsqueda y orden por columna en el servidor; RFC, CURP y NSS enmascarados (completos solo al editar); alta, edición, baja (lógica si ya tiene checadas); enviar al reloj, borrar del reloj y capturar huella remota | `/employees`, `/employees/{id}/sync-device`, `/employees/{id}/capture-fingerprint` | Sesión iniciada (sin roles todavía) |
-| Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con su JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data` | Sesión iniciada (sin roles todavía) |
+| Kardex | Resumen diario por rango de fechas (máximo 93 días), departamento o empleado; bitácora de checadas con carga bajo demanda del JSON original; exportación a Excel | `GET /reports/kardex`, `GET /reports/kardex/data`, `GET /reports/kardex/logs/{id}/payload` | Sesión iniciada (sin roles todavía) |
 | Turnos | Alta y edición de turnos | `/shifts` | Sesión iniciada (sin roles todavía) |
 | Sesión | Inicio y cierre de sesión | `GET/POST /login`, `POST /logout` | Abierta solo `/login` |
 | Sincronización automática | Cada minuto descarga solo lo nuevo desde el último corte (con 10 min de traslape); comparte candado con el botón "Sincronizar" | `php artisan hikvision:sync` (scheduler) | — |
@@ -115,7 +115,7 @@ tests/                                          75 pruebas (Feature y Unit)
 | Mostrar **por qué** sale una persona | ❌ No existe; falta definirlo (TE-01) |
 | Roles y permisos | ❌ No existe (SE-02) |
 | Monitor que se actualice solo | ❌ Solo se actualiza con el botón "Refrescar"; lo automático es el estado de la terminal (cada 30 s) |
-| Turnos que cruzan la medianoche | ❌ El cálculo es por día calendario (SE-11) |
+| Turnos que cruzan la medianoche | ✅ Implementado en `WorkShift` y `AttendanceCalculatorService` (SE-11); pendiente confirmar con cliente si aplica (TE-07) |
 
 ---
 

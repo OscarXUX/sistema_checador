@@ -175,7 +175,9 @@
 <script nonce="{{ Vite::cspNonce() }}">
 document.addEventListener('DOMContentLoaded', () => {
     const { core: wjCore, grid: wjGrid, filter: wjFilter, gridXlsx: wjGridXlsx } = window.AppUI.wijmo;
-    const { showToast, escapeHtml, csvEscape } = window.AppUI;
+    const { apiFetch, showToast, escapeHtml, csvEscape } = window.AppUI;
+    const payloadBaseUrl = '{{ url("/reports/kardex/logs") }}';
+    const payloadCache = new Map();
 
     const initial = JSON.parse(document.getElementById('kardex-initial-data').textContent);
 
@@ -354,16 +356,35 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('payload-close-x').addEventListener('click', closePayload);
     document.getElementById('payload-close-btn').addEventListener('click', closePayload);
 
-    document.getElementById('audit-logs-grid').addEventListener('click', (event) => {
+    document.getElementById('audit-logs-grid').addEventListener('click', async (event) => {
         const btn = event.target.closest('button[data-inspect-log]');
         if (!btn) return;
         const id = Number(btn.getAttribute('data-inspect-log'));
         const log = initial.logs.find((l) => l.id === id);
         if (!log) return;
 
-        document.getElementById('payload-meta').textContent = `[${log.employee_no}] ${log.employee_name} · ${log.punched_at} · ${log.device_ip}`;
-        document.getElementById('payload-json-view').textContent = log.raw_payload || '{}';
+        const metaEl = document.getElementById('payload-meta');
+        const jsonEl = document.getElementById('payload-json-view');
+        metaEl.textContent = `[${log.employee_no}] ${log.employee_name} · ${log.punched_at} · ${log.device_ip}`;
+
+        if (payloadCache.has(id)) {
+            jsonEl.textContent = payloadCache.get(id);
+            payloadDialog.showModal();
+            return;
+        }
+
+        jsonEl.textContent = 'Cargando payload JSON...';
         payloadDialog.showModal();
+
+        try {
+            const detail = await apiFetch(`${payloadBaseUrl}/${id}/payload`, { method: 'GET' });
+            const text = detail.raw_payload || '{}';
+            payloadCache.set(id, text);
+            jsonEl.textContent = text;
+        } catch (err) {
+            jsonEl.textContent = '{}';
+            showToast(err.message || 'No se pudo cargar el payload de la checada.', 'danger');
+        }
     });
 });
 </script>

@@ -1,6 +1,6 @@
 # Optimización: sin resolver
 
-> Pendientes · actualizado 18/11/2026 · Solo lo abierto (sin resolver y parciales).
+> Pendientes · actualizado 22/11/2026 · Solo lo abierto (sin resolver y parciales).
 
 ---
 
@@ -9,8 +9,8 @@
 | Estado | Cantidad |
 |---|---|
 | ✅ Resuelto | 0 |
-| ⚠️ Parcial | 0 |
-| ❌ Sin resolver | 2 |
+| ⚠️ Parcial | 2 |
+| ❌ Sin resolver | 0 |
 
 Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
 
@@ -26,7 +26,7 @@ No hay.
 
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
-| 🟢 Baja | **OP-08** · `raw_payload` sin plazo de conservación | Una fila JSON por checada. Depende de TE-08 | Retención y archivado; en el kardex, JSON solo al abrirlo | ❌ Sin resolver |
+| 🟢 Baja | **OP-08** · `raw_payload` sin plazo de conservación | Una fila JSON por checada. Depende de TE-08 | Kardex ya carga JSON bajo demanda; falta definir retención y archivado (TE-08) | ⚠️ Parcial 22/11/2026 |
 
 ---
 
@@ -34,4 +34,4 @@ No hay.
 
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
-| 🟢 Baja | **OP-09** · Cachés y tarea programada de producción | No hay guía de despliegue. Depende de TE-06 | `config:cache`, `route:cache`, `view:cache`, OPcache y cron de `schedule:run` | ❌ Sin resolver |
+| 🟢 Baja | **OP-09** · Cachés y tarea programada de producción | No hay guía de despliegue. Depende de TE-06 | Guía y comandos de caché listos; falta servidor definitivo (TE-06) | ⚠️ Parcial 22/11/2026 |

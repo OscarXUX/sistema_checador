@@ -1,6 +1,6 @@
 # Pendientes del sistema checador
 
-> Índice · actualizado 18/11/2026 · Todo lo que falta, por apartado.
+> Índice · actualizado 22/11/2026 · Todo lo que falta, por apartado.
 
 ---
 
@@ -22,8 +22,8 @@ Cada carpeta tiene `pendientes.md` (todo), `resuelto.md` (resueltos y parciales 
 
 | Apartado | Resueltos | Parciales | Sin resolver | 🔴 Alta abiertos |
 |---|---|---|---|---|
-| `seguridad/` | 11 | 1 | 3 | 1 |
-| `optimizacion/` | 7 | 0 | 2 | 0 |
+| `seguridad/` | 12 | 1 | 2 | 1 |
+| `optimizacion/` | 7 | 2 | 0 | 0 |
 | `teracrom/` | 0 | 0 | 8 | 2 |
 
 Origen: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.

@@ -81,7 +81,8 @@ class AttendanceCalculatorService
                 'updated_at' => $now,
             ];
 
-            $touchedDays[$employee->id.'|'.$punchedAt->toDateString()] = [$employee, $punchedAt];
+            $workDay = $this->resolveWorkDateForEmployeePunch($employee, $punchedAt);
+            $touchedDays[$employee->id.'|'.$workDay->toDateString()] = [$employee, $workDay];
         }
 
         $inserted = 0;
@@ -181,13 +182,23 @@ class AttendanceCalculatorService
             return null;
         }
 
-        $this->recalculateForEmployeeDate($employee, $punchedAt);
+        $this->recalculateForPunch($employee, $punchedAt);
 
         return $log;
     }
 
     /**
-     * Recalcula el DailySummary de un empleado para una fecha laboral específica.
+     * Recalcula el DailySummary de la jornada correspondiente a la marca biométrica dada.
+     */
+    public function recalculateForPunch(Employee $employee, CarbonInterface $punchedAt): DailySummary
+    {
+        $workDate = $this->resolveWorkDateForEmployeePunch($employee, $punchedAt);
+
+        return $this->recalculateForEmployeeDate($employee, $workDate);
+    }
+
+    /**
+     * Recalcula el DailySummary de un empleado para una fecha de inicio de jornada específica.
      */
     public function recalculateForEmployeeDate(Employee $employee, CarbonInterface $workDate): DailySummary
     {
@@ -195,12 +206,13 @@ class AttendanceCalculatorService
         $shift = $employee->workShift;
 
         $date = CarbonImmutable::instance($workDate)->startOfDay();
-        $dayStart = $date->startOfDay();
-        $dayEnd = $date->endOfDay();
+        [$windowStart, $windowEnd] = $shift !== null
+            ? $shift->shiftWindowForDate($date)
+            : [$date->startOfDay(), $date->endOfDay()];
 
         /** @var Collection<int, AttendanceLog> $logs */
         $logs = AttendanceLog::where('employee_id', $employee->id)
-            ->whereBetween('punched_at', [$dayStart, $dayEnd])
+            ->whereBetween('punched_at', [$windowStart, $windowEnd])
             ->orderBy('punched_at')
             ->get();
 
@@ -238,9 +250,11 @@ class AttendanceCalculatorService
             }
         }
 
+        $isActiveShiftWindow = CarbonImmutable::now()->betweenIncluded($windowStart, $windowEnd);
+
         $status = $this->determineDailyStatus(
             logsCount: $logs->count(),
-            workDate: $date,
+            isActiveShiftWindow: $isActiveShiftWindow,
             firstCheckIn: $firstCheckIn,
             breakOut: $breakOut,
             breakIn: $breakIn,
@@ -343,9 +357,20 @@ class AttendanceCalculatorService
         return $slots;
     }
 
+    private function resolveWorkDateForEmployeePunch(Employee $employee, CarbonInterface $punchedAt): CarbonImmutable
+    {
+        $employee->loadMissing('workShift');
+
+        if ($employee->workShift !== null) {
+            return $employee->workShift->resolveWorkDateForPunch($punchedAt);
+        }
+
+        return CarbonImmutable::instance($punchedAt)->startOfDay();
+    }
+
     private function determineDailyStatus(
         int $logsCount,
-        CarbonImmutable $workDate,
+        bool $isActiveShiftWindow,
         ?CarbonImmutable $firstCheckIn,
         ?CarbonImmutable $breakOut,
         ?CarbonImmutable $breakIn,
@@ -360,7 +385,7 @@ class AttendanceCalculatorService
 
         // Salió a comer y aún no regresa ni ha cerrado turno
         if ($breakOut !== null && $breakIn === null && $lastCheckOut === null) {
-            if ($workDate->isToday()) {
+            if ($isActiveShiftWindow) {
                 $elapsedMeal = (int) $breakOut->diffInMinutes(CarbonImmutable::now());
 
                 return $elapsedMeal > $allowedMealMinutes
@@ -371,7 +396,7 @@ class AttendanceCalculatorService
             return DailySummary::STATUS_INCOMPLETE;
         }
 
-        if ($firstCheckIn === null || (! $workDate->isToday() && $lastCheckOut === null)) {
+        if ($firstCheckIn === null || (! $isActiveShiftWindow && $lastCheckOut === null)) {
             return DailySummary::STATUS_INCOMPLETE;
         }
 

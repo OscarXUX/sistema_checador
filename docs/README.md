@@ -1,6 +1,6 @@
 # Documentación del sistema checador
 
-> Índice · actualizado 18/11/2026 · Cómo está organizada la carpeta.
+> Índice · actualizado 22/11/2026 · Cómo está organizada la carpeta.
 
 ---
 
@@ -19,16 +19,21 @@ docs/
 │   ├── 2026-11-17/
 │   │   ├── 11-30_baja-logica-conserva-checadas.md
 │   │   └── 11-32_huella-fuera-de-respuestas-y-logs.md
-│   └── 2026-11-18/
-│       ├── 15-55_limites-rango-kardex-y-errores.md
-│       ├── 16-10_csv-sin-formulas.md
-│       ├── 16-20_inicio-de-sesion-y-cuentas.md
-│       ├── 16-25_bitacora-de-acciones.md
-│       ├── 17-00_sincronizacion-incremental-y-en-lote.md
-│       ├── 17-15_wijmo-por-pagina-y-empleados-paginados.md
-│       ├── 17-30_orden-de-empleados-en-servidor.md
-│       ├── 17-35_rfc-curp-nss-cifrados-y-enmascarados.md
-│       └── 17-36_cabeceras-de-seguridad.md
+│   ├── 2026-11-18/
+│   │   ├── 15-55_limites-rango-kardex-y-errores.md
+│   │   ├── 16-10_csv-sin-formulas.md
+│   │   ├── 16-20_inicio-de-sesion-y-cuentas.md
+│   │   ├── 16-25_bitacora-de-acciones.md
+│   │   ├── 17-00_sincronizacion-incremental-y-en-lote.md
+│   │   ├── 17-15_wijmo-por-pagina-y-empleados-paginados.md
+│   │   ├── 17-30_orden-de-empleados-en-servidor.md
+│   │   ├── 17-35_rfc-curp-nss-cifrados-y-enmascarados.md
+│   │   └── 17-36_cabeceras-de-seguridad.md
+│   └── 2026-11-22/
+│       └── 20-00_turnos-nocturnos-kardex-json-y-despliegue.md
+├── despliegue/
+│   └── 2026-11-22/
+│       └── 20-00_GUIA_DESPLIEGUE_PRODUCCION.md
 └── pendientes/
     ├── README.md                      Resumen y reglas de los pendientes
     ├── seguridad/                     SE-NN
@@ -38,4 +43,4 @@ docs/
 
 Ejemplo de ruta: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
 
-Las carpetas `propuestas/` y `despliegue/` se crean cuando haga falta, con el mismo esquema, y se agregan a este árbol.
+Las carpetas `propuestas/` se crean cuando haga falta, con el mismo esquema, y se agregan a este árbol.

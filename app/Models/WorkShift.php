@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -35,6 +36,63 @@ class WorkShift extends Model
     public function employees(): HasMany
     {
         return $this->hasMany(Employee::class);
+    }
+
+    public function crossesMidnight(): bool
+    {
+        $entry = CarbonImmutable::parse('2000-01-01 '.$this->entry_time);
+        $exit = CarbonImmutable::parse('2000-01-01 '.$this->exit_time);
+
+        return $exit->lessThanOrEqualTo($entry);
+    }
+
+    /**
+     * Ventana de checadas [inicio, fin] de la jornada iniciada en $workDate.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    public function shiftWindowForDate(CarbonInterface $workDate): array
+    {
+        $date = CarbonImmutable::instance($workDate)->startOfDay();
+
+        if (! $this->crossesMidnight()) {
+            return [$date->startOfDay(), $date->endOfDay()];
+        }
+
+        $entry = CarbonImmutable::parse($date->toDateString().' '.$this->entry_time);
+        $exit = CarbonImmutable::parse($date->addDay()->toDateString().' '.$this->exit_time);
+        $grossSeconds = $entry->diffInSeconds($exit);
+        $offGapSeconds = max(0, 86400 - $grossSeconds);
+        $beforeMargin = intdiv($offGapSeconds, 2);
+        $afterMargin = $offGapSeconds - $beforeMargin;
+
+        return [
+            $entry->subSeconds($beforeMargin),
+            $exit->addSeconds($afterMargin)->subSecond(),
+        ];
+    }
+
+    /**
+     * Determina la fecha de inicio de jornada a la que pertenece una checada.
+     */
+    public function resolveWorkDateForPunch(CarbonInterface $punchedAt): CarbonImmutable
+    {
+        $instant = CarbonImmutable::instance($punchedAt);
+
+        if (! $this->crossesMidnight()) {
+            return $instant->startOfDay();
+        }
+
+        foreach ([-1, 0, 1] as $offsetDays) {
+            $candidateDate = $instant->startOfDay()->addDays($offsetDays);
+            [$windowStart, $windowEnd] = $this->shiftWindowForDate($candidateDate);
+
+            if ($instant->betweenIncluded($windowStart, $windowEnd)) {
+                return $candidateDate;
+            }
+        }
+
+        return $instant->startOfDay();
     }
 
     /**

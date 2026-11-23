@@ -6,6 +6,9 @@ use App\Models\AttendanceLog;
 use App\Models\DailySummary;
 use App\Models\Employee;
 use App\Models\WorkShift;
+use App\Services\AttendanceCalculatorService;
+use App\Services\HikvisionIsapiService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use LogicException;
@@ -179,5 +182,84 @@ class HikvisionSyncAndCalculatorTest extends TestCase
         $this->assertSame(550, $summary->worked_minutes);
         $this->assertSame(70, $summary->overtime_minutes);
     }
-}
 
+    public function test_overnight_shift_groups_punches_into_shift_start_date(): void
+    {
+        $shift = WorkShift::create([
+            'name' => 'Nocturno',
+            'entry_time' => '22:00:00',
+            'exit_time' => '06:00:00',
+            'meal_duration_minutes' => 45,
+            'tolerance_minutes' => 10,
+            'max_weekly_hours' => 40,
+        ]);
+
+        $employee = Employee::create([
+            'hikvision_employee_no' => '1002',
+            'full_name' => 'Jorge Navarro Vela',
+            'department' => 'Vigilancia',
+            'position' => 'Velador',
+            'work_shift_id' => $shift->id,
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'http://192.168.0.69/ISAPI/AccessControl/AcsEvent?format=json' => Http::response([
+                'AcsEvent' => [
+                    'responseStatusStrg' => 'OK',
+                    'totalMatches' => 4,
+                    'numOfMatches' => 4,
+                    'InfoList' => [
+                        [
+                            'employeeNoString' => '1002',
+                            'time' => '2026-11-12T22:15:00-06:00',
+                            'attendanceStatus' => 'checkIn',
+                            'currentVerifyMode' => 'fingerPrint',
+                        ],
+                        [
+                            'employeeNoString' => '1002',
+                            'time' => '2026-11-13T02:00:00-06:00',
+                            'attendanceStatus' => 'breakOut',
+                            'currentVerifyMode' => 'fingerPrint',
+                        ],
+                        [
+                            'employeeNoString' => '1002',
+                            'time' => '2026-11-13T02:45:00-06:00',
+                            'attendanceStatus' => 'breakIn',
+                            'currentVerifyMode' => 'fingerPrint',
+                        ],
+                        [
+                            'employeeNoString' => '1002',
+                            'time' => '2026-11-13T06:30:00-06:00',
+                            'attendanceStatus' => 'checkOut',
+                            'currentVerifyMode' => 'fingerPrint',
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $calculator = app(AttendanceCalculatorService::class);
+        $isapi = new HikvisionIsapiService('http://192.168.0.69', 'admin', 'secret', 'DS-K1T804AEF', 5);
+
+        $stats = $calculator->syncFromDevice(
+            $isapi,
+            Carbon::parse('2026-11-12 20:00:00', 'America/Mexico_City'),
+            Carbon::parse('2026-11-13 08:00:00', 'America/Mexico_City')
+        );
+
+        $this->assertSame(4, $stats['inserted']);
+        $this->assertSame(1, DailySummary::where('employee_id', $employee->id)->count());
+
+        $summary = DailySummary::where('employee_id', $employee->id)
+            ->whereDate('work_date', '2026-11-12')
+            ->firstOrFail();
+
+        // Turno 22:00-06:00 (480 - 45 = 435m ordinarios). Entrada 22:15 (15m retardo), salida 06:30 (495m - 45m = 450m netos, 15m extra).
+        $this->assertSame(15, $summary->late_minutes);
+        $this->assertSame(45, $summary->meal_minutes);
+        $this->assertSame(450, $summary->worked_minutes);
+        $this->assertSame(15, $summary->overtime_minutes);
+        $this->assertSame(DailySummary::STATUS_LATE, $summary->status);
+    }
+}

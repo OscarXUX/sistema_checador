@@ -56,7 +56,7 @@ class AttendanceLog extends Model
         static::created(function (AttendanceLog $log): void {
             if ($log->employee !== null) {
                 app(AttendanceCalculatorService::class)
-                    ->recalculateForEmployeeDate($log->employee, $log->punched_at);
+                    ->recalculateForPunch($log->employee, $log->punched_at);
             }
         });
 

@@ -1,6 +1,6 @@
 # Seguridad: resuelto
 
-> Pendientes · actualizado 18/11/2026 · Resueltos y parciales, con cómo se resolvieron.
+> Pendientes · actualizado 22/11/2026 · Resueltos y parciales, con cómo se resolvieron.
 
 ---
 
@@ -8,7 +8,7 @@
 
 | Estado | Cantidad |
 |---|---|
-| ✅ Resuelto | 11 |
+| ✅ Resuelto | 12 |
 | ⚠️ Parcial | 1 |
 | ❌ Sin resolver | 0 |
 
@@ -97,7 +97,7 @@ Tabla `audit_logs` con quién, qué, cuándo, desde dónde y antes/después; reg
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
 | 🟡 Media | **SE-07** · Sin límites de peticiones | Sincronización, captura de huella y kardex sin `throttle` | `throttle` por usuario en esas rutas | ✅ Resuelto 18/11/2026 |
-| 🟡 Media | **SE-08** · Configuración de producción y cabeceras | `APP_DEBUG=true`, sin cookie `Secure` ni cabeceras de seguridad | `.env` de producción y middleware de cabeceras (HSTS, nosniff, X-Frame-Options, CSP) | ⚠️ Parcial 18/11/2026 |
+| 🟡 Media | **SE-08** · Configuración de producción y cabeceras | `APP_DEBUG=true`, sin cookie `Secure` ni cabeceras de seguridad | `.env` de producción y middleware de cabeceras (HSTS, nosniff, X-Frame-Options, CSP) | ⚠️ Parcial 22/11/2026 |
 | 🟢 Baja | **SE-14** · `composer audit` sin ejecutar | No se pudo correr en la auditoría; `npm audit` dio 0 | Correrlo y agregarlo antes de cada entrega | ✅ Resuelto 18/11/2026 |
 
 ### 4.1 SE-07 · Cómo se resolvió
@@ -113,7 +113,7 @@ Límites de 10 peticiones por minuto en acciones que llaman a la terminal y 30 e
 
 ### 4.2 SE-08 · Qué se resolvió y qué falta
 
-Hecho: cabeceras de seguridad y CSP con nonce en todas las respuestas. Falta: `.env` de producción (`APP_DEBUG=false`, HTTPS, `SESSION_SECURE_COOKIE=true`), que va con la guía de despliegue (TE-06).
+Hecho: cabeceras de seguridad, CSP con nonce en todas las respuestas y plantilla `.env.production.example`. Falta: `.env` definitivo en el servidor de producción (`APP_DEBUG=false`, HTTPS, `SESSION_SECURE_COOKIE=true`) cuando se defina `TE-06`.
 
 | Qué | Cómo quedó |
 |---|---|
@@ -137,6 +137,7 @@ Danny corrió `composer audit` el 18/11/2026: sin vulnerabilidades reportadas. `
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
 | 🟡 Media | **SE-10** · "Huella OK" aunque no llegue la plantilla | `fingerprint_enrolled = true` siempre tras la captura | Marcarla solo si se recibió y vinculó la plantilla | ✅ Resuelto 18/11/2026 |
+| 🟡 Media | **SE-11** · Turnos que cruzan la medianoche | El resumen agrupa por día calendario. Depende de TE-07 | Ventana de jornada en `WorkShift` y recálculo nocturno | ✅ Resuelto 22/11/2026 |
 | 🟡 Media | **SE-15** · Fórmulas en la exportación CSV del kardex | `csvEscape()` no neutraliza valores que empiezan con `=`, `+`, `-` o `@`. Detectado en docs/parches/2026-11-18/15-55_limites-rango-kardex-y-errores.md | Anteponer `'` a esos valores al exportar | ✅ Resuelto 18/11/2026 |
 | 🟢 Baja | **SE-12** · Errores con detalle interno | Mensajes de cURL y URL de la terminal llegan al usuario | Mensaje genérico y detalle solo en el log | ✅ Resuelto 18/11/2026 |
 | 🟢 Baja | **SE-13** · Sincronizaciones simultáneas | La manual no comparte el candado de la programada | `Cache::lock()` y `updateOrCreate` en transacción | ✅ Resuelto 18/11/2026 |
@@ -181,3 +182,13 @@ Un solo candado para la tarea, el comando y el botón; el botón responde 409 si
 | Servicio | `AttendanceSyncCoordinator::run()` |
 | Pruebas | `test_manual_sync_returns_409_while_another_sync_is_running` |
 | Detalle | `docs/parches/2026-11-18/17-00_sincronizacion-incremental-y-en-lote.md` |
+
+### 5.5 SE-11 · Cómo se resolvió
+
+`WorkShift` calcula la ventana exacta de la jornada (`shiftWindowForDate()` y `resolveWorkDateForPunch()`) para turnos que cruzan la medianoche (`exit_time <= entry_time`). `AttendanceCalculatorService` y `AttendanceLog` agrupan y recalculan todas las checadas de la noche sobre la fecha de inicio de jornada, incluyendo retardos, comida, horas extra y estado activo tras las 00:00.
+
+| Qué | Cómo quedó |
+|---|---|
+| Modelo y servicio | `WorkShift`, `AttendanceLog`, `AttendanceCalculatorService` |
+| Pruebas | `test_overnight_shift_groups_punches_into_shift_start_date` |
+| Detalle | `docs/parches/2026-11-22/20-00_turnos-nocturnos-kardex-json-y-despliegue.md` |

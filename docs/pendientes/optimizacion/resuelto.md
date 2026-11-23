@@ -1,6 +1,6 @@
 # Optimización: resuelto
 
-> Pendientes · actualizado 18/11/2026 · Resueltos y parciales, con cómo se resolvieron.
+> Pendientes · actualizado 22/11/2026 · Resueltos y parciales, con cómo se resolvieron.
 
 ---
 
@@ -9,7 +9,7 @@
 | Estado | Cantidad |
 |---|---|
 | ✅ Resuelto | 7 |
-| ⚠️ Parcial | 0 |
+| ⚠️ Parcial | 2 |
 | ❌ Sin resolver | 0 |
 
 Detalle y evidencia: `docs/auditorias/2026-11-17/11-15_AUDITORIA_SISTEMA_CHECADOR_VS_GUIA_SEGURIDAD.md`.
@@ -63,6 +63,7 @@ Empleados en un mapa, checadas existentes en una consulta, inserción en lote co
 | 🟡 Media | **OP-03** · `whereDate()` impide usar índices | Dashboard y cálculo del resumen | `whereBetween` sobre `punched_at` y `where` directo sobre `work_date` | ✅ Resuelto 18/11/2026 |
 | 🟡 Media | **OP-04** · Kardex sin rango máximo | Acepta cualquier rango de fechas. Cubre también SE-07 | Rango máximo (por ejemplo 93 días) y exportaciones grandes en cola | ✅ Resuelto 18/11/2026 |
 | 🟢 Baja | **OP-07** · Listado de empleados sin paginación | Se embebe completo en la página | Paginar si se pasa de ~1,000 empleados | ✅ Resuelto 18/11/2026 |
+| 🟢 Baja | **OP-08** · `raw_payload` sin plazo de conservación | Una fila JSON por checada. Depende de TE-08 | Kardex carga JSON bajo demanda; falta retención (TE-08) | ⚠️ Parcial 22/11/2026 |
 
 ### 3.1 OP-03 · Cómo se resolvió
 
@@ -94,6 +95,17 @@ El kardex consulta como máximo 93 días; si se pide más, recorta la fecha de i
 | Pruebas | `EmployeeListPaginationTest` (6) |
 | Detalle | `docs/parches/2026-11-18/17-15_wijmo-por-pagina-y-empleados-paginados.md` |
 
+### 3.4 OP-08 · Qué se resolvió y qué falta
+
+Hecho: el kardex ya no serializa los 250 `raw_payload` JSON al cargar la página ni en `/reports/kardex/data`; se consultan bajo demanda en `GET /reports/kardex/logs/{attendanceLog}/payload` solo al abrir el modal. Falta: política de retención y archivado según defina el cliente (`TE-08`).
+
+| Qué | Cómo quedó |
+|---|---|
+| Controlador y ruta | `ReportController::queryAuditLogs()` y `logPayload()`, ruta `reports.kardex.payload` |
+| Vista | `resources/views/reports/kardex.blade.php` con caché en memoria por evento |
+| Pruebas | `test_kardex_audit_logs_load_raw_payload_on_demand` |
+| Detalle | `docs/parches/2026-11-22/20-00_turnos-nocturnos-kardex-json-y-despliegue.md` |
+
 ---
 
 ## 4. Front-end y despliegue
@@ -101,6 +113,7 @@ El kardex consulta como máximo 93 días; si se pide más, recorta la fecha de i
 | Prioridad | Pendiente | Detalle | Recomendación / Resultado esperado | Estado |
 |---|---|---|---|---|
 | 🟢 Baja | **OP-06** · Todo Wijmo en todas las páginas | Un solo paquete con grid, chart, xlsx y JSZip | Importar por página | ✅ Resuelto 18/11/2026 |
+| 🟢 Baja | **OP-09** · Cachés y tarea programada de producción | No hay guía de despliegue. Depende de TE-06 | Guía de despliegue y cachés verificados; falta servidor (TE-06) | ⚠️ Parcial 22/11/2026 |
 
 ### 4.1 OP-06 · Cómo se resolvió
 
@@ -111,3 +124,12 @@ Wijmo se divide en módulos por página: Dashboard (tablas y gráficas), Emplead
 | Entradas | `resources/js/wijmo/grid.js`, `chart.js`, `kardex.js` en `vite.config.js` |
 | Estilos | `resources/css/wijmo.css` |
 | Detalle | `docs/parches/2026-11-18/17-15_wijmo-por-pagina-y-empleados-paginados.md` |
+
+### 4.2 OP-09 · Qué se resolvió y qué falta
+
+Hecho: guía de despliegue en producción con configuración de OPcache, `.env.production.example`, comandos `php artisan optimize` (`config:cache`, `route:cache`, `view:cache`, `event:cache`) verificados y programación en Windows Task Scheduler / cron (`schedule:run`). Falta: ejecutarlo en el servidor final (`TE-06`).
+
+| Qué | Cómo quedó |
+|---|---|
+| Guía y plantilla | `docs/despliegue/2026-11-22/20-00_GUIA_DESPLIEGUE_PRODUCCION.md`, `.env.production.example` |
+| Detalle | `docs/parches/2026-11-22/20-00_turnos-nocturnos-kardex-json-y-despliegue.md` |
