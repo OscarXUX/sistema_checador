@@ -216,11 +216,18 @@ Orden sugerido: O1 → O2 → O3. O1 no choca con nada de lo que hace Danny; O2 
 
 ## 8. Respuestas (agregado 23/11/2026)
 
-| # | Respuesta | Qué se hizo |
+Respuestas de Oscar del 23/11/2026.
+
+| # | Respuesta | Qué se hace |
 |---|---|---|
-| P3 | Oscar: "la misma estructura que el sistema de tickets" | ✅ Resuelto: "Perfiles" para usuarios del sistema y "Puestos" para empleados. Detalle en `docs/parches/2026-11-23/09-10_perfiles-y-permisos.md` |
-| P4 | Se aplica la opción A | Las pantallas de Administración ya usan la nomenclatura de tickets |
+| P2 | "Para la nota 16 es solo la foto y el tipo de sangre" | ❌ Por programar. Dos campos nuevos en la ficha del empleado. **El tipo de sangre es un dato de salud (sensible, LFPDPPP)**: se guarda cifrado como RFC, CURP y NSS, solo lo ve quien tenga un permiso propio y entra en el aviso de privacidad (TE-02). La foto se guarda fuera de la carpeta pública y se sirve con una ruta que revisa el permiso |
+| P3 | "Está bien así como lo propone" | ✅ Resuelto: "Perfiles" para usuarios del sistema y "Puestos" para empleados. Detalle en `docs/parches/2026-11-23/09-10_perfiles-y-permisos.md` |
+| P4 | "A todo el código" (opción B) | ❌ Por programar. Se migra pantalla por pantalla (ids en Blade, variables en JS y PHP), con pruebas después de cada una. Administración ya la usa. Corrige lo que este documento decía antes ("opción A") |
+| P5 | "Está bien" (opción A) | ✅ Resuelto: pantalla 93 días y Excel hasta 12 meses. Detalle en `docs/parches/2026-11-23/09-22_o1-o2-o3-excel-rotaciones-medios.md` |
+| P6 | "Se podrán aplicar por turnos con un catálogo" (opción A) | ❌ Por programar (Danny, paquete 3). Catálogo de ventanas de horario por turno (entrada 7–10, salida 5–7…) con valores por omisión; reemplaza la regla de 90 minutos |
+| P7 | "Esos los creamos nosotros" | ❌ Por programar (Danny, paquete 3). Catálogo de tipos de evento editable con minutos desde/hasta; se carga con los de la tabla P7 como punto de partida |
+| P8 | "Una etapa posterior" (opción A) | ✅ Decidido: ubicación, PWA y trabajo remoto quedan fuera de esta etapa (sección 4) |
 
 Para las tareas de Oscar (sección 7.4): ya existen `kardex.exportar`, `turnos.programar` y `terminal.usuarios`, y las rutas nuevas **deben** llevar su `can:` desde el inicio (lo exige `RouteProtectionTest`).
 
-Siguen abiertas: P1, P2, P5, P6, P7, P8, P9.
+Siguen abiertas: P1 (nota 14: validación de turnos con check obligatorio) y P9 (reparto con Oscar; O1–O3 ya están entregadas).
